@@ -1,7 +1,7 @@
 #include "constitutive_model.h"
 #include "material_properties.h"
 #include "hyperelasticity.h"
-#include "solve_system.h"
+#include "crystal_plasticity_integration.h"
 #include "flowlaw.h"
 #include <sys/time.h>
 
