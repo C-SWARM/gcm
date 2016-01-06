@@ -23,7 +23,7 @@ int construct_slip_system(SLIP_SYSTEM *slip, int type)
    0.408248, 0.408248,-0.408248, 0.      , 0.      , 0.      , 0.408248, 0.408248,-0.408248,
    0.408248, 0.408248,-0.408248,-0.408248,-0.408248, 0.408248, 0.      , 0.      , 0.};
   
-
+  slip->unit_cell = type; 
   switch(type)
   {
     case SLIP_SYSTEM_FCC:
@@ -38,6 +38,7 @@ int construct_slip_system(SLIP_SYSTEM *slip, int type)
     default:
       break;
   }
+  slip->ort_option[0] = -1;
   return err;
 }
 
@@ -133,7 +134,7 @@ int generate_random_crystal_orientation(double* angles, int angle_no)
     double n2 = (double)rand() / ((double)RAND_MAX + 1);
     double n3 = (double)rand() / ((double)RAND_MAX + 1);
     
-    double phi   = 2*pi*n1;
+    double phi   = 2.0*pi*n1;
     double theta = asin(n2);
     double psi   = psi_max*(2.0*n3-1.0);
     

@@ -7,7 +7,11 @@ struct SLIP_SYSTEM
 {
   double *p_sys;
   int N_SYS;
+  int unit_cell;
   char name[1024];
+  int    ort_option[2];
+  char   ort_file_in[2048];
+  double ort_angles[3];
 };
 
 typedef struct SLIP_SYSTEM SLIP_SYSTEM;
