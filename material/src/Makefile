@@ -10,6 +10,8 @@ MKL_inc	= $(MKLROOT)/include
  	     	  
 INCs = -I../include -I../../local_include -I../../utils/include -I${MKL_inc}
 CFLAGS = -Wall -std=c99 -O3 -g
+# for BGQ machine
+#CFLAGS = -std=c99 -O3 -g -DARCH_BGQ
 
 all: $(OBJs) $(OLIB)
 	
