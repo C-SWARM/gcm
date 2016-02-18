@@ -18,8 +18,10 @@ struct ELASTICITY
   double *L, *S;
   MATERIAL_ELASTICITY *mat;
   elasticity_part update_elasticity;
+  deviatoric_part compute_potential_dev;  
   deviatoric_part compute_PK2_dev;
   deviatoric_part compute_tangent_dev;
+  volume_part compute_u;  
   volume_part compute_dudj;
   volume_part compute_d2udj2;
   int compute_stiffness;

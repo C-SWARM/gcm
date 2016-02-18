@@ -3,6 +3,14 @@
 
 #include "material_properties.h"
 
+void SEDF_devPotential_Mooney_Rivlin(double *C_in,
+			 MATERIAL_ELASTICITY const *mat,
+			 double *W);
+			 
+void SEDF_devPotential_Linear(double *C_in,
+			 MATERIAL_ELASTICITY const *mat,
+			 double *W);
+			 
 void SEDF_devStress_Mooney_Rivlin(double *C_in,
 			     MATERIAL_ELASTICITY const *mat,
 			     double *S);
@@ -18,6 +26,12 @@ void SEDF_matStiff_Mooney_Rivlin(double *C_in,
 void SEDF_matStiff_Linear(double *C,
 		     MATERIAL_ELASTICITY const *mat,
 		     double *L);
+
+void SEDF_U_Common(double *U, double const J);
+
+void SEDF_U_Doll_Schweizerhof_7(double *U, double const J);
+
+void SEDF_U_Doll_Schweizerhof_8(double *U, double const J);
 
 void SEDF_dUdJ_Common(double *dUdJ, double J);
 

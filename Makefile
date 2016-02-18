@@ -26,7 +26,10 @@ OBJs_els = $(SRC_els:.c=.o)
 SRC_cpm = $(shell ls crystal_plasticity/src/*.c)
 OBJs_cpm = $(SRC_cpm:.c=.o)
 
-OBJs = $(OBJs_uts) $(OBJs_mat) $(OBJs_els) $(OBJs_cpm)
+SRC_dam = $(shell ls damage/src/*.c)
+OBJs_dam = $(SRC_dam:.c=.o)
+
+OBJs = $(OBJs_uts) $(OBJs_mat) $(OBJs_els) $(OBJs_cpm) $(OBJs_dam)
 
 all: SRC
 
@@ -37,6 +40,7 @@ SRC:
 	cd material/src; make; cd ../..;
 	cd elasticity/src; make; cd ../..;
 	cd crystal_plasticity/src; make; cd ../..;
+	cd damage/src; make; cd ../..;
 	$(AR) $(ARFLAGS) $(OLIB) $(OBJs)
 	mv $(OLIB) lib	
 
@@ -45,4 +49,5 @@ clean:
 	cd material/src; make clean; cd ../..;
 	cd elasticity/src; make clean; cd ../..;
 	cd crystal_plasticity/src; make clean; cd ../..;
+	cd damage/src; make clean; cd ../..;
 	cd lib; rm *.a; cd ..;

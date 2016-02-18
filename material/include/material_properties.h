@@ -29,8 +29,18 @@ struct MATERIAL_CRYSTAL_PLASTICITY
   double w;
 };
 
+struct MATERIAL_CONTINUUM_DAMAGE
+{
+  double P1;      // Weibull function parameters: scale
+  double P2;      // Weibull function parameters: shape
+  double Y_in;    // Weibull function parameters: initial damage energy threshold
+  double mu;      // damage viscosity
+  double w_max;   // maximum damage
+};
+
 typedef struct MATERIAL_ELASTICITY MATERIAL_ELASTICITY;
 typedef struct MATERIAL_CRYSTAL_PLASTICITY MATERIAL_CRYSTAL_PLASTICITY;
+typedef struct MATERIAL_CONTINUUM_DAMAGE MATERIAL_CONTINUUM_DAMAGE;
 
 struct MATERIAL_CONSTITUTIVE_MODEL
 {
@@ -81,4 +91,6 @@ int set_properties_constitutive_model(MATERIAL_CONSTITUTIVE_MODEL *mat,
 int print_material_property_crystal_plasticity(MATERIAL_CRYSTAL_PLASTICITY *mat);                                      
 
 int print_material_property_elasticity(MATERIAL_ELASTICITY *mat);
+
+int set_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, double P1, double P2, double Y_in, double mu, double w_max);
 #endif 

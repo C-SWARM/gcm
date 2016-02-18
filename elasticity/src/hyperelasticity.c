@@ -102,10 +102,12 @@ int construct_elasticity(ELASTICITY *elasticity, MATERIAL_ELASTICITY *mat, const
   switch (mat->devPotFlag)
   {
     case 1:
+      elasticity->compute_potential_dev = SEDF_devPotential_Mooney_Rivlin;
       elasticity->compute_PK2_dev     = SEDF_devStress_Mooney_Rivlin;
       elasticity->compute_tangent_dev = SEDF_matStiff_Mooney_Rivlin;
       break;
     case 2:
+      elasticity->compute_potential_dev = SEDF_devPotential_Linear;
       elasticity->compute_PK2_dev     = SEDF_devStress_Linear;
       elasticity->compute_tangent_dev = SEDF_matStiff_Linear;
       break;
@@ -117,14 +119,17 @@ int construct_elasticity(ELASTICITY *elasticity, MATERIAL_ELASTICITY *mat, const
   switch(mat->volPotFlag)
   {
     case 99:
+      elasticity->compute_u      = SEDF_U_Common;
       elasticity->compute_dudj   = SEDF_dUdJ_Common;
       elasticity->compute_d2udj2 = SEDF_d2UdJ2_Common_new;
       break;  
     case 2:
+      elasticity->compute_u      = SEDF_U_Doll_Schweizerhof_7;
       elasticity->compute_dudj   = SEDF_dUdJ_Doll_Schweizerhof_7;
       elasticity->compute_d2udj2 = SEDF_d2UdJ2_Doll_Schweizerhof_7;
       break;
     case 3:
+      elasticity->compute_u      = SEDF_U_Doll_Schweizerhof_8;
       elasticity->compute_dudj   = SEDF_dUdJ_Doll_Schweizerhof_8;
       elasticity->compute_d2udj2 = SEDF_d2UdJ2_Doll_Schweizerhof_8;
       break;

@@ -128,3 +128,18 @@ int print_material_property_elasticity(MATERIAL_ELASTICITY *mat)
   printf("SEDF flag volume part (volPotFlag)     = %d\n", mat->volPotFlag);   
   return err;
 }
+
+int set_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1, 
+                                                          const double P2, 
+                                                          const double Y_in, 
+                                                          const double mu, 
+                                                          const double w_max)
+{
+  int err = 0;
+  dam->P1    = P1;
+  dam->P2    = P2;
+  dam->Y_in  = Y_in;
+  dam->mu    = mu;
+  dam->w_max = w_max;
+  return err;
+}

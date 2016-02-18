@@ -2,6 +2,48 @@
 #include "strain_energy_density_function.h"
 #include "material_properties.h"
 
+/*==== Potential energy ====*/
+void SEDF_devPotential_Mooney_Rivlin(double *C_in,
+			     MATERIAL_ELASTICITY const *mat,
+			     double *W)
+{
+  Matrix(double) C, Ch;
+  Matrix_construct_redim(double, Ch, DIM_3, DIM_3);
+
+  C.m_row = C.m_col = DIM_3;
+  C.m_pdata = C_in;
+  
+  double detC, trCh, ChCh;
+  Matrix_det(C, detC);
+  
+  Matrix_AeqB(Ch,pow(detC,-1.0/3.0), C);
+  Matrix_trace(Ch,trCh);
+  Matrix_ddot(Ch,Ch,ChCh);
+  
+  *W = mat->m10*(trCh-3.0) + 0.5*mat->m01*(trCh*trCh - ChCh-6.0);
+  Matrix_cleanup(Ch);
+}	
+
+
+void SEDF_devPotential_Linear(double *C_in,
+			 MATERIAL_ELASTICITY const *mat,
+			 double *W)
+{
+  /* W_hat = int(S_hat)dC || W_hat = 0|C=I */
+  /* S_hat = 2G E || E = 1/2 (C-1) */
+
+  Matrix(double) C, Ch;
+
+  C.m_row = C.m_col = DIM_3;
+  C.m_pdata = C_in;
+  
+  double CC, trC;
+  Matrix_ddot(C,C,CC);
+  Matrix_trace(C,trC);
+
+   *W = 0.25*mat->G*(CC - 2.0*trC + 3.0);
+}		     
+			     
 /*==== Deviatoric stress functions ====*/
 void SEDF_devStress_Mooney_Rivlin(double *C_in,
 			     MATERIAL_ELASTICITY const *mat,
@@ -124,6 +166,23 @@ void SEDF_matStiff_Linear(double *C,
 	}}}}
 }
 
+/*==== Volumetric Potetntial Functions ====*/
+void SEDF_U_Common(double *U, double const J)
+{
+  *U = (0.5*(J-1.0)*(J-1.0));
+}
+
+void SEDF_U_Doll_Schweizerhof_7(double *U, double const J)
+{
+  *U = (0.5*(exp(J-1.0)-log(J)-1.0));
+}
+
+void SEDF_U_Doll_Schweizerhof_8(double *U, double const J)
+{
+  *U = (0.5*(J-1.0)*log(J));
+}
+
+/*==== dUdJ functions ====*/
 void SEDF_dUdJ_Common(double *dUdJ, double J)
 {
   (*dUdJ) = J-1.0;
