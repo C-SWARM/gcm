@@ -9,9 +9,11 @@ struct ELASTICITY;
 typedef struct ELASTICITY ELASTICITY;
 #endif
 
-typedef int (*elasticity_part)(ELASTICITY *elasticity, double *Fe, int update_stiffness);
+typedef int (*elasticity_part)(ELASTICITY *elasticity, double *Fe, int flag);
 typedef void (*deviatoric_part)(double *C_in, MATERIAL_ELASTICITY const *mat, double *S);
 typedef void (*volume_part)(double *dudj, double J);
+typedef int (*compute_elasticity_v1) (ELASTICITY *elasticity, double *V1);
+typedef int (*compute_elasticity_v2) (ELASTICITY *elasticity, double *V1, double *V2);
 
 struct ELASTICITY
 {
@@ -24,6 +26,10 @@ struct ELASTICITY
   volume_part compute_u;  
   volume_part compute_dudj;
   volume_part compute_d2udj2;
+  compute_elasticity_v1 compute_PK2_eff;
+  compute_elasticity_v2 compute_Cauchy_eff;
+  compute_elasticity_v2 compute_Cauchy;
+  
   int compute_stiffness;
 };
 

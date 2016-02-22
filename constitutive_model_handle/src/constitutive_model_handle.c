@@ -10,5 +10,6 @@ int constitutive_model_handle_init(CONSTITUTIVE_MODEL_PACKS *cm_pack)
   cm_pack->solver_info = NULL;
   cm_pack->elasticity  = NULL;
   cm_pack->damage      = NULL;
+  cm_pack->cm_mat      = NULL;
   return err;
 }

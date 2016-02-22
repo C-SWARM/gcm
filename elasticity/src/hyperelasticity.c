@@ -90,6 +90,68 @@ int update_PK2_elasticity_tensor(ELASTICITY *elasticity, double *Fe, int update_
   return 0;
 }
 
+int compute_effective_tensor2(double *T_in, double *T_eff)
+{
+  int err = 0;
+  
+  Matrix(double) T;
+  T.m_row = T.m_col = DIM_3; T.m_pdata = T_in; 
+  
+  double trT;
+  Matrix_trace(T,trT);
+
+  Matrix(double) Tdev;
+  Matrix_construct_redim(double,Tdev,DIM_3,DIM_3);
+  
+  Matrix_eye(Tdev, 3);                
+  Matrix_AplusB(Tdev, 1.0, T, -trT/3.0, Tdev);
+    
+  double norm_T;
+  Matrix_ddot(Tdev,Tdev,norm_T);
+  *T_eff = sqrt(3.0/2.0*norm_T);
+
+  Matrix_cleanup(Tdev);
+
+  return err;    
+}
+
+int compute_effective_PKII_stress(ELASTICITY *elasticity, double *PK2_eff)
+{
+  return compute_effective_tensor2(elasticity->S, PK2_eff);
+}
+
+int compute_Cauchy_stress(ELASTICITY *elasticity, double *sigma_out, double *eF)
+{
+  int err = 0;
+
+  Matrix(double) PK2, Fe, sigma;
+     Fe.m_row =    Fe.m_col = DIM_3;    Fe.m_pdata = eF;   
+    PK2.m_row =   PK2.m_col = DIM_3;   PK2.m_pdata = elasticity->S; 
+  sigma.m_row = sigma.m_col = DIM_3; sigma.m_pdata = sigma_out; 
+    
+  Matrix(double) FeT;
+  Matrix_construct_redim(double,  FeT,DIM_3,DIM_3);
+  
+  Matrix_AeqBT(FeT,1.0, Fe);   
+ 
+  double det_Fe;
+  Matrix_det(Fe, det_Fe);
+   
+  Matrix_Tns2_AxBxC(sigma,1.0/det_Fe,0.0,Fe,PK2,FeT);
+  Matrix_cleanup(FeT);
+    
+  return err;  
+}
+
+int compute_effective_Cauchy_stress(ELASTICITY *elasticity, double *sigma_eff, double *eF)
+{
+  double *sigma = (double *) malloc(sizeof(double)*DIM_3x3);
+  
+  int err = compute_Cauchy_stress(elasticity, sigma, eF);
+  err += compute_effective_tensor2(sigma, sigma_eff);
+  return err;
+}
+
 int construct_elasticity(ELASTICITY *elasticity, MATERIAL_ELASTICITY *mat, const int compute_stiffness)
 {
   int err = 0;  
@@ -99,6 +161,11 @@ int construct_elasticity(ELASTICITY *elasticity, MATERIAL_ELASTICITY *mat, const
   elasticity->update_elasticity = update_PK2_elasticity_tensor;
   elasticity->mat = mat;
   elasticity->compute_stiffness = compute_stiffness;
+
+  elasticity->compute_PK2_eff     = compute_effective_PKII_stress;
+  elasticity->compute_Cauchy_eff  = compute_effective_Cauchy_stress;
+  elasticity->compute_Cauchy      = compute_Cauchy_stress; 
+    
   switch (mat->devPotFlag)
   {
     case 1:
@@ -150,6 +217,9 @@ int destruct_elasticity(ELASTICITY *elasticity)
   elasticity->compute_tangent_dev = NULL;
   elasticity->compute_dudj        = NULL;
   elasticity->compute_d2udj2      = NULL;
+  elasticity->compute_PK2_eff     = NULL;
+  elasticity->compute_Cauchy_eff  = NULL;
+  elasticity->compute_Cauchy      = NULL;   
   
   free(elasticity->S);
   if(elasticity->compute_stiffness)

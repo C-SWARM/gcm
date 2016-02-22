@@ -32,7 +32,7 @@ OBJs_dam = $(SRC_dam:.c=.o)
 SRC_cmh = $(shell ls constitutive_model_handle/src/*.c)
 OBJs_cmh = $(SRC_cmh:.c=.o)
 
-OBJs = $(OBJs_uts) $(OBJs_mat) $(OBJs_els) $(OBJs_cpm) $(OBJs_dam) $(OBJs_cpm)
+OBJs = $(OBJs_uts) $(OBJs_mat) $(OBJs_els) $(OBJs_cpm) $(OBJs_dam) $(OBJs_cmh)
 
 all: SRC
 
