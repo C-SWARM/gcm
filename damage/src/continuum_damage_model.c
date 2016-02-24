@@ -109,7 +109,7 @@ int damage_evolutions(CONTINUUM_DAMAGE *dam,
 int damage_split_evolutions(CONTINUUM_DAMAGE_SPLIT *dam,
                             const double W,
                             const double U,
-                            const double HSP,
+                            const double J,
                             const double dt)
 {
   int err = 0;
@@ -117,7 +117,7 @@ int damage_split_evolutions(CONTINUUM_DAMAGE_SPLIT *dam,
   double G = 0.0;
   
   double Y = W;
-  if(HSP>0.0) 
+  if(J>1.0) 
     Y += U;
     
   err += continuum_damage_Weibull(&G,Y,dam->mat_d);
@@ -131,7 +131,7 @@ int damage_split_evolutions(CONTINUUM_DAMAGE_SPLIT *dam,
     
     dam->is_it_damaged_h = 1;
     dam->is_it_damaged_u = 0;
-    if(HSP>0.0)
+    if(J>1.0)
     {
       err += continuum_damage_Weibull_evolution(&H,W+U,dam->mat_d);
       Hh = H;
@@ -223,11 +223,7 @@ int continuum_damage_split_integration_alg(CONTINUUM_DAMAGE_SPLIT *dam,
   elast->compute_u(&U,J);
   
   elast->compute_Cauchy(elast,sigma.m_pdata,F_in);
-  double HSP = 0.0; // Hydrostatic Stress
-  Matrix_trace(sigma,HSP); 
-  HSP = HSP/3.0; 
-       
-  damage_split_evolutions(dam, W, U, HSP, dt);
+  damage_split_evolutions(dam, W, U, J, dt);
   
   Matrix_cleanup(C);
   Matrix_cleanup(sigma);
