@@ -143,3 +143,14 @@ int set_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1,
   dam->w_max = w_max;
   return err;
 }
+
+int set_J2_plasticity_parameters(MATERIAL_J2_PLASTICITY *J2P, const double hp,
+                                                              const double beta,
+                                                              const double k0)
+{
+  int err = 0;
+  J2P->hp = hp;
+  J2P->beta = beta;
+  J2P->k0 = k0;
+  return err;
+}                                                              

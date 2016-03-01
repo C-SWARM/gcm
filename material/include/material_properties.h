@@ -38,9 +38,17 @@ struct MATERIAL_CONTINUUM_DAMAGE
   double w_max;   // maximum damage
 };
 
+struct MATERIAL_J2_PLASTICITY
+{
+  double hp;      // 
+  double beta;    // 
+  double k0;      // 
+};
+
 typedef struct MATERIAL_ELASTICITY MATERIAL_ELASTICITY;
 typedef struct MATERIAL_CRYSTAL_PLASTICITY MATERIAL_CRYSTAL_PLASTICITY;
 typedef struct MATERIAL_CONTINUUM_DAMAGE MATERIAL_CONTINUUM_DAMAGE;
+typedef struct MATERIAL_J2_PLASTICITY MATERIAL_J2_PLASTICITY;
 
 struct MATERIAL_CONSTITUTIVE_MODEL
 {
@@ -92,5 +100,13 @@ int print_material_property_crystal_plasticity(MATERIAL_CRYSTAL_PLASTICITY *mat)
 
 int print_material_property_elasticity(MATERIAL_ELASTICITY *mat);
 
-int set_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, double P1, double P2, double Y_in, double mu, double w_max);
+int set_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1, 
+                                                          const double P2, 
+                                                          const double Y_in, 
+                                                          const double mu, 
+                                                          const double w_max);
+
+int set_J2_plasticity_parameters(MATERIAL_J2_PLASTICITY *J2P, const double hp,
+                                                              const double beta,
+                                                              const double k0);
 #endif 
