@@ -32,7 +32,10 @@ OBJs_dam = $(SRC_dam:.c=.o)
 SRC_cmh = $(shell ls constitutive_model_handle/src/*.c)
 OBJs_cmh = $(SRC_cmh:.c=.o)
 
-OBJs = $(OBJs_uts) $(OBJs_mat) $(OBJs_els) $(OBJs_cpm) $(OBJs_dam) $(OBJs_cmh)
+SRC_j2p = $(shell ls J2_plasticity/src/*.c)
+OBJs_j2p = $(SRC_j2p:.c=.o)
+
+OBJs = $(OBJs_uts) $(OBJs_mat) $(OBJs_els) $(OBJs_cpm) $(OBJs_dam) $(OBJs_cmh) $(OBJs_j2p)
 
 all: SRC
 
@@ -44,7 +47,9 @@ SRC:
 	cd elasticity/src; make; cd ../..;
 	cd crystal_plasticity/src; make; cd ../..;
 	cd damage/src; make; cd ../..;
-	cd constitutive_model_handle/src; make; cd ../..;	
+	cd constitutive_model_handle/src; make; cd ../..;
+	cd J2_plasticity/src; make; cd ../..;
+
 	$(AR) $(ARFLAGS) $(OLIB) $(OBJs)
 	mv $(OLIB) lib	
 
@@ -55,4 +60,5 @@ clean:
 	cd crystal_plasticity/src; make clean; cd ../..;
 	cd damage/src; make clean; cd ../..;
 	cd constitutive_model_handle/src; make clean; cd ../..;
+	cd J2_plasticity/src; make clean; cd ../..;
 	cd lib; rm *.a; cd ..;
