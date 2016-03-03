@@ -425,10 +425,7 @@ int compute_loading_Aep_dev(Matrix(double) *Aep_dev,
   double Itr = 0;
   {
     err += compute_Fubar(F,Fn,&Fubar);
-    printf("==============>\n");
-    err += compute_push_forward(&Fubar,sp_n,&sp_tr);
-    printf("<=============\n");
-    
+    err += compute_push_forward(&Fubar,sp_n,&sp_tr);    
     double trace_sp = sp_tr.m_pdata[0] + sp_tr.m_pdata[4] + sp_tr.m_pdata[8];
     sp_tr.m_pdata[0] -= trace_sp/3.0;
     sp_tr.m_pdata[4] -= trace_sp/3.0;
@@ -445,7 +442,7 @@ int compute_loading_Aep_dev(Matrix(double) *Aep_dev,
   }
   norm_s_tr = sqrt(norm_s_tr);
 
-  err += compute_normal(J2P,mat_e,&s_tr,&sp_tr,&normal);
+  double ksi_nrm = compute_normal(J2P,mat_e,&s_tr,&sp_tr,&normal);
   Matrix_AxB(normal2,1.0,0.0,normal,0,normal,0);
                       
   // compute factors
@@ -560,24 +557,26 @@ int J2_plasticity_update_elasticity(MATERIAL_J2_PLASTICITY *J2P,
                                     double *F_in,
                                     double *Fn_in,
                                     double *sp_in,
+                                    double *sp_n_in,
                                     double gamma,
                                     const int compute_stiffness)
 {
   int err = 0;
-  Matrix(double) F,Fn,sp,S0,S,L;
-   F.m_row =  F.m_col = DIM_3;  F.m_pdata = F_in;
-  Fn.m_row = Fn.m_col = DIM_3; Fn.m_pdata = Fn_in;   
-  sp.m_row = sp.m_col = DIM_3; sp.m_pdata = sp_in;
-   S.m_row =  S.m_col = DIM_3;  S.m_pdata = elast->S;
-   L.m_row = DIM_3x3x3x3;
-   L.m_col = 1;  
-   L.m_pdata = elast->L;
+  Matrix(double) F,Fn,sp,sp_n,S0,S,L;
+     F.m_row =    F.m_col = DIM_3;    F.m_pdata = F_in;
+    Fn.m_row =   Fn.m_col = DIM_3;   Fn.m_pdata = Fn_in;
+    sp.m_row =   sp.m_col = DIM_3;   sp.m_pdata = sp_in;    
+  sp_n.m_row = sp_n.m_col = DIM_3; sp_n.m_pdata = sp_n_in;
+     S.m_row =    S.m_col = DIM_3;    S.m_pdata = elast->S;
+     L.m_row = DIM_3x3x3x3;
+     L.m_col = 1;  
+     L.m_pdata = elast->L;
          
   Matrix_construct_init(double,S0,DIM_3,DIM_3,0.0);
   err += compute_S0_Sbar(&S0,&S,&F,&sp,elast);
   
   if(compute_stiffness)
-    err += compute_Lbar(&L,&F,&Fn,&sp,gamma,J2P,elast); //compute stiffness
+    err += compute_Lbar(&L,&F,&Fn,&sp_n,gamma,J2P,elast); //compute stiffness
 
   Matrix_cleanup(S0);
   return err;

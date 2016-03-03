@@ -52,7 +52,7 @@ void test_elasticity(void)
 
 
     J2_plasticity_update_elasticity(&J2P,&elast,
-                                    F.m_pdata,Fn.m_pdata,sp.m_pdata,gamma,0);
+                                    F.m_pdata,Fn.m_pdata,sp.m_pdata,sp_n.m_pdata,gamma,0);
                                                                       
     Matrix_AeqB(Fn,1.0,F);
     Matrix_AeqB(sp_n,1.0,sp);

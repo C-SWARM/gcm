@@ -35,6 +35,7 @@ int J2_plasticity_update_elasticity(MATERIAL_J2_PLASTICITY *J2P,
                                     double *F_in,
                                     double *Fn_in,
                                     double *sp_in,
+                                    double *sp_n_in,                                    
                                     double gamma,
                                     const int compute_stiffness);
 #endif
