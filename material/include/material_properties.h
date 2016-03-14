@@ -36,6 +36,14 @@ struct MATERIAL_CONTINUUM_DAMAGE
   double Y_in;    // Weibull function parameters: initial damage energy threshold
   double mu;      // damage viscosity
   double w_max;   // maximum damage
+  double alpha_dev; // deviatoric energy constibution to deviatoric part of damage
+                  // default = 1;
+  double beta_dev;  // volumetirc energy constibution to deviatoric part of damage
+                  // default = 0.0;
+  double alpha_vol; // deviatoric energy constibution to volume part of damage
+                  // default = 0.0;
+  double beta_vol;  // volumetirc energy constibution to volume part of damage
+                  // default = 1.0;                  
 };
 
 struct MATERIAL_J2_PLASTICITY
@@ -105,7 +113,17 @@ int set_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1,
                                                           const double Y_in, 
                                                           const double mu, 
                                                           const double w_max);
-
+                                                          
+int set_split_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1, 
+                                                                const double P2, 
+                                                                const double Y_in, 
+                                                                const double mu, 
+                                                                const double w_max,
+                                                                const double da,
+                                                                const double db,
+                                                                const double va,
+                                                                const double vb);
+                                                                
 int set_J2_plasticity_parameters(MATERIAL_J2_PLASTICITY *J2P, const double hp,
                                                               const double beta,
                                                               const double k0);

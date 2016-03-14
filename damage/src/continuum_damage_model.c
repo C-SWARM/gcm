@@ -31,14 +31,16 @@ int initialize_continuum_damage_split(CONTINUUM_DAMAGE_SPLIT *dam,
 {
   int err = 0;
 
-  dam->wh   = 0.0;
-  dam->wu   = 0.0;
-  dam->X    = 0.0;  
-  dam->Hh   = 0.0;
-  dam->Hu   = 0.0;
-  dam->wh_n = w0;  
-  dam->wu_n = w0;
-  dam->Xn   = 0.0; 
+  dam->dw   = 0.0;
+  dam->vw   = 0.0;
+  dam->dX   = 0.0;
+  dam->vX   = 0.0;    
+  dam->dH   = 0.0;
+  dam->vH   = 0.0;
+  dam->dwn = w0;  
+  dam->vwn = w0;
+  dam->dXn = 0.0;
+  dam->vXn = 0.0;    
   dam->is_it_damaged_h = 0;
   dam->is_it_damaged_u = 0;
   
@@ -106,6 +108,14 @@ int damage_evolutions(CONTINUUM_DAMAGE *dam,
   return err;
 }
 
+double H_of_J(double J)
+{
+  if(J>1.0)
+    return 1.0;
+  else
+    return 0.0;
+}
+  
 int damage_split_evolutions(CONTINUUM_DAMAGE_SPLIT *dam,
                             const double W,
                             const double U,
@@ -114,55 +124,98 @@ int damage_split_evolutions(CONTINUUM_DAMAGE_SPLIT *dam,
 {
   int err = 0;
   const double dt_mu = dt*(dam->mat_d->mu);
-  double G = 0.0;
-  
-  double Y = W;
-  if(J>1.0) 
-    Y += U;
+  double Gh = 0.0;
+  double Gu = 0.0;
+   
+  double alpha_dev = (dam->mat_d)->alpha_dev;
+  double beta_dev  = (dam->mat_d)->beta_dev;
+  double alpha_vol = (dam->mat_d)->alpha_vol;   
+  double beta_vol  = (dam->mat_d)->beta_vol;
     
-  err += continuum_damage_Weibull(&G,Y,dam->mat_d);
-  double g = G - dam->Xn;
+  if(beta_dev<0)
+    beta_dev = -beta_dev*H_of_J(J);
+  
+  if(beta_vol<0)
+    beta_vol = -beta_vol*H_of_J(J);      
+          
+  err += continuum_damage_Weibull(&Gh,alpha_dev*W + beta_dev*U,dam->mat_d);
+  err += continuum_damage_Weibull(&Gu,alpha_vol*W + beta_vol*U,dam->mat_d);
+    
+  double gh = Gh - dam->dXn;
+  double gu = Gu - dam->vXn;
+  double g  = Gh + Gu;
 
-  if(g > 0.0)
+  double H1, H2;
+  err += continuum_damage_Weibull_evolution(&H1,alpha_dev*W + beta_dev*U,dam->mat_d);
+  err += continuum_damage_Weibull_evolution(&H2,alpha_vol*W + beta_vol*U,dam->mat_d);
+
+  
+  if(gh > 0.0)
   {
-    double X = (dam->Xn + dt_mu*G)/(1.0+dt_mu);
-    double H, Hh, Hu;
-    H = Hh = Hu = 0.0;
+    double dX = (dam->dXn + dt_mu*Gh)/(1.0+dt_mu);
+    double dH = H1*alpha_dev + H2*alpha_vol;
     
     dam->is_it_damaged_h = 1;
-    dam->is_it_damaged_u = 0;
-    if(J>1.0)
-    {
-      err += continuum_damage_Weibull_evolution(&H,W+U,dam->mat_d);
-      Hh = H;
-      Hu = H;
-      dam->is_it_damaged_u = 1;
-    }
-    else
-    {
-      err += continuum_damage_Weibull_evolution(&H,W,dam->mat_d);
-      Hh = H;
-      Hu = 0.0;
-    }
+    dam->dw = dam->dwn + dt_mu/(1.0+dt_mu)*(Gh - dam->dXn);
+    dam->dX = MAX(dam->dXn,dX);  
+  }
+  else 
+  {
+    dam->is_it_damaged_h = 0; //no damage propagation
+    dam->dw = dam->dwn;
+    dam->dX = dam->dXn;
+    dam->dH = 0.0;
+  }
+  
+  if(gu > 0.0)
+  {
+    double vX = (dam->vXn + dt_mu*Gu)/(1.0+dt_mu);
+    double vH = H1*beta_dev + H2*beta_vol;
     
-    dam->wh = dam->wh_n + dt_mu*Hh*(G-X)/(Hh+Hu);
-    dam->wu = dam->wu_n + dt_mu*Hu*(G-X)/(Hh+Hu);    
+    dam->is_it_damaged_u = 1;
+    dam->vw = dam->vwn + dt_mu/(1.0+dt_mu)*(Gu - dam->vXn);
+    dam->vX = MAX(dam->vXn,vX);  
+  }
+  else 
+  {
+    dam->is_it_damaged_u = 0; //no damage propagation
+    dam->vw = dam->vwn;
+    dam->vX = dam->vXn;
+    dam->vH = 0.0;
+  }
+/*    
+//    if(J>1.0)
+//    {
+
+      err += continuum_damage_Weibull_evolution(&vH,U,dam->mat_d);      
+
+      dam->is_it_damaged_u = 1;
+//    }
+//    else
+//    {
+//      err += continuum_damage_Weibull_evolution(&H,W,dam->mat_d);
+//      dH = H;
+//      vH = 0.0;
+//    }
+    
+    dam->dw = dam->dwn + dt_mu*dH*(Gh+Gu-X)/(dH+vH);
+    dam->vw = dam->vwn + dt_mu*vH*(Gh+Gu-X)/(dH+vH);    
     
     dam->X = MAX(dam->Xn,X); // update softening parameter    
-    dam->Hh = Hh;
-    dam->Hu = Hu;
+    dam->dH = dH;
+    dam->vH = vH;
 
   } 
   else 
   {
     dam->is_it_damaged_h = 0; //no damage propagation
     dam->is_it_damaged_u = 0; //no damage propagation    
-    dam->wh = dam->wh_n;
-    dam->wu = dam->wu_n;
+    dam->dw = dam->dwn;
+    dam->vw = dam->vwn;
     dam->X = dam->Xn;
-    dam->Hh = 0.0;
-    dam->Hu = 0.0;
-  }
+    dam->dH = 0.0;
+    dam->vH = 0.0;
+  } */
   return err;
 }
 
@@ -190,8 +243,9 @@ int continuum_damage_integration_alg(CONTINUUM_DAMAGE *dam,
   elast->compute_potential_dev(C.m_pdata, elast->mat, &Wdev);
   elast->compute_u(&U, J);
   
-  double Y = Wdev + U*(elast->mat->kappa);
-
+  U *= (elast->mat->kappa);
+  double Y = Wdev + U;
+  
   damage_evolutions(dam,Y,dt);
   
   Matrix_cleanup(C); 
@@ -221,6 +275,7 @@ int continuum_damage_split_integration_alg(CONTINUUM_DAMAGE_SPLIT *dam,
   
   elast->compute_potential_dev(C.m_pdata, elast->mat, &W);    
   elast->compute_u(&U,J);
+  U *= (elast->mat->kappa);
   
   elast->compute_Cauchy(elast,sigma.m_pdata,F_in);
   damage_split_evolutions(dam, W, U, J, dt);
@@ -242,9 +297,10 @@ int update_damage_time_steps(CONTINUUM_DAMAGE *dam)
 int update_damage_split_time_steps(CONTINUUM_DAMAGE_SPLIT *dam)
 {
   int err = 0;
-  dam->wh_n = dam->wh;
-  dam->wu_n = dam->wu;   
-  dam->Xn   = dam->X;
+  dam->dwn = dam->dw;
+  dam->vwn = dam->vw;   
+  dam->dXn = dam->dX;
+  dam->vXn = dam->vX;  
   dam->is_it_damaged_h = 0;    
   dam->is_it_damaged_u = 0;  
   return err;
@@ -374,12 +430,12 @@ int update_damaged_elasticity_split(CONTINUUM_DAMAGE_SPLIT *dam,
     {
       double Lu = kappa*(detF*dudj + detC*d2udj2)*Vec_v(F4[CIoxCI], I)
                        - 2.0*kappa*detF*dudj*Vec_v(F4[CICI], I);
-      Vec_v(L, I) = (1-dam->wh)*Vec_v(F4[Lh], I) + (1-dam->wh)*Lu;
+      Vec_v(L, I) = (1-dam->dw)*Vec_v(F4[Lh], I) + (1-dam->dw)*Lu;
       if(dam->is_it_damaged_h)
-        Vec_v(L, I) += (dt_mu)/(1.0+dt_mu)*(dam->Hh)*Vec_v(F4[SSh], I);
+        Vec_v(L, I) += (dt_mu)/(1.0+dt_mu)*(dam->dH)*Vec_v(F4[SSh], I);
 
       if(dam->is_it_damaged_u)
-        Vec_v(L, I) += (dt_mu)/(1.0+dt_mu)*(dam->Hu)*Vec_v(F4[SSu], I);                           
+        Vec_v(L, I) += (dt_mu)/(1.0+dt_mu)*(dam->vH)*Vec_v(F4[SSu], I);                           
     }
 
     for(int a = 0; a < F4end; a++)
@@ -388,8 +444,8 @@ int update_damaged_elasticity_split(CONTINUUM_DAMAGE_SPLIT *dam,
   }
   
   for(int a=0; a<DIM_3x3; a++)
-    elasticity->S[a] = (1.0 - dam->wh)*F2[Sh_0].m_pdata[a] 
-                     + (1.0 - dam->wu)*F2[Su_0].m_pdata[a];
+    elasticity->S[a] = (1.0 - dam->dw)*F2[Sh_0].m_pdata[a] 
+                     + (1.0 - dam->vw)*F2[Su_0].m_pdata[a];
   
   for(int a = 0; a < F2end; a++)
     Matrix_cleanup(F2[a]);    

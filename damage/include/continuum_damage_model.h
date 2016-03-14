@@ -37,14 +37,16 @@ struct CONTINUUM_DAMAGE_SPLIT
 {
   ELASTICITY *elasticity;
   MATERIAL_CONTINUUM_DAMAGE *mat_d;
-  double wh;
-  double wu;
-  double X;  
-  double Hh;
-  double Hu;
-  double wh_n;  
-  double wu_n;  
-  double Xn;  
+  double dw;
+  double vw;
+  double dX;
+  double vX;  
+  double dH;
+  double vH;
+  double dwn;  
+  double vwn;  
+  double dXn;
+  double vXn;  
   int is_it_damaged_h;
   int is_it_damaged_u;
 };

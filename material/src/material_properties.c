@@ -136,11 +136,38 @@ int set_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1,
                                                           const double w_max)
 {
   int err = 0;
-  dam->P1    = P1;
-  dam->P2    = P2;
-  dam->Y_in  = Y_in;
-  dam->mu    = mu;
-  dam->w_max = w_max;
+  dam->P1      = P1;
+  dam->P2      = P2;
+  dam->Y_in    = Y_in;
+  dam->mu      = mu;
+  dam->w_max   = w_max;
+  dam->alpha_dev = 1.0;
+  dam->beta_dev  = 0.0;
+  dam->alpha_vol = 0.0;
+  dam->beta_vol  = 1.0;
+  return err;
+}
+
+int set_split_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1, 
+                                                                const double P2, 
+                                                                const double Y_in, 
+                                                                const double mu, 
+                                                                const double w_max,
+                                                                const double da,
+                                                                const double db,
+                                                                const double va,
+                                                                const double vb)
+{
+  int err = 0;
+  dam->P1      = P1;
+  dam->P2      = P2;
+  dam->Y_in    = Y_in;
+  dam->mu      = mu;
+  dam->w_max   = w_max;
+  dam->alpha_dev = da;
+  dam->beta_dev  = db;
+  dam->alpha_vol = va;
+  dam->beta_vol  = vb;
   return err;
 }
 
