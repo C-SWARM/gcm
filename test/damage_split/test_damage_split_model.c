@@ -112,7 +112,7 @@ int F_of_t_tension_compression(Matrix(double) *F, double t)
   double T = 2;
   double F11 = m*sin(t/tmax*2.0*T*PI);
   F->m_pdata[0] = 1.0 + F11;
-  F->m_pdata[4] = F->m_pdata[8] = 1.0 - 0.75*F11;
+  F->m_pdata[4] = F->m_pdata[8] = 1.0 + 0.25*F11;
     
   F->m_pdata[1] = F->m_pdata[2] = F->m_pdata[3] = 0.0;
   F->m_pdata[5] = F->m_pdata[6] = F->m_pdata[7] = 0.0;
@@ -538,11 +538,15 @@ int run_simulations(void)
   sprintf(sim.file_out, "tension_compression_beta_dev_0p2_beta_vol_1p0.txt");
   err += test_split_damage_model(&mat, &sim);
   
-  sim.F_of_t = F_of_t_tension_compression;
+  mat.beta_vol = -1.0;
+  mat.beta_dev = 0.0;  
+  sprintf(sim.file_out, "tension_compression_beta_dev_0p0_beta_vol_m1p0.txt");
+  err += test_split_damage_model(&mat, &sim);
+  
   mat.beta_vol = -1.0;
   mat.beta_dev = -0.2;  
   sprintf(sim.file_out, "tension_compression_beta_dev_m0p2_beta_vol_m1p0.txt");
-  err += test_split_damage_model(&mat, &sim);    
+  err += test_split_damage_model(&mat, &sim);      
       
   return err;
 }
