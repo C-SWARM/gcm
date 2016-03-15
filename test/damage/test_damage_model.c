@@ -25,27 +25,33 @@ void test_damage_model(void)
   
   ELASTICITY elast;
   construct_elasticity(&elast, &mat_e, 1);
-  
-  CONTINUUM_DAMAGE damage;
-
-  err += initialize_continuum_damage(&damage,&elast,&mat_d,0.0);  
-  
+    
   S.m_row = S.m_col = 3; S.m_pdata = elast.S;  
 
   double d = 0.001;
   double dt = 1.0;
+  
+  double w, X, H, wn, Xn;
+  w = wn = X = Xn = H = 0.0;
+  int is_it_damaged = 0;
 
   for(int a = 0; a<100; a++)
   {
     Mat_v(F,1,1) = 1 + d*a;
     Mat_v(F,2,2) = Mat_v(F,3,3) = 1 - d*a/2.0;
 
-    err += continuum_damage_integration_alg(&damage, dt, F.m_pdata);
-    err += update_damage_time_steps(&damage);
+    err += continuum_damage_integration_alg(&mat_d,&elast,
+                                            &w,&X,&H,&is_it_damaged,
+                                            wn,Xn,dt,F.m_pdata);
+    wn = w;
+    Xn = X;
+    is_it_damaged = 0;
 
     Matrix_AxB(C,1.0,0.0,F,1,F,0);
-    update_damaged_elasticity(&damage, dt, F.m_pdata, 1);
-    printf("%e, %e, %e\n", d*a, S.m_pdata[0], damage.w);
+    err += update_damaged_elasticity(&mat_d,&elast,w,is_it_damaged,H,
+                                     dt,F.m_pdata,1);
+
+    printf("%e, %e, %e\n", d*a, S.m_pdata[0], w);
   }        
   destruct_elasticity(&elast);
   Matrix_cleanup(F);

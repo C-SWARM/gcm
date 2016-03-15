@@ -5,25 +5,6 @@
 #define MIN(a,b) ((a)>(b)?(b):(a))
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
-int initialize_continuum_damage(CONTINUUM_DAMAGE *dam, 
-                                ELASTICITY *elast, 
-                                MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                double w0)
-{
-  int err = 0;
-
-  dam->w  = 0.0;
-  dam->X  = 0.0;
-  dam->H  = 0.0;
-  dam->wn = 0.0;
-  dam->Xn = w0;
-  dam->is_it_damaged = 0;
-  
-  dam->elasticity = elast;
-  dam->mat_d      = mat_d; 
-  return err;
-}
-                                
 int initialize_continuum_damage_split(CONTINUUM_DAMAGE_SPLIT *dam, 
                                       ELASTICITY *elast, 
                                       MATERIAL_CONTINUUM_DAMAGE *mat_d,
@@ -78,32 +59,38 @@ int continuum_damage_Weibull_evolution(double *H,
   return err;
 }
 
-int damage_evolutions(CONTINUUM_DAMAGE *dam,
+int damage_evolutions(MATERIAL_CONTINUUM_DAMAGE *mat_d,
+                      double *w,
+                      double *X,
+                      double *H,
+                      int *is_it_damaged,
+                      double wn,
+                      double Xn,
                       const double Y,                                      
                       const double dt)
 {
   int err = 0;
-  const double dt_mu = dt*(dam->mat_d->mu);
+  const double dt_mu = dt*(mat_d->mu);
   double G = 0.0;
   
-  err += continuum_damage_Weibull(&G,Y,dam->mat_d);
-  double g = G - dam->Xn;
+  err += continuum_damage_Weibull(&G,Y,mat_d);
+  double g = G - Xn;
 
   if (g > 0.0)
   {    
-    dam->is_it_damaged = 1;                             //Damage propagation
-    dam->w = dam->wn + dt_mu / (1 + dt_mu) * g;             // update damage parameter
-    dam->X = MAX(dam->Xn,(dam->Xn + dt_mu*G)/(1.0+dt_mu)); // update softening parameter
+    *is_it_damaged = 1;                      // Damage propagation
+    *w = wn + dt_mu / (1 + dt_mu) * g;       // update damage parameter
+    *X = MAX(Xn,(Xn + dt_mu*G)/(1.0+dt_mu)); // update softening parameter
 
     //update evolution parameter
-    err += continuum_damage_Weibull_evolution(&(dam->H),Y,dam->mat_d);
+    err += continuum_damage_Weibull_evolution(H,Y,mat_d);
   } 
   else 
   {
-    dam->is_it_damaged = 0; //no damage propagation
-    dam->w = dam->wn;
-    dam->X = dam->Xn;
-    dam->H = 0.0;
+    *is_it_damaged = 0; //no damage propagation
+    *w = wn;
+    *X = Xn;
+    *H = 0.0;
   }
   return err;
 }
@@ -219,13 +206,18 @@ int damage_split_evolutions(CONTINUUM_DAMAGE_SPLIT *dam,
   return err;
 }
 
-int continuum_damage_integration_alg(CONTINUUM_DAMAGE *dam,
+int continuum_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
+                                     ELASTICITY *elast,
+                                     double *w,
+                                     double *X,
+                                     double *H,
+                                     int *is_it_damaged,
+                                     double wn,
+                                     double Xn,
                                      const double dt,
                                      double *F_in) 
 {
   int err = 0;
-  
-  ELASTICITY *elast = dam->elasticity;
   
   Matrix(double) F;
   F.m_row = F.m_col = DIM_3; F.m_pdata = F_in;
@@ -246,7 +238,8 @@ int continuum_damage_integration_alg(CONTINUUM_DAMAGE *dam,
   U *= (elast->mat->kappa);
   double Y = Wdev + U;
   
-  damage_evolutions(dam,Y,dt);
+
+  err += damage_evolutions(mat_d,w,X,H,is_it_damaged,wn,Xn, Y, dt); 
   
   Matrix_cleanup(C); 
   return err;
@@ -285,15 +278,6 @@ int continuum_damage_split_integration_alg(CONTINUUM_DAMAGE_SPLIT *dam,
   return err;
 }
 
-int update_damage_time_steps(CONTINUUM_DAMAGE *dam)
-{
-  int err = 0;
-  dam->wn = dam->w;
-  dam->Xn = dam->X;
-  dam->is_it_damaged = 0;    
-  return err;
-}
-
 int update_damage_split_time_steps(CONTINUUM_DAMAGE_SPLIT *dam)
 {
   int err = 0;
@@ -306,13 +290,16 @@ int update_damage_split_time_steps(CONTINUUM_DAMAGE_SPLIT *dam)
   return err;
 }
 
-int update_damaged_elasticity(CONTINUUM_DAMAGE *dam, 
+int update_damaged_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
+                              ELASTICITY *elast,
+                              double w,
+                              int is_it_damaged,
+                              double H,
                               const double dt,
                               double *F_in, 
                               const int compute_stiffness)
 {
   int err = 0;
-  ELASTICITY *elast = dam->elasticity;
   elast->update_elasticity(elast,F_in, compute_stiffness);
 
   Matrix(double) S;
@@ -326,13 +313,13 @@ int update_damaged_elasticity(CONTINUUM_DAMAGE *dam,
     L.m_pdata = elast->L;
     
     for(int I=1; I<=DIM_3x3x3x3; I++)
-      Vec_v(L, I) *= (1.0 - dam->w);
+      Vec_v(L, I) *= (1.0 - w);
           
-    if(dam->is_it_damaged)
+    if(is_it_damaged)
     {
 
-      double dt_mu = dt*(dam->mat_d->mu);
-      double evo = dt_mu*(dam->H)/(1.0+dt_mu);
+      double dt_mu = dt*(mat_d->mu);
+      double evo = dt_mu*H/(1.0+dt_mu);
       
       Matrix(double) S0;
       Matrix_construct_redim(double, S0,DIM_3,DIM_3);
@@ -349,10 +336,11 @@ int update_damaged_elasticity(CONTINUUM_DAMAGE *dam,
   }
   
   for(int a=0; a<DIM_3x3; a++)
-    S.m_pdata[a] *= (1.0 - dam->w);
+    S.m_pdata[a] *= (1.0 - w);
   
   return err;
 }
+
 
 int update_damaged_elasticity_split(CONTINUUM_DAMAGE_SPLIT *dam, 
                               const double dt,
