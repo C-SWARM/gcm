@@ -226,13 +226,6 @@ int test_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
   ELASTICITY elast;
   construct_elasticity(&elast, &mat_e, construct_ET);
     
-  // -------------------------------------------------------
-  // construct and initialize split damage model handle
-  // : provides integration algorithm for split damage model
-  // -------------------------------------------------------
-  CONTINUUM_DAMAGE damage;
-  err += initialize_continuum_damage(&damage,&elast,&mat_d,0.0);  
-  
   // -----------------------
   // construct GL(3) tensors
   // -----------------------
@@ -255,6 +248,9 @@ int test_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
   FILE *out = fopen(sim->file_out, "w");
   err += print_output_header(out);
  
+  double w, X, H, wn, Xn;
+  w = wn = X = Xn = H = 0.0;
+  int is_it_damaged = 0;
 
   for(int a = 0; a<=sim->stepno; a++)
   {
@@ -290,19 +286,22 @@ int test_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
     //compute damaged values
     double sigma_eff = 0.0;
     Matrix_det(F2[Fnp1], Jnp1);
-    err += continuum_damage_integration_alg(&damage, dt, F2[Fnp1].m_pdata);
-    err += update_damaged_elasticity(&damage, dt, F2[Fnp1].m_pdata, construct_ET);
+
+    err += update_damaged_elasticity(&mat_d,&elast,w,is_it_damaged,H,
+                                     dt,F2[Fnp1].m_pdata, construct_ET);
+                                            
     err += elast.compute_Cauchy_eff(&elast,&sigma_eff,F2[Fnp1].m_pdata);
     err += elast.compute_Cauchy(&elast,F2[sigma].m_pdata,F2[Fnp1].m_pdata);
     
-    err += print_outputs(out,t,Jnp1,damage.w,0.0,damage.X,0.0,
+    err += print_outputs(out,t,Jnp1,w,0.0,X,0.0,
                                   sigma_eff_0,sigma_eff,Eeff,eeff,
                                   &F2[Fnp1], &F2[sigma0],
                                   &F2[S0],   &F2[sigma],
                                   &S,        &F2[E],
-                                  &F2[e]);       
-
-    err += update_damage_time_steps(&damage);
+                                  &F2[e]);
+    wn = w;
+    Xn = X;
+    is_it_damaged = 0;
   }
   
   for(int a = 0; a < F2end; a++)
@@ -345,13 +344,6 @@ int test_split_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
   ELASTICITY elast;
   construct_elasticity(&elast, &mat_e, construct_ET);
     
-  // -------------------------------------------------------
-  // construct and initialize split damage model handle
-  // : provides integration algorithm for split damage model
-  // -------------------------------------------------------
-  CONTINUUM_DAMAGE_SPLIT damage;
-  err += initialize_continuum_damage_split(&damage,&elast,&mat_d,0.0);  
-  
   // -----------------------
   // construct GL(3) tensors
   // -----------------------
@@ -371,9 +363,17 @@ int test_split_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
   
   double Jnp1;
   double dt = sim->dt;  
+
+  double dw,vw,dX,vX,dH,vH;
+  int is_it_damaged_d, is_it_damaged_v;
+  double dwn,vwn,dXn,vXn; 
+  
+  dw=vw=dX=vX=dH=vH=dwn=vwn=dXn=vXn=0.0;
+  is_it_damaged_d = is_it_damaged_v = 0;
+
+
   FILE *out = fopen(sim->file_out, "w");
   err += print_output_header(out);
- 
 
   for(int a = 0; a<=sim->stepno; a++)
   {
@@ -409,19 +409,32 @@ int test_split_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
     //compute damaged values
     double sigma_eff = 0.0;
     Matrix_det(F2[Fnp1], Jnp1);
-    err += continuum_damage_split_integration_alg(&damage, dt, F2[Fnp1].m_pdata);
-    err += update_damaged_elasticity_split(&damage, dt, F2[Fnp1].m_pdata, construct_ET);
+    
+    err += continuum_damage_split_integration_alg(&mat_d,&elast,
+                                     &dw,&vw,&dX,&vX,&dH,&vH,
+                                     &is_it_damaged_d,&is_it_damaged_v,                                     
+                                     dwn,vwn,dXn,vXn,dt,F2[Fnp1].m_pdata);    
+    
+    err += update_damaged_elasticity_split(&mat_d,&elast,dw,vw,dH,vH,
+                                          is_it_damaged_d,is_it_damaged_v,
+                                          dt, F2[Fnp1].m_pdata, construct_ET);
+                                          
     err += elast.compute_Cauchy_eff(&elast,&sigma_eff,F2[Fnp1].m_pdata);
     err += elast.compute_Cauchy(&elast,F2[sigma].m_pdata,F2[Fnp1].m_pdata);
     
-    err += print_outputs(out,t,Jnp1,damage.dw,damage.vw,damage.dX,damage.vX,
+    err += print_outputs(out,t,Jnp1,dw,vw,dX,vX,
                                   sigma_eff_0,sigma_eff,Eeff,eeff,
                                   &F2[Fnp1], &F2[sigma0],
                                   &F2[S0],   &F2[sigma],
                                   &S,        &F2[E],
-                                  &F2[e]);       
-
-    err += update_damage_split_time_steps(&damage);  
+                                  &F2[e]);          
+    dwn = dw;
+    vwn = vw;
+    dXn = dX;
+    vXn = vX;
+    
+    is_it_damaged_d = 0;
+    is_it_damaged_v = 0;
   }
   
   for(int a = 0; a < F2end; a++)

@@ -15,59 +15,52 @@ struct CONTINUUM_DAMAGE_SPLIT;
 typedef struct CONTINUUM_DAMAGE_SPLIT CONTINUUM_DAMAGE_SPLIT;
 #endif
 
-struct CONTINUUM_DAMAGE_SPLIT
-{
-  ELASTICITY *elasticity;
-  MATERIAL_CONTINUUM_DAMAGE *mat_d;
-  double dw;
-  double vw;
-  double dX;
-  double vX;  
-  double dH;
-  double vH;
-  double dwn;  
-  double vwn;  
-  double dXn;
-  double vXn;  
-  int is_it_damaged_h;
-  int is_it_damaged_u;
-};
-
-int initialize_continuum_damage_split(CONTINUUM_DAMAGE_SPLIT *dam, 
-                                      ELASTICITY *elast, 
-                                      MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                      double w0);
-                                                                           
 int continuum_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                          ELASTICITY *elast,
-                                      double *w,
-                                      double *X,
-                                      double *H,
-                                      int *is_it_damaged,
-                                      double wn,
-                                      double Xn,
-                                      const double dt,
-                                      double *F_in);
-                      
-int continuum_damage_split_integration_alg(CONTINUUM_DAMAGE_SPLIT *dam,
-                                           const double dt,
-                                           double *F_in);
-                                     
-int update_damage_split_time_steps(CONTINUUM_DAMAGE_SPLIT *dam);
+                                     ELASTICITY *elast,
+                                     double *w,
+                                     double *X,
+                                     double *H,
+                                     int *is_it_damaged,
+                                     double wn,
+                                     double Xn,
+                                     const double dt,
+                                     double *F_in);
 
+int continuum_damage_split_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
+                                           ELASTICITY *elast,
+                                           double *dw,
+                                           double *vw,
+                                           double *dX,
+                                           double *vX,
+                                           double *dH,
+                                           double *vH,
+                                           int *is_it_damaged_d,
+                                           int *is_it_damaged_v,                                     
+                                           double dwn,
+                                           double vwn,
+                                           double dXn,
+                                           double vXn,
+                                           const double dt,
+                                           double *F_in);                                           
+                                     
 int update_damaged_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                   ELASTICITY *elast,
-                                   double w,
-                                   int is_it_damaged,
-                                   double H,
+                              ELASTICITY *elast,
+                              double w,
+                              int is_it_damaged,
+                              double H,
                               const double dt,
                               double *F_in, 
                               const int compute_stiffness);
 
-
-int update_damaged_elasticity_split(CONTINUUM_DAMAGE_SPLIT *dam, 
+int update_damaged_elasticity_split(MATERIAL_CONTINUUM_DAMAGE *mat_d,
+                                    ELASTICITY *elasticity,
+                                    double dw,
+                                    double vw,
+                                    double dH,
+                                    double vH,
+                                    int is_it_damaged_d,
+                                    int is_it_damaged_v,
                                     const double dt,
                                     double *F_in, 
-                                    const int compute_stiffness); 
-                              
+                                    const int compute_stiffness);
 #endif
