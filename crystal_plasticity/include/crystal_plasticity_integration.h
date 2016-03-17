@@ -12,6 +12,7 @@ struct CRYSTAL_PLASTICITY_SOLVER_INFO
   double tol_hardening;
   double tol_M;
   double computer_zero;
+  int max_subdivision;
 };
 
 typedef struct CRYSTAL_PLASTICITY_SOLVER_INFO CRYSTAL_PLASTICITY_SOLVER_INFO;

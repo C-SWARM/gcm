@@ -92,11 +92,22 @@ int update_PK2_elasticity_tensor(ELASTICITY *elasticity, double *Fe, int update_
 
 int compute_effective_tensor2(double *T_in, double *T_eff)
 {
-  int err = 0;
+  int err = 0;  
   
   Matrix(double) T;
   T.m_row = T.m_col = DIM_3; T.m_pdata = T_in; 
   
+  double seff = (Mat_v(T,1,1) - Mat_v(T,2,2))*(Mat_v(T,1,1) - Mat_v(T,2,2)) + 
+                (Mat_v(T,2,2) - Mat_v(T,3,3))*(Mat_v(T,2,2) - Mat_v(T,3,3)) + 
+                (Mat_v(T,3,3) - Mat_v(T,1,1))*(Mat_v(T,3,3) - Mat_v(T,1,1)) +
+                6.0*(Mat_v(T,1,2)*Mat_v(T,1,2)+
+                     Mat_v(T,2,3)*Mat_v(T,2,3)+
+                     Mat_v(T,3,1)*Mat_v(T,3,1));
+
+  *T_eff = sqrt(seff/2.0);
+  return err;
+
+/*                
   double trT;
   Matrix_trace(T,trT);
 
@@ -110,9 +121,9 @@ int compute_effective_tensor2(double *T_in, double *T_eff)
   Matrix_ddot(Tdev,Tdev,norm_T);
   *T_eff = sqrt(3.0/2.0*norm_T);
 
-  Matrix_cleanup(Tdev);
+  Matrix_cleanup(Tdev); 
 
-  return err;    
+  return err;    */
 }
 
 int compute_effective_PKII_stress(ELASTICITY *elasticity, double *PK2_eff)

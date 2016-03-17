@@ -19,6 +19,7 @@ int set_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_in
   solver_info->tol_hardening     = tol_hardening;
   solver_info->tol_M             = tol_M;
   solver_info->computer_zero     = computer_zero;
+  solver_info->max_subdivision   = -1; 
   return err;
 }
 
@@ -152,9 +153,11 @@ int Newton_Rapson4M(double *M_out, double *lambda,
                     double g_np1_k, double dt,
                     MATERIAL_CONSTITUTIVE_MODEL *mat,
                     ELASTICITY *elasticity,
-                    CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info)
+                    CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info,
+                    int *is_it_cnvg)
 {
   int err = 0;
+  *is_it_cnvg = 0;
   
   SLIP_SYSTEM *slip = mat->mat_p->slip;
   
@@ -225,7 +228,6 @@ int Newton_Rapson4M(double *M_out, double *lambda,
 
     if(norm_R < solver_info->tol_M)
       break;
-
                                       
     // compute dR/dM                                      
     err += construct_tangent_M(K.m_pdata, F2[MI].m_pdata,pFn.m_pdata,F2[eFnp1].m_pdata,Fa.m_pdata,F2[C].m_pdata,    
@@ -248,7 +250,10 @@ int Newton_Rapson4M(double *M_out, double *lambda,
     printf("itr = %d\n", cnt-1);
     printf("residual \t= %e\n", norm_R);    
   }
-   
+  
+  if(norm_R < solver_info->tol_M)
+    *is_it_cnvg = 1;  
+       
   for(int a = 0; a < F2end; a++)
     Matrix_cleanup(F2[a]);
   free(F2);   
@@ -323,12 +328,13 @@ int Newton_Rapson_hardening(double *g_np1, double *M_in, double *pFnI_in, double
   return err;
 }    
    
-int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, double *lambda, 
+int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_out, double *lambda, 
                             double *pFn_in, double *Fn_in, double *Fnp1_in, 
                             double g_n, double dt, 
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
                             ELASTICITY *elasticity, 
-                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info)
+                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info,
+                            int *is_it_cnvg)
 {
   int err = 0;
                   
@@ -364,11 +370,14 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, dou
   Matrix_AxB(F2[eFnI],1.0,0.0,pFn,0,F2[FnI],0); 
 
   Matrix_Tns2_AxBxC(M,1.0,0.0,F2[eFnI],F2[FrI],F2[eFn]);
+  //Matrix_AxB(M,1.0,0.0,F2[eFnI],0,Fnp1, 0);
     
   Matrix_AxB(F2[Fa],1.0,0.0,F2[Fr],0,F2[eFn],0); 
 
+  int is_it_cnvg_M = 0;
+
   for(int k=0; k<solver_info->max_itr_stag; k++)
-  {      
+  {          
     if(DEBUG_PRINT_STAT)
       printf("staggered iter = %d:\n", k);
 
@@ -380,10 +389,10 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, dou
       err_g = sqrt((g_np1_kp1 - g_np1_k)*(g_np1_kp1 - g_np1_k));
       g_np1_k = g_np1_kp1;
     }
-        
+    
     err += Newton_Rapson4M(M.m_pdata, lambda, 
                            pFn.m_pdata, F2[pFnI].m_pdata, Fnp1.m_pdata, F2[Fa].m_pdata, 
-                           g_np1_k, dt, mat, elasticity, solver_info);                           
+                           g_np1_k, dt, mat, elasticity, solver_info,&is_it_cnvg_M);                           
 
 
     err += Newton_Rapson_hardening(&g_np1_kp1, M.m_pdata, F2[pFnI].m_pdata, Fnp1.m_pdata, 
@@ -403,11 +412,15 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, dou
       
     if((err_g)<solver_info->tol_hardening)
       break;
+
   }
  
   Matrix_inv(M,F2[MI]);
   Matrix_AxB(pFnp1,1.0,0.0,F2[MI],0,pFn,0);  
   *g_out = g_np1_kp1;  
+
+  if((err_g)<solver_info->tol_hardening && is_it_cnvg_M)
+    *is_it_cnvg = 1;
 
   for(int a = 0; a < F2end; a++)
     Matrix_cleanup(F2[a]);  
@@ -416,7 +429,118 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, dou
   return err;
 }
 
+int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double *g_out, double *lambda, 
+                            double *pFn_in, double *Fn_in, double *Fnp1_in, 
+                            double g_n, double dt, 
+                            MATERIAL_CONSTITUTIVE_MODEL *mat,
+                            ELASTICITY *elasticity, 
+                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info, int stepno, int *is_it_cnvg)
+{
+  int err = 0;
 
+  enum {dF,F_s,Fn_s,pFn_s,F2end};
+  Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
+  for (int a = 0; a < F2end; a++) {
+    Matrix_construct_init(double, F2[a],DIM_3,DIM_3,0.0);
+    Matrix_eye(F2[a],DIM_3);
+  }    
+      
+  double dt_s = dt/stepno;
+
+  for(int b=0; b<DIM_3x3; b++)
+  {
+    F2[   dF].m_pdata[b] = (Fnp1_in[b] - Fn_in[b])/stepno;
+    F2[ Fn_s].m_pdata[b] =  Fn_in[b];      
+    F2[pFn_s].m_pdata[b] = pFn_in[b];
+  }
+  
+  double g_n_s = g_n;
+
+  int is_sub_cnvg = 0;        
+
+  for(int a=0; a<stepno; a++)
+  {
+    if(DEBUG_PRINT_STAT)
+      printf("-----------------------\n sub step: (%d/%d) \n -----------------------\n", a+1, stepno);
+    
+    is_sub_cnvg = 0;
+    Matrix_AplusB(F2[F_s],1.0,F2[Fn_s],1.0,F2[dF]);
+
+    err += staggered_Newton_Rapson_compute(pFnp1_out, M_out, g_out,lambda, 
+                                         F2[pFn_s].m_pdata,
+                                         F2[ Fn_s].m_pdata,
+                                         F2[  F_s].m_pdata,
+                                         g_n_s,dt_s,mat,
+                                         elasticity,solver_info,&is_sub_cnvg);
+    if(!is_sub_cnvg)
+      break;
+                                           
+    for(int b=0; b<DIM_3x3; b++)
+    {
+      F2[pFn_s].m_pdata[b] = pFnp1_out[b];
+      F2[ Fn_s].m_pdata[b] = F2[F_s].m_pdata[b];
+      
+    }
+    g_n_s = *g_out;
+  }
+  for(int a = 0; a < F2end; a++)
+    Matrix_cleanup(F2[a]);  
+
+  *is_it_cnvg = is_sub_cnvg;
+
+  free(F2);
+    
+  return err;
+}                            
+int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, double *lambda, 
+                            double *pFn_in, double *Fn_in, double *Fnp1_in, 
+                            double g_n, double dt, 
+                            MATERIAL_CONSTITUTIVE_MODEL *mat,
+                            ELASTICITY *elasticity, 
+                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info)
+{
+  int err = 0;
+  double lambda_in = *lambda;
+  int is_it_cnvg = 0;
+  err += staggered_Newton_Rapson_compute(pFnp1_out, M_out, g_out,lambda, 
+                                         pFn_in,Fn_in,Fnp1_in,g_n,dt,mat,
+                                         elasticity,solver_info,&is_it_cnvg);
+                                         
+  if(solver_info->max_subdivision < 2)  
+    return err;
+    
+  int print_subdiv_info = 1;                                         
+  if(!is_it_cnvg)
+  {                                         
+    if(print_subdiv_info)
+    {
+      printf("WARNING: Crystal plasticity integration is not converging\n");
+      printf("Enter sub division ..\n");
+    }
+    
+    int stepno = 2;
+    while(!is_it_cnvg)
+    {
+      *lambda = lambda_in;
+      err += staggered_Newton_Rapson_subdivision(pFnp1_out, M_out, g_out,lambda, 
+                                                 pFn_in,Fn_in,Fnp1_in,g_n,dt,
+                                                 mat,elasticity,solver_info,stepno,&is_it_cnvg);                                                 
+      stepno *= 2;
+    
+      if(!is_it_cnvg && stepno>(solver_info->max_subdivision))
+      {
+        break;
+        if(print_subdiv_info)
+        {
+          printf("WARNING: reach maximum number of sub division\n");
+          printf("Integratin algorithm updates values computed at the final step\n");
+        }
+      }
+    }                                                                       
+  }
+  
+  return err;  
+}
 int Fnp1_Implicit(double *Fnp1_out, double *Fn_in, double *L_in, double dt)
 {
   int err = 0;
