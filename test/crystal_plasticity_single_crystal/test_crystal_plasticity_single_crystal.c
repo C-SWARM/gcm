@@ -23,8 +23,8 @@ void test_crystal_plasticity_single_crystal(void)
   int max_itr_stag      = 100;
   int max_itr_hardening = 5;
   int max_itr_M         = 100;
-  double tol_hardening  = 1.0e-6;
-  double tol_M          = 1.0e-6;
+  double tol_hardening  = 1.0e-4;
+  double tol_M          = 1.0e-4;
   double computer_zero  = 1.0e-15;
 
   // create material properties: Elasticity
@@ -122,7 +122,8 @@ void test_crystal_plasticity_single_crystal(void)
     double sigma_eff=sqrt(3.0/2.0*norm_sigma);
     double PK2_eff = sqrt(3.0/2.0*norm_PK2);    
 
-    fprintf(fp, "%e %e %e %e %e %e\n",t,sigma_eff,PK2_eff, g_np1, 0.0, Mat_v(PK2,1,1));                    
+    fprintf(fp, "%e %e %e %e %e %e\n",t,sigma_eff,PK2_eff, g_np1, 0.0, Mat_v(PK2,1,1));
+    //printf("%e %e %e %e %e %e\n",t,sigma_eff,PK2_eff, g_np1, 0.0, Mat_v(PK2,1,1));                    
   }    
   
   fclose(fp);  

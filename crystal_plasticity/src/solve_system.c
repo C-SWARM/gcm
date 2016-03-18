@@ -154,7 +154,9 @@ int Newton_Rapson4M(double *M_out, double *lambda,
                     MATERIAL_CONSTITUTIVE_MODEL *mat,
                     ELASTICITY *elasticity,
                     CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info,
-                    int *is_it_cnvg)
+                    int *is_it_cnvg,
+                    double *norm_R_0,
+                    int itr_stag)
 {
   int err = 0;
   *is_it_cnvg = 0;
@@ -188,7 +190,7 @@ int Newton_Rapson4M(double *M_out, double *lambda,
   Matrix_construct_redim(double,R, DIM_3x3+1,1);
   Matrix_construct_redim(double,du,DIM_3x3+1,1);
   
-  double norm_R, norm_R_0;
+  double norm_R;
   
   int cnt = 0;
   
@@ -218,15 +220,15 @@ int Newton_Rapson4M(double *M_out, double *lambda,
     Matrix_ddot(R,R,norm_R);
     norm_R = sqrt(norm_R);
     
-    if(a==0)
+    if(a==0 && itr_stag==0)
     {  
-      norm_R_0 = norm_R;
+      *norm_R_0 = norm_R;
       
-      if(norm_R_0<solver_info->computer_zero)
-        norm_R_0 = solver_info->computer_zero;        
+      if(*norm_R_0<solver_info->computer_zero)
+        *norm_R_0 = solver_info->computer_zero;        
     }                                      
 
-    if(norm_R < solver_info->tol_M)
+    if(norm_R/(*norm_R_0) < solver_info->tol_M)
       break;
                                       
     // compute dR/dM                                      
@@ -375,7 +377,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   Matrix_AxB(F2[Fa],1.0,0.0,F2[Fr],0,F2[eFn],0); 
 
   int is_it_cnvg_M = 0;
-
+  double norm_R_0 = 0.0;
   for(int k=0; k<solver_info->max_itr_stag; k++)
   {          
     if(DEBUG_PRINT_STAT)
@@ -392,7 +394,8 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
     
     err += Newton_Rapson4M(M.m_pdata, lambda, 
                            pFn.m_pdata, F2[pFnI].m_pdata, Fnp1.m_pdata, F2[Fa].m_pdata, 
-                           g_np1_k, dt, mat, elasticity, solver_info,&is_it_cnvg_M);                           
+                           g_np1_k, dt, mat, elasticity, solver_info,&is_it_cnvg_M,
+                           &norm_R_0, k);                           
 
 
     err += Newton_Rapson_hardening(&g_np1_kp1, M.m_pdata, F2[pFnI].m_pdata, Fnp1.m_pdata, 
@@ -410,7 +413,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
       printf("\n");
     }
       
-    if((err_g)<solver_info->tol_hardening)
+    if(err_g/err_g_0<solver_info->tol_hardening)
       break;
 
   }
