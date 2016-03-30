@@ -6,6 +6,9 @@
 #include "hardening.h"
 #include "construct_linearization_parts.h"
 
+#define D_GAMMA_D 0.005
+#define D_GAMMA_TOL 1.25
+
 #include <math.h>
 
 int set_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info, 
@@ -148,7 +151,7 @@ int construct_tangent_M(double *K_out, double *MI_in, double *pFn_in, double *eF
   return err;
 }
 
-int Newton_Rapson4M(double *M_out, double *lambda,
+double Newton_Rapson4M(double *M_out, double *lambda,
                     double *pFn_in, double *pFnI_in, double *Fnp1_in, double *Fa_in,
                     double g_np1_k, double dt,
                     MATERIAL_CONSTITUTIVE_MODEL *mat,
@@ -156,6 +159,7 @@ int Newton_Rapson4M(double *M_out, double *lambda,
                     CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info,
                     int *is_it_cnvg,
                     double *norm_R_0,
+                    double *d_gamma,
                     int itr_stag)
 {
   int err = 0;
@@ -193,6 +197,7 @@ int Newton_Rapson4M(double *M_out, double *lambda,
   double norm_R;
   
   int cnt = 0;
+  double norm_R_n; 
   
   for(int a = 0; a<solver_info->max_itr_M; a++)
   {
@@ -216,10 +221,17 @@ int Newton_Rapson4M(double *M_out, double *lambda,
     // compute R (risidual)
     err += compute_compute_residual_M(R.m_pdata,M.m_pdata,F2[MI].m_pdata,pFn.m_pdata,pFnI.m_pdata,  
                                       F1[gamma_dots].m_pdata, *lambda, dt, slip);
-                                      
+    *d_gamma = 0.0;
+    
+    for(int s = 0; s<slip->N_SYS; s++)
+      (*d_gamma) += dt*fabs(F1[gamma_dots].m_pdata[s]);
+                                          
     Matrix_ddot(R,R,norm_R);
     norm_R = sqrt(norm_R);
     
+    if(a==0)
+      norm_R_n = norm_R;
+      
     if(a==0 && itr_stag==0)
     {  
       *norm_R_0 = norm_R;
@@ -230,13 +242,23 @@ int Newton_Rapson4M(double *M_out, double *lambda,
 
     if(norm_R/(*norm_R_0) < solver_info->tol_M)
       break;
+      
+    if(norm_R > norm_R_n)
+    {  
+      if(DEBUG_PRINT_STAT)  
+        printf("Integration algorithm is diverging (M: %e -> %e)\n", norm_R_n, norm_R);        
+      break;
+    }
+      
+    if((*d_gamma)/D_GAMMA_D>D_GAMMA_TOL && solver_info->max_subdivision>1)
+      break;    
                                       
     // compute dR/dM                                      
     err += construct_tangent_M(K.m_pdata, F2[MI].m_pdata,pFn.m_pdata,F2[eFnp1].m_pdata,Fa.m_pdata,F2[C].m_pdata,    
                                F1[dgamma_dtaus].m_pdata,*lambda, dt,elasticity,slip);
     
     //Matrix_solver(K,du,R);
-    
+      
     Matrix_inv(K,KI);
     Matrix_AxB(du,-1.0,0.0,KI,0,R,0);
             
@@ -244,16 +266,16 @@ int Newton_Rapson4M(double *M_out, double *lambda,
       M.m_pdata[b] += du.m_pdata[b];
       
     *lambda += du.m_pdata[DIM_3x3];
-    
+    norm_R_n = norm_R;
   }
   
   if(DEBUG_PRINT_STAT)
   {  
     printf("itr = %d\n", cnt-1);
-    printf("residual \t= %e\n", norm_R);    
+    printf("residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", norm_R, *norm_R_0, norm_R/(*norm_R_0));    
   }
   
-  if(norm_R < solver_info->tol_M)
+  if(norm_R/(*norm_R_0) < solver_info->tol_M)
     *is_it_cnvg = 1;  
        
   for(int a = 0; a < F2end; a++)
@@ -336,6 +358,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
                             ELASTICITY *elasticity, 
                             CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info,
+                            double *d_gamma,
                             int *is_it_cnvg)
 {
   int err = 0;
@@ -343,8 +366,9 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   double g_np1_k   = g_n;
   double g_np1_kp1 = g_n;
   
-  double err_g_0, err_g;
+  double err_g_0, err_g, err_g_n;
   err_g_0 = solver_info->computer_zero;
+  err_g_n = err_g_0;
   
   // this will use pointers, no need Matrix_cleanup -->
   Matrix(double) pFnp1, M, pFn, Fn, Fnp1;
@@ -378,6 +402,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
 
   int is_it_cnvg_M = 0;
   double norm_R_0 = 0.0;
+  
   for(int k=0; k<solver_info->max_itr_stag; k++)
   {          
     if(DEBUG_PRINT_STAT)
@@ -395,34 +420,52 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
     err += Newton_Rapson4M(M.m_pdata, lambda, 
                            pFn.m_pdata, F2[pFnI].m_pdata, Fnp1.m_pdata, F2[Fa].m_pdata, 
                            g_np1_k, dt, mat, elasticity, solver_info,&is_it_cnvg_M,
-                           &norm_R_0, k);                           
+                           &norm_R_0,d_gamma,k);                           
 
 
     err += Newton_Rapson_hardening(&g_np1_kp1, M.m_pdata, F2[pFnI].m_pdata, Fnp1.m_pdata, 
                             g_n, g_np1_k, dt, mat, elasticity, solver_info);
-                            
+    
     err_g = sqrt((g_np1_kp1 - g_np1_k)*(g_np1_kp1 - g_np1_k));
     g_np1_k = g_np1_kp1;
       
     if(k==0 && err_g>solver_info->computer_zero)
+    {
       err_g_0 = err_g;
+      err_g_n = err_g;
+    }
 
     if(DEBUG_PRINT_STAT)
     {  
       printf("err(g_np1) \t= %e\n", err_g);
+      printf("w_max \t= %e\n", (*d_gamma)/D_GAMMA_D);
       printf("\n");
     }
       
     if(err_g/err_g_0<solver_info->tol_hardening)
       break;
-
+    
+    if(err_g > err_g_n)
+    {
+      if(DEBUG_PRINT_STAT)  
+        printf("Integration algorithm is diverging (g: %e -> %e)\n", err_g_n, err_g);
+      break;
+    }
+    if((*d_gamma)/D_GAMMA_D > D_GAMMA_TOL && solver_info->max_subdivision > 1)
+    {  
+      if(DEBUG_PRINT_STAT)
+        printf("Need smaller dt w_max = %e\n", (*d_gamma)/D_GAMMA_D);
+      break;
+    }  
+    
+    err_g_n = err_g;  
   }
  
   Matrix_inv(M,F2[MI]);
   Matrix_AxB(pFnp1,1.0,0.0,F2[MI],0,pFn,0);  
   *g_out = g_np1_kp1;  
 
-  if((err_g)<solver_info->tol_hardening && is_it_cnvg_M)
+  if((err_g/err_g_0)<solver_info->tol_hardening && is_it_cnvg_M)
     *is_it_cnvg = 1;
 
   for(int a = 0; a < F2end; a++)
@@ -437,7 +480,10 @@ int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double
                             double g_n, double dt, 
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
                             ELASTICITY *elasticity, 
-                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info, int stepno, int *is_it_cnvg)
+                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info, 
+                            int stepno, 
+                            double *d_gamma, 
+                            int *is_it_cnvg)
 {
   int err = 0;
 
@@ -464,7 +510,7 @@ int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double
   for(int a=0; a<stepno; a++)
   {
     if(DEBUG_PRINT_STAT)
-      printf("-----------------------\n sub step: (%d/%d) \n -----------------------\n", a+1, stepno);
+      printf("-----------------------\n sub step: (%d/%d) \n-----------------------\n", a+1, stepno);
     
     is_sub_cnvg = 0;
     Matrix_AplusB(F2[F_s],1.0,F2[Fn_s],1.0,F2[dF]);
@@ -474,10 +520,13 @@ int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double
                                          F2[ Fn_s].m_pdata,
                                          F2[  F_s].m_pdata,
                                          g_n_s,dt_s,mat,
-                                         elasticity,solver_info,&is_sub_cnvg);
-    if(!is_sub_cnvg)
+                                         elasticity,solver_info,d_gamma,&is_sub_cnvg);
+    if(solver_info->max_subdivision < stepno*2 && (*d_gamma)/D_GAMMA_D>D_GAMMA_TOL)
       break;
-                                           
+      
+    if(solver_info->max_subdivision > stepno*2 && !is_sub_cnvg)
+      break;  
+                                        
     for(int b=0; b<DIM_3x3; b++)
     {
       F2[pFn_s].m_pdata[b] = pFnp1_out[b];
@@ -505,45 +554,50 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, dou
   int err = 0;
   double lambda_in = *lambda;
   int is_it_cnvg = 0;
+  double d_gamma;
   err += staggered_Newton_Rapson_compute(pFnp1_out, M_out, g_out,lambda, 
                                          pFn_in,Fn_in,Fnp1_in,g_n,dt,mat,
-                                         elasticity,solver_info,&is_it_cnvg);
-                                         
-  if(solver_info->max_subdivision < 2)  
+                                         elasticity,solver_info,&d_gamma,&is_it_cnvg);
+
+  if(solver_info->max_subdivision<2)
     return err;
     
-  int print_subdiv_info = 1;                                         
-  if(!is_it_cnvg)
+  double w = (d_gamma)/D_GAMMA_D;
+  if(w < D_GAMMA_TOL && is_it_cnvg)
+    return err;
+    
+  if(!is_it_cnvg || w>D_GAMMA_TOL)
   {                                         
-    if(print_subdiv_info)
+    if(DEBUG_PRINT_STAT)
     {
-      printf("WARNING: Crystal plasticity integration is not converging\n");
-      printf("Enter sub division ..\n");
+      printf("WARNING: Time stepping size is adjusted in Crystal plasticity integration (w=%e)\n", w);
+      printf("Enterring sub division ..\n");
     }
     
     int stepno = 2;
-    while(!is_it_cnvg)
+    while(w>D_GAMMA_TOL || !is_it_cnvg)
     {
       *lambda = lambda_in;
       err += staggered_Newton_Rapson_subdivision(pFnp1_out, M_out, g_out,lambda, 
                                                  pFn_in,Fn_in,Fnp1_in,g_n,dt,
-                                                 mat,elasticity,solver_info,stepno,&is_it_cnvg);                                                 
+                                                 mat,elasticity,solver_info,stepno,&d_gamma,&is_it_cnvg);
       stepno *= 2;
-    
-      if(!is_it_cnvg && stepno>(solver_info->max_subdivision))
+      w = d_gamma/D_GAMMA_D;
+      
+      if(w>D_GAMMA_TOL && stepno>(solver_info->max_subdivision))
       {
-        break;
-        if(print_subdiv_info)
+        if(DEBUG_PRINT_STAT)
         {
           printf("WARNING: reach maximum number of sub division\n");
-          printf("Integratin algorithm updates values computed at the final step\n");
-        }
+          printf("Integration algorithm updates values computed at the final step\n");
+        }        
       }
     }                                                                       
   }
   
   return err;  
 }
+
 int Fnp1_Implicit(double *Fnp1_out, double *Fn_in, double *L_in, double dt)
 {
   int err = 0;
