@@ -35,6 +35,7 @@ void test_damage_model(void)
   w = wn = X = Xn = H = 0.0;
   int is_it_damaged = 0;
 
+  FILE *out = fopen("stress.txt", "w");
   for(int a = 0; a<100; a++)
   {
     Mat_v(F,1,1) = 1 + d*a;
@@ -51,8 +52,9 @@ void test_damage_model(void)
     err += update_damaged_elasticity(&mat_d,&elast,w,is_it_damaged,H,
                                      dt,F.m_pdata,1);
 
-    printf("%e, %e, %e\n", d*a, S.m_pdata[0], w);
-  }        
+    fprintf(out,"%e, %e, %e\n", d*a, S.m_pdata[0], w);
+  }
+  fclose(out);        
   destruct_elasticity(&elast);
   Matrix_cleanup(F);
   Matrix_cleanup(C);
