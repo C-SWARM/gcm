@@ -42,7 +42,7 @@ void test_elasticity(void)
   MATERIAL_J2_PLASTICITY J2P;
   set_J2_plasticity_parameters(&J2P,hp,beta,k0);
 
-  FILE *out = fopen("out.txt", "w");
+  FILE *out = fopen("stress.txt", "w");
   double d = 0.001;
   for(int a = 0; a<220; a++)
   {
