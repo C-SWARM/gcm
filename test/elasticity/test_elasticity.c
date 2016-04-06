@@ -22,14 +22,16 @@ void test_elasticity(void)
   S.m_row = S.m_col = 3; S.m_pdata = elast.S;  
 
   double d = 0.01;
+  FILE *out = fopen("stress.txt", "w");
   for(int a = 0; a<100; a++)
   {
     Mat_v(F,1,1) = 1 + d*a;
     Mat_v(F,2,2) = Mat_v(F,3,3) = 1 - d*a/2.0;
     Matrix_AxB(C,1.0,0.0,F,1,F,0);
     elast.update_elasticity(&elast,F.m_pdata, 0);
-    printf("%e, %e\n", d*a, S.m_pdata[0]);
-  }        
+    fprintf(out, "%e, %e\n", d*a, S.m_pdata[0]);
+  }
+  fclose(out);        
   destruct_elasticity(&elast);
   Matrix_cleanup(F);
   Matrix_cleanup(C);
