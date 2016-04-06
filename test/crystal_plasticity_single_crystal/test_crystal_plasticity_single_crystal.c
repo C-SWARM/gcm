@@ -64,7 +64,7 @@ void test_crystal_plasticity_single_crystal(void)
   construct_elasticity(&elast, &mat_e, 1);  
 
   // set variables for integration
-  enum {M,MI,pFn,pFnp1,Fn,Fnp1,L,sigma,PK2dev,sigma_dev,F2end};
+  enum {M,MI,pFn,pFnp1,pFnp1_I,eFnp1,Fn,Fnp1,L,sigma,PK2dev,sigma_dev,F2end};
   Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
   for (int a = 0; a < F2end; a++) {
     Matrix_construct_init(double, F2[a],DIM_3,DIM_3,0.0);
@@ -100,30 +100,22 @@ void test_crystal_plasticity_single_crystal(void)
                             g_n, dt, &mat, &elast, &solver_info);
     Matrix_AeqB(F2[pFn],1.0,F2[pFnp1]);
     Matrix_AeqB(F2[Fn],1.0,F2[Fnp1]);  
-    
+    Matrix_inv(F2[pFnp1],F2[pFnp1_I]);
+    Matrix_AxB(F2[eFnp1],1.0,0.0,F2[Fnp1],0,F2[pFnp1_I],0);    
     g_n = g_np1;
     
     
     // print result at time t
-    double trPK2, tr_sigma;
+    double sigma_eff;
+    double PK2_eff;
+    double det_pF;
+    Matrix_det(F2[pFnp1], det_pF);
     
-    Matrix_trace(PK2,trPK2);
-    Matrix_trace(F2[sigma],tr_sigma);
-    Matrix_eye(F2[PK2dev], DIM_3);
-    Matrix_eye(F2[sigma_dev], DIM_3);
-        
-    Matrix_AplusB(F2[PK2dev],    1.0, PK2,      -trPK2/3.0, F2[PK2dev]);
-    Matrix_AplusB(F2[sigma_dev], 1.0, F2[sigma], -tr_sigma/3.0, F2[sigma_dev]);    
-    
-    double norm_sigma, norm_PK2;
-    Matrix_ddot(F2[PK2dev],F2[PK2dev],norm_PK2);    
-    Matrix_ddot(F2[sigma_dev],F2[sigma_dev],norm_sigma);
-    
-    double sigma_eff=sqrt(3.0/2.0*norm_sigma);
-    double PK2_eff = sqrt(3.0/2.0*norm_PK2);    
+    elast.update_elasticity(&elast,F2[eFnp1].m_pdata,0);
+    elast.compute_PK2_eff(&elast,&PK2_eff);
+    elast.compute_Cauchy_eff(&elast,&sigma_eff,F2[eFnp1].m_pdata);   
 
-    fprintf(fp, "%e %e %e %e %e %e\n",t,sigma_eff,PK2_eff, g_np1, 0.0, Mat_v(PK2,1,1));
-    //printf("%e %e %e %e %e %e\n",t,sigma_eff,PK2_eff, g_np1, 0.0, Mat_v(PK2,1,1));                    
+    fprintf(fp, "%e %e %e %e %e %e\n",t,sigma_eff,PK2_eff, g_np1, det_pF, Mat_v(PK2,1,1));
   }    
   
   fclose(fp);  
