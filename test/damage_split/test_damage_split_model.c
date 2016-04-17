@@ -287,6 +287,10 @@ int test_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
     double sigma_eff = 0.0;
     Matrix_det(F2[Fnp1], Jnp1);
 
+    err += continuum_damage_integration_alg(&mat_d,&elast,
+                                            &w,&X,&H,&is_it_damaged,
+                                            wn,Xn,dt,F2[Fnp1].m_pdata);
+                                                                                 
     err += update_damaged_elasticity(&mat_d,&elast,w,is_it_damaged,H,
                                      dt,F2[Fnp1].m_pdata, construct_ET);
                                             
