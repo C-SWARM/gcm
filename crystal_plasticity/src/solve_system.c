@@ -193,6 +193,8 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   Matrix_construct_redim(double,KI,DIM_3x3+1,DIM_3x3+1);
   Matrix_construct_redim(double,R, DIM_3x3+1,1);
   Matrix_construct_redim(double,du,DIM_3x3+1,1);
+  Matrix(int) ipiv;
+  Matrix_construct_redim(int,ipiv,DIM_3x3+1,1);
   
   double norm_R;
   
@@ -257,16 +259,31 @@ double Newton_Rapson4M(double *M_out, double *lambda,
     err += construct_tangent_M(K.m_pdata, F2[MI].m_pdata,pFn.m_pdata,F2[eFnp1].m_pdata,Fa.m_pdata,F2[C].m_pdata,    
                                F1[dgamma_dtaus].m_pdata,*lambda, dt,elasticity,slip);
     
-    //Matrix_solver(K,du,R);
+    // solve system of equation
+
+    int info;    
+    Matrix_AeqB(du,1.0,R);
+    int Nx = DIM_3x3+1;
+    int nx = DIM_3x3+1;
+    int ny = 1;
+    
+    dgesv(&Nx,&ny,K.m_pdata,&Nx,ipiv.m_pdata,du.m_pdata,&nx,&info);   
+    if(info <= 0)
+    {
+      for(int b=0; b<DIM_3x3; b++)
+        M.m_pdata[b] += du.m_pdata[b];
       
-    Matrix_inv(K,KI);
-    Matrix_AxB(du,-1.0,0.0,KI,0,R,0);
-            
-    for(int b=0; b<DIM_3x3; b++)
-      M.m_pdata[b] += du.m_pdata[b];
-      
-    *lambda += du.m_pdata[DIM_3x3];
-    norm_R_n = norm_R;
+      *lambda += du.m_pdata[DIM_3x3];
+      norm_R_n = norm_R;      
+    }
+    else
+    {
+      if(DEBUG_PRINT_STAT)
+        printf( "Matrix is singular. The solution (Crystal plasticity) could not be computed.\n");
+
+      err += 1;
+      break;
+    }
   }
   
   if(DEBUG_PRINT_STAT)
@@ -275,7 +292,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
     printf("residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", norm_R, *norm_R_0, norm_R/(*norm_R_0));    
   }
   
-  if(norm_R/(*norm_R_0) < solver_info->tol_M)
+  if((norm_R/(*norm_R_0) < solver_info->tol_M) && err==0)
     *is_it_cnvg = 1;  
        
   for(int a = 0; a < F2end; a++)
@@ -290,6 +307,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   Matrix_cleanup(KI);  
   Matrix_cleanup(R);
   Matrix_cleanup(du);
+  Matrix_cleanup(ipiv);
   return err;
 }
 
@@ -386,12 +404,16 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   } 
     
   // compute eFn
-  Matrix_inv(pFn, F2[pFnI]);
+  int info = 0;
+  Matrix_inv_check_err(pFn, F2[pFnI], info);
+  err += info;
   Matrix_AxB(F2[eFn],1.0,0.0,Fn,0,F2[pFnI],0);
   // compute Fr
-  Matrix_inv(Fn, F2[FnI]);
+  Matrix_inv_check_err(Fn, F2[FnI], info);
+  err += info;
   Matrix_AxB(F2[Fr],1.0,0.0,Fnp1,0,F2[FnI],0);
-  Matrix_inv(F2[Fr], F2[FrI]);
+  Matrix_inv_check_err(F2[Fr], F2[FrI], info);
+  err += info;
   // guess initial M
   Matrix_AxB(F2[eFnI],1.0,0.0,pFn,0,F2[FnI],0); 
 
@@ -403,7 +425,12 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   int is_it_cnvg_M = 0;
   double norm_R_0 = 0.0;
   
-  for(int k=0; k<solver_info->max_itr_stag; k++)
+  // if there is err, do nothing
+  int max_itr = solver_info->max_itr_stag;
+  if(err>0)
+    max_itr = -1;
+    
+  for(int k=0; k<max_itr; k++)
   {          
     if(DEBUG_PRINT_STAT)
       printf("staggered iter = %d:\n", k);
@@ -422,7 +449,9 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
                            g_np1_k, dt, mat, elasticity, solver_info,&is_it_cnvg_M,
                            &norm_R_0,d_gamma,k);                           
 
-
+    if(err>0)
+      break;
+      
     err += Newton_Rapson_hardening(&g_np1_kp1, M.m_pdata, F2[pFnI].m_pdata, Fnp1.m_pdata, 
                             g_n, g_np1_k, dt, mat, elasticity, solver_info);
     
@@ -459,15 +488,16 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
     }  
     
     err_g_n = err_g;  
-  }
- 
-  Matrix_inv(M,F2[MI]);
-  Matrix_AxB(pFnp1,1.0,0.0,F2[MI],0,pFn,0);  
-  *g_out = g_np1_kp1;  
+  }  
 
   if((err_g/err_g_0)<solver_info->tol_hardening && is_it_cnvg_M)
+  {
+    Matrix_inv(M,F2[MI]);
+    Matrix_AxB(pFnp1,1.0,0.0,F2[MI],0,pFn,0);  
+    *g_out = g_np1_kp1;      
     *is_it_cnvg = 1;
-
+  }
+  
   for(int a = 0; a < F2end; a++)
     Matrix_cleanup(F2[a]);  
   free(F2); 

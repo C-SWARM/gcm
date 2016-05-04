@@ -232,6 +232,11 @@ typedef struct Matrix_##T                                               \
   }                                                                     \
 } while(0)                                                              
 
+#define Matrix_inv_check_err(A, invA, info) do {                        \
+  info = 0;                                                             \
+  info += inverse((A).m_pdata,(A).m_row,(invA).m_pdata);                \
+} while(0)
+
 #define Matrix_inv(A, invA) do {                                        \
   inverse((A).m_pdata,(A).m_row,(invA).m_pdata);                        \
 } while(0)

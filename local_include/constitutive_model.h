@@ -11,5 +11,6 @@
 #define DIM_3x3x3x3 81
 
 Define_Matrix(double);
+Define_Matrix(int);
 
 #endif

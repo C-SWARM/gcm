@@ -1,9 +1,10 @@
+#include "math_help.h"
 #include "mkl_lapack.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-  
+ 
 double det2x2(const double *mat)
 {
   return (mat[0]*mat[3] - mat[1]*mat[2]);
@@ -238,12 +239,15 @@ int inverse(double const* A,
 #else
     dgetrf(&M,&M,A_I,&M,iPerm,&info);
 #endif
-
-    if(info<0){
-      printf("WARNING: illegal parameter given"
-	      " to dgetrf at position %d.\n",info);
-    } else if(info>0){
-      printf("WARNING: factor U is singular.\n");
+    
+    if(DEBUG_PRINT_ERROR)
+    {
+      if(info<0){
+        printf("WARNING: illegal parameter given"
+	        " to dgetrf at position %d.\n",info);
+      } else if(info>0){
+        printf("WARNING: factor U is singular.\n");
+      }
     }
 
     /* Compute inverse using factored matrix */
@@ -253,9 +257,12 @@ int inverse(double const* A,
     dgetri(&M,A_I,&M,iPerm,work,&lwork,&info);
 #endif
 
-    if(info<0){
-      printf("WARNING: illegal parameter given"
-	      " to dgetri at position %d.\n",info);
+    if(DEBUG_PRINT_ERROR)
+    {  
+      if(info<0){
+        printf("WARNING: illegal parameter given"
+	        " to dgetri at position %d.\n",info);
+	    }    
     } 
   
     free(iPerm);
@@ -263,13 +270,15 @@ int inverse(double const* A,
     break;
   }/* switch M */
 
-  if(info != 0){
-    if(info > 0){
-      printf("ERROR: Matrix is singular, inverse not computed.\n");
-    } else {
-      printf("ERROR: Error (%d) in inverse routine.\n",info);
+  if(DEBUG_PRINT_ERROR)
+  {
+    if(info != 0){
+      if(info > 0){
+        printf("ERROR: Matrix is singular, inverse not computed.\n");
+      } else {
+        printf("ERROR: Error (%d) in inverse routine.\n",info);
+      }
     }
-    abort();
   }
 
   return info;
