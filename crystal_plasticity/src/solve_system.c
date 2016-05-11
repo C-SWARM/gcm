@@ -193,8 +193,6 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   Matrix_construct_redim(double,KI,DIM_3x3+1,DIM_3x3+1);
   Matrix_construct_redim(double,R, DIM_3x3+1,1);
   Matrix_construct_redim(double,du,DIM_3x3+1,1);
-  Matrix(int) ipiv;
-  Matrix_construct_redim(int,ipiv,DIM_3x3+1,1);
   
   double norm_R;
   
@@ -261,13 +259,11 @@ double Newton_Rapson4M(double *M_out, double *lambda,
     
     // solve system of equation
 
-    int info;    
-    Matrix_AeqB(du,1.0,R);
-    int Nx = DIM_3x3+1;
-    int nx = DIM_3x3+1;
-    int ny = 1;
-    
-    dgesv(&Nx,&ny,K.m_pdata,&Nx,ipiv.m_pdata,du.m_pdata,&nx,&info);   
+    int info = 0;    
+
+    Matrix_inv_check_err(K,KI,info);
+    Matrix_AxB(du,-1.0,0.0,KI,0,R,0);
+                    
     if(info <= 0)
     {
       for(int b=0; b<DIM_3x3; b++)
@@ -307,7 +303,6 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   Matrix_cleanup(KI);  
   Matrix_cleanup(R);
   Matrix_cleanup(du);
-  Matrix_cleanup(ipiv);
   return err;
 }
 
