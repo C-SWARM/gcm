@@ -379,10 +379,9 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   double g_np1_k   = g_n;
   double g_np1_kp1 = g_n;
   
-  double err_g_0, err_g, err_g_n;
-  err_g_0 = solver_info->computer_zero;
-  err_g_n = err_g_0;
-  
+  double g_0, err_g, err_g_n;
+  g_0 = (mat->mat_p)->g0;
+
   // this will use pointers, no need Matrix_cleanup -->
   Matrix(double) pFnp1, M, pFn, Fn, Fnp1;
   pFnp1.m_row = pFnp1.m_col = DIM_3; pFnp1.m_pdata = pFnp1_out;   
@@ -436,9 +435,8 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
                             g_n, g_np1_k, dt, mat, elasticity, solver_info);
 
       err_g = sqrt((g_np1_kp1 - g_np1_k)*(g_np1_kp1 - g_np1_k));
-      g_np1_k = g_np1_kp1;
+      g_np1_k = g_np1_kp1;      
     }
-    
     err += Newton_Rapson4M(M.m_pdata, lambda, 
                            pFn.m_pdata, F2[pFnI].m_pdata, Fnp1.m_pdata, F2[Fa].m_pdata, 
                            g_np1_k, dt, mat, elasticity, solver_info,&is_it_cnvg_M,
@@ -452,13 +450,10 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
     
     err_g = sqrt((g_np1_kp1 - g_np1_k)*(g_np1_kp1 - g_np1_k));
     g_np1_k = g_np1_kp1;
-      
+          
     if(k==0 && err_g>solver_info->computer_zero)
-    {
-      err_g_0 = err_g;
       err_g_n = err_g;
-    }
-
+      
     if(DEBUG_PRINT_STAT)
     {  
       printf("err(g_np1) \t= %e\n", err_g);
@@ -466,7 +461,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
       printf("\n");
     }
       
-    if(err_g/err_g_0<solver_info->tol_hardening)
+    if((err_g/g_0)<solver_info->tol_hardening && is_it_cnvg_M)
       break;
     
     if(err_g > err_g_n)
@@ -485,12 +480,17 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
     err_g_n = err_g;  
   }  
 
-  if((err_g/err_g_0)<solver_info->tol_hardening && is_it_cnvg_M)
+  if((err_g/g_0)<solver_info->tol_hardening && is_it_cnvg_M)
   {
     Matrix_inv(M,F2[MI]);
     Matrix_AxB(pFnp1,1.0,0.0,F2[MI],0,pFn,0);  
     *g_out = g_np1_kp1;      
     *is_it_cnvg = 1;
+  }
+  else
+  {    
+    err += 1;
+    printf("Integration algorithm is diverging ( %e < %e, M = %d)\n", (err_g/g_0) , solver_info->tol_hardening, is_it_cnvg_M);
   }
   
   for(int a = 0; a < F2end; a++)
