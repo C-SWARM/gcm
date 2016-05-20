@@ -9,28 +9,27 @@ void test_crystal_plasticity_single_crystal(void)
 {
   double lame1 = 75600.0;
   double lame2     = 26100.0;
-  double E = 207.0e+3;
-  double nu = 0.31;
+  double E = 70.0e+3;
+  double nu = 0.25;
   
   double gamma_dot_0 = 1.0;
   double gamma_dot_s = 50.0e+9;
-  double m           = 0.06;  
-  double g0          = 45.0;
-  double G0          = 500.0;
-  double gs_0        = 155;
-  double w           = 5.0e-4;
-
+  double m           = 0.05;  
+  double g0          = 210.0;
+  double G0          = 200.0;
+  double gs_0        = 330.0;
+  double w           = 0.005;
+  
   int max_itr_stag      = 100;
   int max_itr_hardening = 5;
   int max_itr_M         = 100;
-  double tol_hardening  = 1.0e-5;
-  double tol_M          = 1.0e-5;
+  double tol_hardening  = 1.0e-4;
+  double tol_M          = 1.0e-4;
   double computer_zero  = 1.0e-15;
 
   // create material properties: Elasticity
   MATERIAL_ELASTICITY mat_e;  
-  set_properties_using_E_and_nu(&mat_e,E,nu);
-  mat_e.m01 =   mat_e.m10 = 18.254e+3;
+  set_properties_using_E_and_nu(&mat_e,E,nu); 
   // or you can use : set_properties_using_Lame_constants(&mat_e,lame1,lame2);
   //print_material_property_elasticity(&mat_e); // <= this is optional
   
@@ -87,18 +86,14 @@ void test_crystal_plasticity_single_crystal(void)
   PK2.m_row = PK2.m_col = DIM_3; PK2.m_pdata = elast.S;
   
   FILE *fp = fopen("single_crystal_results.txt", "w");
-
-F2[Fnp1].m_pdata[0] = 9.999924e-01; F2[Fnp1].m_pdata[1] = -1.819720e-06; F2[Fnp1].m_pdata[2] = -1.523077e-07; 
-F2[Fnp1].m_pdata[3] =-2.542806e-06; F2[Fnp1].m_pdata[4] = 9.999904e-01; F2[Fnp1].m_pdata[5] = -3.102639e-07; 
-F2[Fnp1].m_pdata[6] =3.789849e-06; F2[Fnp1].m_pdata[7] = 2.592934e-06; F2[Fnp1].m_pdata[8] = 1.000026e+00;
   
-  for(int a = 1; a<=1; a++)
+  for(int a = 1; a<=1000; a++)
   {
     double lambda = 0.0;
     double t = a*dt;
     
     // compute total deformation gradient using velocity gradient
-    //Fnp1_Implicit(F2[Fnp1].m_pdata, F2[Fn].m_pdata, F2[L].m_pdata, dt); 
+    Fnp1_Implicit(F2[Fnp1].m_pdata, F2[Fn].m_pdata, F2[L].m_pdata, dt); 
     
     staggered_Newton_Rapson(F2[pFnp1].m_pdata,F2[M].m_pdata, &g_np1, &lambda, 
                             F2[pFn].m_pdata, F2[Fn].m_pdata,F2[Fnp1].m_pdata, 
