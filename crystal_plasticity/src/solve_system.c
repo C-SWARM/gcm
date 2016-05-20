@@ -194,7 +194,18 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   Matrix_construct_redim(double,R, DIM_3x3+1,1);
   Matrix_construct_redim(double,du,DIM_3x3+1,1);
   
-  double norm_R;
+  double norm_R;    
+  double eng_norm_0 = 0.0; // energy norm
+  // energy norm is used to check convergence
+  // eng_norm = fabs(R*du)
+  //
+  // This check requires when variation of pF is very small
+  // because when initial error (norm_R_0) is very small,
+  // relative error (norm_R/norm_R_0) becomes large and Newton Rapson
+  // is not convered.
+  
+  
+  int is_it_cnvg_on_eng_norm = 0;
   
   int cnt = 0;
   double norm_R_n; 
@@ -266,11 +277,35 @@ double Newton_Rapson4M(double *M_out, double *lambda,
                     
     if(info <= 0)
     {
+      // update M and compute energy norm = fabs(R*du)
+      double eng_norm = 0.0;      
       for(int b=0; b<DIM_3x3; b++)
+      {
         M.m_pdata[b] += du.m_pdata[b];
-      
+        eng_norm += du.m_pdata[b]*R.m_pdata[b];
+      }
       *lambda += du.m_pdata[DIM_3x3];
-      norm_R_n = norm_R;      
+      eng_norm += du.m_pdata[DIM_3x3]*R.m_pdata[DIM_3x3];
+      eng_norm = fabs(eng_norm);
+      
+      // set initial energy norm      
+      if(a==0)
+        eng_norm_0 = eng_norm;
+      
+      if(eng_norm_0<solver_info->computer_zero)
+        eng_norm_0 = solver_info->computer_zero;
+
+      // check convergence based on energy norm
+      if(eng_norm/eng_norm_0 < (solver_info->tol_M)*(solver_info->tol_M))
+      {
+        if(DEBUG_PRINT_STAT)  
+          printf("converge on energe norm %e\n", eng_norm/eng_norm_0);
+        
+        is_it_cnvg_on_eng_norm = 1;
+        break;  
+          
+      }    
+      norm_R_n = norm_R;
     }
     else
     {
@@ -288,7 +323,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
     printf("residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", norm_R, *norm_R_0, norm_R/(*norm_R_0));    
   }
   
-  if((norm_R/(*norm_R_0) < solver_info->tol_M) && err==0)
+  if((norm_R/(*norm_R_0) < solver_info->tol_M) && err==0 || is_it_cnvg_on_eng_norm)
     *is_it_cnvg = 1;  
        
   for(int a = 0; a < F2end; a++)
