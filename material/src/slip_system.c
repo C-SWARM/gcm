@@ -72,18 +72,18 @@ int set_crystal_orientations(double *R_out, double *angles, int ortno)
     
     Mat_v(Ax,1,1) = 1.0;
     Mat_v(Ax,1,2) = Mat_v(Ax,1,3) = Mat_v(Ax,2,1) = Mat_v(Ax,3,1) = 0.0;
-    Mat_v(Ax,2,2) =  cos(phi); Mat_v(Ax,2,3) = sin(phi);
-    Mat_v(Ax,3,2) = -sin(phi); Mat_v(Ax,3,3) = cos(phi);    
+    Mat_v(Ax,2,2) =  cos(phi); Mat_v(Ax,2,3) = -sin(phi);
+    Mat_v(Ax,3,2) =  sin(phi); Mat_v(Ax,3,3) = cos(phi);    
   
     Mat_v(Ay,2,2) = 1.0;
     Mat_v(Ay,2,1) = Mat_v(Ay,2,3) = Mat_v(Ay,1,2) = Mat_v(Ay,3,2) = 0.0;
-    Mat_v(Ay,1,1) = cos(theta); Mat_v(Ay,1,3) = -sin(theta);
-    Mat_v(Ay,3,1) = sin(theta); Mat_v(Ay,3,3) =  cos(theta);
+    Mat_v(Ay,1,1) = cos(theta); Mat_v(Ay,1,3) =  sin(theta);
+    Mat_v(Ay,3,1) = -sin(theta); Mat_v(Ay,3,3) =  cos(theta);
   
     Mat_v(Az,3,3) = 1.0;
     Mat_v(Az,3,1) = Mat_v(Az,3,2) = Mat_v(Az,1,3) = Mat_v(Az,2,3) = 0.0;
-    Mat_v(Az,1,1) =  cos(psi); Mat_v(Az,1,2) = sin(psi);
-    Mat_v(Az,2,1) = -sin(psi); Mat_v(Az,2,2) = cos(psi);            
+    Mat_v(Az,1,1) =  cos(psi); Mat_v(Az,1,2) = -sin(psi);
+    Mat_v(Az,2,1) =  sin(psi); Mat_v(Az,2,2) = cos(psi);            
     Matrix_Tns2_AxBxC(R,1.0,0.0,Az,Ay,Ax);
   }
 
