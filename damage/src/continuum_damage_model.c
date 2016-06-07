@@ -203,6 +203,29 @@ int continuum_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   return err;
 }
 
+int continuum_damage_integration_alg_public(MATERIAL_CONTINUUM_DAMAGE *mat_d,
+                                            ELASTICITY *elast,
+                                            double *w,
+                                            double *X,
+                                            double *H,
+                                            int *is_it_damaged,
+                                            double wn,
+                                            double Xn,
+                                            const double dt,
+                                            double *F_in,
+                                            double Y)
+{
+  int err = 0;
+  
+  Matrix(double) F;
+  F.m_row = F.m_col = DIM_3; F.m_pdata = F_in;
+
+  double J = 0.0;
+  Matrix_det(F,J);
+
+  err += damage_evolutions(mat_d,w,X,H,is_it_damaged,wn,Xn, Y, dt);   
+  return err;
+}
 int continuum_damage_split_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
                                            ELASTICITY *elast,
                                            double *dw,
@@ -247,6 +270,75 @@ int continuum_damage_split_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   return err;
 }
 
+int continuum_damage_split_integration_alg_public(MATERIAL_CONTINUUM_DAMAGE *mat_d,
+                                                  ELASTICITY *elast,
+                                                  double *dw,
+                                                  double *vw,
+                                                  double *dX,
+                                                  double *vX,
+                                                  double *dH,
+                                                  double *vH,
+                                                  int *is_it_damaged_d,
+                                                  int *is_it_damaged_v,                                     
+                                                  double dwn,
+                                                  double vwn,
+                                                  double dXn,
+                                                  double vXn,
+                                                  const double dt,
+                                                  double *F_in,
+                                                  double W,
+                                                  double U) 
+{
+  int err = 0;
+  
+  Matrix(double) F;
+  F.m_row = F.m_col = DIM_3; F.m_pdata = F_in;
+
+  double J = 0.0;
+  Matrix_det(F,J);
+
+  err += damage_split_evolutions(mat_d,elast,dw,vw,dX,vX,dH,vH,
+                                      is_it_damaged_d,is_it_damaged_v,
+                                      dwn,vwn,dXn,vXn,
+                                      W,U,J,dt);    
+  return err;
+}
+
+int apply_damage_on_stress(double *S, double *S0, double w)
+{
+  int err = 0;
+  for(int a=0; a<DIM_3x3; a++)
+    S[a] = (1.0 - w)*S0[a];
+  return err;  
+}
+
+int apply_damage_on_stiffness(double *L_out, double *S0_in, double *L_in, 
+                              double w, int is_it_damaged, double H,                               
+                              double dt, double mu)
+{
+  int err = 0;
+  Matrix(double) L, S0;
+  S0.m_row = S0.m_col = DIM_3; S0.m_pdata = S0_in;
+  L.m_row  = DIM_3x3x3x3; L.m_col = 1; L.m_pdata = L_out;  
+
+  for(int a=0; a<DIM_3x3x3x3; a++)
+    L.m_pdata[a] = (1.0 - w)*L_in[a];
+          
+  if(is_it_damaged)
+  {
+    double dt_mu = dt*mu;
+    double evo = dt_mu*H/(1.0+dt_mu);
+
+    for(int I=1; I<=DIM_3; I++)
+      for(int J=1; J<=DIM_3; J++)
+        for(int P=1; P<=DIM_3; P++)
+          for(int Q=1; Q<=DIM_3; Q++)
+            Tns4_v(L,I,J,P,Q) -= evo*Mat_v(S0,I,J)*Mat_v(S0,P,Q);     
+  }            
+
+  return err;  
+}
+
 int update_damaged_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
                               ELASTICITY *elast,
                               double w,
@@ -262,7 +354,11 @@ int update_damaged_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   Matrix(double) S;
   S.m_row = S.m_col = DIM_3;
   S.m_pdata = elast->S;
-        
+
+  Matrix(double) S0;
+  Matrix_construct_redim(double, S0,DIM_3,DIM_3);
+  Matrix_AeqB(S0,1.0,S);
+              
   if(compute_stiffness)
   {    
     Matrix(double) L;
@@ -277,20 +373,16 @@ int update_damaged_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 
       double dt_mu = dt*(mat_d->mu);
       double evo = dt_mu*H/(1.0+dt_mu);
-      
-      Matrix(double) S0;
-      Matrix_construct_redim(double, S0,DIM_3,DIM_3);
-      Matrix_AeqB(S0,1.0,S);
-      
+
       for(int I=1; I<=DIM_3; I++)
         for(int J=1; J<=DIM_3; J++)
           for(int P=1; P<=DIM_3; P++)
             for(int Q=1; Q<=DIM_3; Q++)
               Tns4_v(L,I,J,P,Q) -= evo*Mat_v(S0,I,J)*Mat_v(S0,P,Q);     
-      
-      Matrix_cleanup(S0);
     }            
   }
+
+  Matrix_cleanup(S0);
   
   for(int a=0; a<DIM_3x3; a++)
     S.m_pdata[a] *= (1.0 - w);
@@ -298,6 +390,63 @@ int update_damaged_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   return err;
 }
 
+int apply_split_damage_on_stress(double *S, double *dS0, double *vS0, double dw, double vw)
+{
+  int err = 0;
+  for(int a=0; a<DIM_3x3; a++)
+    S[a] = (1.0 - dw)*dS0[a] + (1.0 - vw)*vS0[a];
+  return err;  
+}
+
+int apply_split_damage_on_stiffness(double *L_out, double *dS0_in, double *vS0_in,
+                                    double *dL_in, double *vL_in, 
+                                    double dw, double vw, int is_it_damaged_d, int is_it_damaged_v,
+                                    double dH, double vH, double dt, double mu)
+{
+  int err = 0;
+  Matrix(double) dS0, vS0;
+  dS0.m_row = dS0.m_col = DIM_3; dS0.m_pdata = dS0_in;
+  vS0.m_row = vS0.m_col = DIM_3; vS0.m_pdata = vS0_in;
+  
+  enum {dSS,vSS,F4end};
+  Matrix(double) *F4 = malloc(F4end*sizeof(Matrix(double)));
+  for (int a = 0; a < F4end; a++) {
+    Matrix_construct_redim(double, F4[a],DIM_3x3x3x3,1);
+  }
+  
+  for(int I=1; I<=DIM_3; I++)
+  {
+    for(int J=1; J<=DIM_3; J++)
+    {
+      for(int P=1; P<=DIM_3; P++)
+      {
+        for(int Q=1; Q<=DIM_3; Q++)
+        {
+          Tns4_v(F4[dSS],I,J,P,Q) = Mat_v(dS0,I,J)*Mat_v(dS0,P,Q);
+          Tns4_v(F4[vSS],I,J,P,Q) = Mat_v(vS0,I,J)*Mat_v(vS0,P,Q);            
+        }
+      }
+    }
+  }
+
+  double dt_mu = dt*mu;
+      
+  for(int a=0; a<DIM_3x3x3x3; a++)
+  {    
+    L_out[a] = (1-dw)*dL_in[a] + (1-vw)*vL_in[a];
+    if(is_it_damaged_d)
+      L_out[a] += (dt_mu)/(1.0+dt_mu)*(dH)*F4[dSS].m_pdata[a];
+
+    if(is_it_damaged_v)
+      L_out[a] += (dt_mu)/(1.0+dt_mu)*(vH)*F4[vSS].m_pdata[a];                           
+  }
+
+  for(int a = 0; a < F4end; a++)
+    Matrix_cleanup(F4[a]);    
+  free(F4);
+
+  return err;  
+}
 
 int update_damaged_elasticity_split(MATERIAL_CONTINUUM_DAMAGE *mat_d,
                                     ELASTICITY *elasticity,
@@ -394,10 +543,11 @@ int update_damaged_elasticity_split(MATERIAL_CONTINUUM_DAMAGE *mat_d,
     free(F4);
   }
   
-  for(int a=0; a<DIM_3x3; a++)
-    elasticity->S[a] = (1.0 - dw)*F2[dS_0].m_pdata[a] 
-                     + (1.0 - vw)*F2[vS_0].m_pdata[a];
-  
+  err += apply_split_damage_on_stress(elasticity->S, 
+                                      F2[dS_0].m_pdata, 
+                                      F2[vS_0].m_pdata, 
+                                      dw, vw);    
+
   for(int a = 0; a < F2end; a++)
     Matrix_cleanup(F2[a]);    
   free(F2);

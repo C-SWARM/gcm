@@ -316,6 +316,82 @@ int compute_S0_Sbar(Matrix(double) *S0,
   return err;
 }
 
+int compute_S0_Sbar_public(double *S0_out,
+                           double *Sbar_out,
+                           double *F_in,
+                           double *sp_in,
+                           ELASTICITY *elast)
+{
+  int err = 0;
+
+  Matrix(double) S0, Sbar, F, sp;
+    S0.m_row =   S0.m_col = DIM_3;   S0.m_pdata =   S0_out;
+  Sbar.m_row = Sbar.m_col = DIM_3; Sbar.m_pdata = Sbar_out;     
+     F.m_row =    F.m_col = DIM_3;    F.m_pdata =    F_in;
+    sp.m_row =   sp.m_col = DIM_3;   sp.m_pdata =   sp_in;
+     
+  err += compute_S0_Sbar(&S0,&Sbar,&F,&sp,elast);
+
+  return err;
+}
+
+int compute_S0_Sbar_split_public(double *dS0_out,   double *vS0_out,
+                                 double *dSbar_out, double *vSbar_out,
+                                 double *F_in, double *sp_in,
+                                 ELASTICITY *elast)
+{  
+  int err = 0;
+  
+  Matrix(double) dS0, vS0, dSbar, vSbar, F, sp;
+    dS0.m_row =   dS0.m_col = DIM_3;   dS0.m_pdata =   dS0_out;
+    vS0.m_row =   vS0.m_col = DIM_3;   vS0.m_pdata =   vS0_out;
+  dSbar.m_row = dSbar.m_col = DIM_3; dSbar.m_pdata = dSbar_out;
+  vSbar.m_row = vSbar.m_col = DIM_3; vSbar.m_pdata = vSbar_out;     
+      F.m_row =     F.m_col = DIM_3;     F.m_pdata =     F_in;
+     sp.m_row =    sp.m_col = DIM_3;    sp.m_pdata =    sp_in;
+    
+  // compute the current configuration deviatoric stresses
+  
+  double G = (elast->mat)->G;
+  double kappa = (elast->mat)->kappa;
+
+  Matrix(double) s0,sbar,bbar, C, CI;
+  Matrix_construct_init(double,s0,  DIM_3,DIM_3,0.0);
+  Matrix_construct_init(double,sbar,DIM_3,DIM_3,0.0);
+  Matrix_construct_init(double,bbar,DIM_3,DIM_3,0.0);
+  Matrix_construct_init(double,C,   DIM_3,DIM_3,0.0);
+  Matrix_construct_init(double,CI,  DIM_3,DIM_3,0.0);    
+  
+  err += compute_bbar(&bbar, &F);
+  err += compute_s0(G, &bbar,&s0);  
+  Matrix_AplusB(sbar,1.0,s0,-1.0, sp);
+
+  //perform pull-back */
+  err += compute_pull_back(&F,&s0,&dS0);
+  err += compute_pull_back(&F,&sbar,&dSbar);                        
+
+  //compute volumetric stress
+  Matrix_AxB(C,1.0,0.0,F,1,F,0);
+  Matrix_inv(C,CI);
+  double J = 0.0;
+  Matrix_det(F,J);
+  double dudj = 0.0;
+  elast->compute_dudj(&dudj,J);
+  for (int i = 0; i < DIM_3x3; i++) 
+  {
+    double tmp = kappa*J*dudj*CI.m_pdata[i];
+    vS0.m_pdata[i]   = tmp;
+    vSbar.m_pdata[i] = tmp;
+  }
+
+  Matrix_cleanup(s0);   
+  Matrix_cleanup(sbar);
+  Matrix_cleanup(bbar);
+  Matrix_cleanup(C);
+  Matrix_cleanup(CI);  
+  return err;
+}
+
 // compute the deviatoric initial/unloading tangent in the reference
 // configuration
 int compute_unloading_Aep_dev(Matrix(double) *Aep_dev,
@@ -541,6 +617,91 @@ int compute_Lbar(Matrix(double) *Lbar,
 	      {
 	        // Deviatoric + Volumetric stiffness
 	        Tns4_v(*Lbar,i,j,k,l) += ((coeff_1*Mat_v(CI,i,j)*Mat_v(CI,k,l))
+                                -(coeff_2*Mat_v(CI,i,k)*Mat_v(CI,l,j)));
+	      }
+      }
+    }
+  }
+  
+  Matrix_cleanup(C);
+  Matrix_cleanup(CI); 
+  return err;
+}
+
+int compute_Lbar_public(double *Lbar_out,
+                        double *F_in,
+                        double *Fn_in,
+                        double *sp_n_in,
+                        double gamma,
+                        MATERIAL_J2_PLASTICITY *J2P,             
+                        ELASTICITY *elast)
+{
+  int err = 0;
+
+  Matrix(double) Lbar, F, Fn, sp_n;
+  Lbar.m_row = DIM_3x3x3x3; Lbar.m_col = 1; Lbar.m_pdata = Lbar_out;
+     F.m_row =    F.m_col = DIM_3;    F.m_pdata =    F_in;
+    Fn.m_row =   Fn.m_col = DIM_3;   Fn.m_pdata =   Fn_in;
+  sp_n.m_row = sp_n.m_col = DIM_3; sp_n.m_pdata = sp_n_in;
+      
+  err += compute_Lbar(&Lbar, &F, &Fn, &sp_n, gamma, J2P, elast);
+  return err;
+}
+
+int compute_Lbar_split_public(double *dLbar_out, double *vLbar_out,
+                              double *F_in,
+                              double *Fn_in,
+                              double *sp_n_in,
+                              double gamma,
+                              MATERIAL_J2_PLASTICITY *J2P,             
+                              ELASTICITY *elast)
+{
+  int err = 0;
+  
+  Matrix(double) dLbar, vLbar, F, Fn, sp_n;
+  dLbar.m_row = DIM_3x3x3x3; dLbar.m_col = 1; dLbar.m_pdata = dLbar_out;
+  vLbar.m_row = DIM_3x3x3x3; vLbar.m_col = 1; vLbar.m_pdata = vLbar_out;
+     F.m_row =    F.m_col = DIM_3;    F.m_pdata =    F_in;
+    Fn.m_row =   Fn.m_col = DIM_3;   Fn.m_pdata =   Fn_in;
+  sp_n.m_row = sp_n.m_col = DIM_3; sp_n.m_pdata = sp_n_in;
+    
+  double kappa = (elast->mat)->kappa;
+  double G = (elast->mat)->G;
+  double J = 0.0;
+  Matrix_det(F,J);
+  
+  Matrix(double) C, CI;
+  Matrix_construct_init(double,C,  DIM_3,DIM_3,0.0);
+  Matrix_construct_init(double,CI, DIM_3,DIM_3,0.0); 
+  
+  Matrix_AxB(C,1.0,0.0,F,1,F,0);
+  Matrix_inv(C,CI);
+    
+  double dudj = 0.0;
+  double d2udj2 = 0.0;
+
+  // compute deviatoric stiffness
+  if (gamma > 0)
+    err += compute_loading_Aep_dev(&dLbar,&F,&Fn,&sp_n,gamma,J2P,elast->mat);
+  else 
+    err += compute_unloading_Aep_dev(&dLbar,&F,&Fn,&sp_n,G);    
+
+  elast->compute_dudj(&dudj,J);
+  elast->compute_d2udj2(&d2udj2,J);
+
+  // compute volumetric stiffness
+  double coeff_1 = kappa*J*(dudj+J*d2udj2);
+  double coeff_2 = 2.0*kappa*J*dudj;
+    
+  for (int i=1; i <= DIM_3; i++) 
+  {
+    for (int j=1; j <= DIM_3; j++) 
+    {
+      for (int k=1; k <= DIM_3; k++) 
+      {
+	      for (int l=1; l <= DIM_3; l++) 
+	      {
+	        Tns4_v(vLbar,i,j,k,l) = ((coeff_1*Mat_v(CI,i,j)*Mat_v(CI,k,l))
                                 -(coeff_2*Mat_v(CI,i,k)*Mat_v(CI,l,j)));
 	      }
       }
