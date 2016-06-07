@@ -523,10 +523,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
     *is_it_cnvg = 1;
   }
   else
-  {    
     err += 1;
-    printf("Integration algorithm is diverging ( %e < %e, M = %d)\n", (err_g/g_0) , solver_info->tol_hardening, is_it_cnvg_M);
-  }
   
   for(int a = 0; a < F2end; a++)
     Matrix_cleanup(F2[a]);  
@@ -620,8 +617,12 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, dou
                                          elasticity,solver_info,&d_gamma,&is_it_cnvg);
 
   if(solver_info->max_subdivision<2)
+  {
+    if(is_it_cnvg==0)
+      printf("Integration algorithm is diverging\n");  
     return err;
-    
+  }
+  
   double w = (d_gamma)/D_GAMMA_D;
   if(w < D_GAMMA_TOL && is_it_cnvg)
     return err;
@@ -654,7 +655,10 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, dou
       }
     }                                                                       
   }
-  
+
+  if(is_it_cnvg==0)
+    printf("Integration algorithm is diverging\n");    
+
   return err;  
 }
 
