@@ -168,7 +168,7 @@ void test_crystal_plasticity_single_crystal(MAT_PROP *mat_in, SIM_PARAMS *sim,
                                                   tol_hardening,
                                                   tol_M,
                                                   computer_zero);
-  //solver_info.max_subdivision = 128;                                                  
+  solver_info.max_subdivision = 128;                                                  
   //print_crystal_plasticity_solver_info(&solver_info); // <= this is optional
   
   // create elasticity object for integration
