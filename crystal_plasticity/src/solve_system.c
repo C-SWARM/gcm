@@ -578,17 +578,16 @@ int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double
                                          F2[  F_s].m_pdata,
                                          g_n_s,dt_s,mat,
                                          elasticity,solver_info,d_gamma,&is_sub_cnvg);
-    if(solver_info->max_subdivision < stepno*2 && (*d_gamma)/D_GAMMA_D>D_GAMMA_TOL)
+    if((*d_gamma)/D_GAMMA_D>D_GAMMA_TOL || !is_sub_cnvg)
+    {
+      err = 1;  
       break;
-      
-    if(solver_info->max_subdivision > stepno*2 && !is_sub_cnvg)
-      break;  
-                                        
+    }
+                                              
     for(int b=0; b<DIM_3x3; b++)
     {
       F2[pFn_s].m_pdata[b] = pFnp1_out[b];
-      F2[ Fn_s].m_pdata[b] = F2[F_s].m_pdata[b];
-      
+      F2[ Fn_s].m_pdata[b] = F2[F_s].m_pdata[b];      
     }
     g_n_s = *g_out;
   }
@@ -639,25 +638,32 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, dou
     while(w>D_GAMMA_TOL || !is_it_cnvg)
     {
       *lambda = lambda_in;
+      err = 0;
+      is_it_cnvg = 0;
       err += staggered_Newton_Rapson_subdivision(pFnp1_out, M_out, g_out,lambda, 
                                                  pFn_in,Fn_in,Fnp1_in,g_n,dt,
                                                  mat,elasticity,solver_info,stepno,&d_gamma,&is_it_cnvg);
       stepno *= 2;
       w = d_gamma/D_GAMMA_D;
       
-      if(w>D_GAMMA_TOL && stepno>(solver_info->max_subdivision))
+      if(stepno>(solver_info->max_subdivision))
       {
-        if(DEBUG_PRINT_STAT)
+        if(w>D_GAMMA_TOL)
         {
-          printf("WARNING: reach maximum number of sub division\n");
-          printf("Integration algorithm updates values computed at the final step\n");
-        }        
+          if(DEBUG_PRINT_STAT)
+          {
+            printf("WARNING: reach maximum number of sub division\n");
+            printf("Integration algorithm updates values computed at the final step\n");
+          }
+          err++;
+        }
+        break;        
       }
     }                                                                       
   }
 
   if(is_it_cnvg==0)
-    printf("Integration algorithm is diverging\n");    
+    printf("After subdivision: Integration algorithm is diverging\n");    
 
   return err;  
 }
