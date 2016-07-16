@@ -23,6 +23,7 @@ int set_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_in
   solver_info->tol_M             = tol_M;
   solver_info->computer_zero     = computer_zero;
   solver_info->max_subdivision   = -1; 
+  solver_info->debug             = 0;
   return err;
 }
 
