@@ -78,7 +78,7 @@ int compute_compute_residual_M(double *R, double *M_in, double *MI_in, double *p
   Matrix_eye(F2[Ident],DIM_3);
   
   for(int a=0; a<DIM_3x3; a++)
-    R[a] = F2[Ru].m_pdata[a]-1.0/dt*(F2[Ident].m_pdata[a] - M.m_pdata[a]) - lambda*det_MIpFn*F2[MIT].m_pdata[a];
+    R[a] = dt*F2[Ru].m_pdata[a]-(F2[Ident].m_pdata[a] - M.m_pdata[a]) - lambda*det_MIpFn*F2[MIT].m_pdata[a];
   
   R[DIM_3x3] = det_MIpFn - 1.0;
           
@@ -115,7 +115,7 @@ int construct_tangent_M(double *K_out, double *MI_in, double *pFn_in, double *eF
   for(int a=0; a<slip->N_SYS; a++)
   {
     compute_Kuu_a(Kuu_a.m_pdata,F2[AA].m_pdata,elasticity->S,C_in,(slip->p_sys)+a*DIM_3x3,elasticity->L,drdtaus[a]); 
-    Matrix_AplusB(Kuu,1.0,Kuu,1.0,Kuu_a);
+    Matrix_AplusB(Kuu,1.0,Kuu,dt,Kuu_a);
   }      
   
   Matrix_AxB(F2[MIpFn],1.0,0.0,MI,0,pFn,0);
@@ -131,7 +131,7 @@ int construct_tangent_M(double *K_out, double *MI_in, double *pFn_in, double *eF
   for(int a=1; a<=DIM_3x3; a++)
   {
     for(int b=1; b<=DIM_3x3; b++)
-      Mat_v(K,a,b) = Mat_v(Kuu,a,b) + 1.0/dt*(a==b);
+      Mat_v(K,a,b) = Mat_v(Kuu,a,b) + 1.0*(a==b);
   }
   
   Matrix_AeqBT(F2[det_MIpFn_MI],det_MIpFn,MI);
