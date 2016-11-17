@@ -32,6 +32,27 @@ int Matrix_AxB_3by3(Matrix(double) *C, const Matrix(double) *A, Matrix(double) *
   return err;
 }
 
+/// compute C = A'*B for 3 by 3 matrix
+///
+/// \param[out] C [3 by 3] matrix, result of A*B
+/// \param[in]  A [3 by 3] input matrix to be multiplied
+/// \param[in]  B [3 by 3] input matrix to be multiplied
+/// \return non-zero on interal error
+int Matrix_ATxB_3by3(Matrix(double) *C, const Matrix(double) *A, Matrix(double) *B)
+{
+  int err = 0;
+  for(int ia=1; ia<=DIM_3; ia++)
+  {
+    for(int ib=1; ib<=DIM_3; ib++)
+    {
+      Mat_v(*C, ia, ib) = 0.0;
+      for(int ic=1; ic<=DIM_3; ic++)
+        Mat_v(*C, ia, ib) += Mat_v(*A, ic, ia)*Mat_v(*B, ic, ib);
+    }
+  }
+  return err;
+}
+
 int set_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info, 
                                        int max_itr_stag, int max_itr_hardening, int max_itr_M, 
                                        double tol_hardening, double tol_M, double computer_zero)
@@ -100,12 +121,12 @@ int compute_compute_residual_M(double *R, double *M_in, double *MI_in, double *p
   double det_MIpFnN;
   Matrix_det(F2[MIpFnN], det_MIpFnN);
   Matrix_eye(F2[Ident],DIM_3);
-  Matrix_AxB(F2[AM], 1.0,0.0,A,0,M,0);
+  Matrix_AxB_3by3(F2+AM,&A,&M); // <= Matrix_AxB(F2[AM], 1.0,0.0,A,0,M,0);
 
   for(int a=0; a<DIM_3x3; a++)
     F2[Ru].m_pdata[a] = dt*F2[Ru].m_pdata[a] + F2[AM].m_pdata[a] - F2[Ident].m_pdata[a];  
   
-  Matrix_AxB(F2[ATRu], 1.0,0.0,A,1,F2[Ru],0);  
+  Matrix_ATxB_3by3(F2+ATRu,&A,F2+Ru); // <= Matrix_AxB(F2[ATRu], 1.0,0.0,A,1,F2[Ru],0);  
   
   for(int a=0; a<DIM_3x3; a++)
     R[a] = F2[ATRu].m_pdata[a] - lambda*det_MIpFnN*F2[MIT].m_pdata[a];
@@ -137,13 +158,12 @@ int construct_tangent_M(double *K_out, double *M_in, double *MI_in, double *pFn_
   Matrix_construct_init(double,Kuu_a,DIM_3x3,DIM_3x3,0.0); 
   Matrix_construct_init(double,Kuu_b,DIM_3x3,DIM_3x3,0.0);
   
-  enum {AA,det_MIpFnN_MI,MIpFnN,AM,F2end};
+  enum {AA,det_MIpFnN_MI,MIpFnN,F2end};
   Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
   for (int a = 0; a < F2end; a++)
     Matrix_construct_redim(double, F2[a],DIM_3,DIM_3);
   
-  Matrix_AxB(F2[AA],1.0,0.0,eFnp1,1,Fa,0);
-  Matrix_AxB(F2[AM],1.0,0.0,A,1,M,0);
+  Matrix_ATxB_3by3(F2+AA,&eFnp1,&Fa); // <= Matrix_AxB(F2[AA],1.0,0.0,eFnp1,1,Fa,0);  
   
   // compute dt*sum dgamm/dtau Dtau[dM]*Pa 
   for(int a=0; a<slip->N_SYS; a++)
@@ -263,10 +283,10 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   for(int a = 0; a<solver_info->max_itr_M; a++)
   {
     cnt++;
-    Matrix_AxB(F2[eFnp1],1.0,0.0,Fa,0,M,0);
+    Matrix_AxB_3by3(F2+eFnp1,&Fa,&M); // <= Matrix_AxB(F2[eFnp1],1.0,0.0,Fa,0,M,0);
           
     Matrix_inv(M, F2[MI]);
-    Matrix_AxB(F2[C],1.0,0.0,F2[eFnp1],1,F2[eFnp1],0);        
+    Matrix_ATxB_3by3(F2+C,F2+eFnp1,F2+eFnp1); // <=  Matrix_AxB(F2[C],1.0,0.0,F2[eFnp1],1,F2[eFnp1],0);        
     elasticity->update_elasticity(elasticity,F2[eFnp1].m_pdata, 1); // compute stiffness also
     
     Matrix(double) S;
@@ -416,7 +436,7 @@ int Newton_Rapson_hardening(double *g_np1, double *eFnp1_in,
   } 
   
   // compute stress -->            
-  Matrix_AxB(C, 1.0, 0.0, eFnp1,1,eFnp1,0);    
+  Matrix_ATxB_3by3(&C,&eFnp1,&eFnp1); // <= Matrix_AxB(C, 1.0, 0.0, eFnp1,1,eFnp1,0);    
   elasticity->update_elasticity(elasticity,eFnp1.m_pdata, 0);
   // <-- compute stress
   
@@ -485,7 +505,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   // compute Fr
   Matrix_inv_check_err(Fn, F2[FnI], info);
   err += info;
-  Matrix_AxB(F2[Fr],1.0,0.0,Fnp1,0,F2[FnI],0);
+  Matrix_AxB_3by3(F2+Fr,&Fnp1,F2+FnI); // <= Matrix_AxB(F2[Fr],1.0,0.0,Fnp1,0,F2[FnI],0);
   Matrix_inv_check_err(F2[Fr], F2[FrI], info);
   err += info;
   // guess initial M
@@ -493,11 +513,11 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   err += info;  
   Matrix_Tns2_AxBxC(M,1.0,0.0,F2[eFnI],F2[FrI],F2[eFn]);
   // compute Fa  
-  Matrix_AxB(F2[Fa],1.0,0.0,F2[Fr],0,F2[eFn],0);
+  Matrix_AxB_3by3(F2+Fa,F2+Fr,F2+eFn); // <= Matrix_AxB(F2[Fa],1.0,0.0,F2[Fr],0,F2[eFn],0);
   // compute N : N = hFn*hFnp1_I
   Matrix_inv_check_err(hFnp1, F2[hFnp1I], info);
   err += info;
-  Matrix_AxB(F2[N],1.0,0.0,hFn,0,F2[hFnp1I],0);   
+  Matrix_AxB_3by3(F2+N,&hFn,F2+hFnp1I); // <= Matrix_AxB(F2[N],1.0,0.0,hFn,0,F2[hFnp1I],0);   
   // compute A : A = pFn*N_I*pFn_I   
   Matrix_inv_check_err(F2[N], F2[NI], info);
   err += info;
@@ -535,7 +555,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
       break;
     
     // compute eFnp1 = Fr*M
-    Matrix_AxB(F2[eFnp1], 1.0,0.0,F2[Fa],0,M,0);
+    Matrix_AxB_3by3(F2+eFnp1,F2+Fa,&M); // <= Matrix_AxB(F2[eFnp1], 1.0,0.0,F2[Fa],0,M,0);
     err += Newton_Rapson_hardening(&g_np1_kp1, F2[eFnp1].m_pdata, 
                             g_n, g_np1_k, dt, mat, elasticity, solver_info);
     
@@ -658,6 +678,29 @@ int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double
   return err;
 }                            
 
+/// integrate crystal plasticity from pFn to pFnp1 for general cases (includes thermal expansions)
+///
+/// In integrating plastic part of deformation gradient and hardening,
+/// Both non-linear iterations are staggered until two rediduals (M = pFr_I and g = hardening) are converged.
+/// If one of the iterations is diverging, subdivision steps can be applied if solver_info include
+/// subdivision number greater than 1. In the subdivision steps, loading (Fnp1) is linearly factorized as smaller
+/// time step size used. The subdivision step size increases 2, 4, 8, 18, ... upto solver_infor.max_subdivision.
+///
+/// \param[out] pFnp1_out deformation gradient (plastic) at time step = n + 1
+/// \param[out] M_out deformation gradient (pFr_I) at time step = n + 1
+/// \param[out] g_out updated hardening at time step =  n + 1
+/// \param[out] lambda updated Lagrange multiplier at time step =  n + 1
+/// \param[in] pFn_in deformation gradient (plastic) at time step = n
+/// \param[in] Fn_in deformation gradient (total) at time step = n
+/// \param[in] Fnp1_in deformation gradient (total) at time step = n + 1
+/// \param[in] hFn_in deformation gradient (due to thermal expansion) at time step = n
+/// \param[in] hFnp1_in deformation gradient (due to thermal expansion) at time step = n + 1
+/// \param[in] g_n hardening at time step =  n
+/// \param[in] dt time step size
+/// \param[in] mat material parameters
+/// \param[in] elasticity object to compute elasticity (stress)
+/// \param[in] solver_info defines numerical parameters 
+/// \return non-zero on interal error
 int staggered_Newton_Rapson_generalized(double *pFnp1_out, double *M_out, double *g_out, double *lambda, 
                                         double *pFn_in, double *Fn_in, double *Fnp1_in, double *hFn_in, double *hFnp1_in,  
                                         double g_n, double dt, 
@@ -743,12 +786,30 @@ int Fnp1_Implicit(double *Fnp1_out, double *Fn_in, double *L_in, double dt)
 
   Matrix_construct_redim(double,AI,DIM_3,DIM_3);
   Matrix_inv(A,AI);
-  Matrix_AxB(Fnp1,1.0,0.0,AI,0,Fn,0);
+  Matrix_AxB_3by3(&Fnp1,&AI,&Fn); // <= Matrix_AxB(Fnp1,1.0,0.0,AI,0,Fn,0);
 
   Matrix_cleanup(AI);  
   return err;
 }
 
+/// integrate crystal plasticity from pFn to pFnp1
+///
+/// Integrating plastic part of deformation gradient and hardening 
+/// same as staggered_Newton_Rapson_generalized except not includs thermal expansions.
+///
+/// \param[out] pFnp1_out deformation gradient (plastic) at time step = n + 1
+/// \param[out] M_out deformation gradient (pFr_I) at time step = n + 1
+/// \param[out] g_out updated hardening at time step =  n + 1
+/// \param[out] lambda updated Lagrange multiplier at time step =  n + 1
+/// \param[in] pFn_in deformation gradient (plastic) at time step = n
+/// \param[in] Fn_in deformation gradient (total) at time step = n
+/// \param[in] Fnp1_in deformation gradient (total) at time step = n + 1
+/// \param[in] g_n hardening at time step =  n
+/// \param[in] dt time step size
+/// \param[in] mat material parameters
+/// \param[in] elasticity object to compute elasticity (stress)
+/// \param[in] solver_info defines numerical parameters 
+/// \return non-zero on interal error 
 int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, double *lambda, 
                             double *pFn_in, double *Fn_in, double *Fnp1_in, 
                             double g_n, double dt, 
