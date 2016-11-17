@@ -11,6 +11,27 @@
 
 #include <math.h>
 
+/// compute C = A*B for 3 by 3 matrix
+///
+/// \param[out] C [3 by 3] matrix, result of A*B
+/// \param[in]  A [3 by 3] input matrix to be multiplied
+/// \param[in]  B [3 by 3] input matrix to be multiplied
+/// \return non-zero on interal error
+int Matrix_AxB_3by3(Matrix(double) *C, const Matrix(double) *A, Matrix(double) *B)
+{
+  int err = 0;
+  for(int ia=1; ia<=DIM_3; ia++)
+  {
+    for(int ib=1; ib<=DIM_3; ib++)
+    {
+      Mat_v(*C, ia, ib) = 0.0;
+      for(int ic=1; ic<=DIM_3; ic++)
+        Mat_v(*C, ia, ib) += Mat_v(*A, ia, ic)*Mat_v(*B, ic, ib);
+    }
+  }
+  return err;
+}
+
 int set_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info, 
                                        int max_itr_stag, int max_itr_hardening, int max_itr_M, 
                                        double tol_hardening, double tol_M, double computer_zero)
@@ -43,18 +64,21 @@ int print_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_
 }
                         
 int compute_compute_residual_M(double *R, double *M_in, double *MI_in, double *pFn_in, double *pFnI_in, 
+                               double *N_in, double *A_in,
                                double *gamma_dots,double lambda,double dt,
                                SLIP_SYSTEM *slip)
 {
   int err = 0;
   
-  Matrix(double) M,MI,pFn,pFnI;
+  Matrix(double) M,MI,pFn,pFnI, N, A;
      M.m_row =    M.m_col = DIM_3;    M.m_pdata = M_in;
     MI.m_row =   MI.m_col = DIM_3;   MI.m_pdata = MI_in;     
    pFn.m_row =  pFn.m_col = DIM_3;  pFn.m_pdata = pFn_in;
   pFnI.m_row = pFnI.m_col = DIM_3; pFnI.m_pdata = pFnI_in;
+     N.m_row =    N.m_col = DIM_3;    N.m_pdata = N_in;  // N = hFn*hFnp1_I
+     A.m_row =    A.m_col = DIM_3;    A.m_pdata = A_in;  // A = pFn*N_I*pFn_I     
     
-  enum {Ru,MIT,MIpFn,Ident,F2end};
+  enum {Ru,MIT,MIpFnN,Ident,AM,ATRu,F2end};
   Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
   for (int a = 0; a < F2end; a++) {
     Matrix_construct_redim(double, F2[a],DIM_3,DIM_3);
@@ -72,15 +96,21 @@ int compute_compute_residual_M(double *R, double *M_in, double *MI_in, double *p
   }
   
   Matrix_AeqBT(F2[MIT],1.0,MI); 
-  Matrix_AxB(F2[MIpFn],1.0,0.0,MI,0,pFn,0);
-  double det_MIpFn;
-  Matrix_det(F2[MIpFn], det_MIpFn);
+  Matrix_Tns2_AxBxC(F2[MIpFnN],1.0,0.0,MI,pFn,N);
+  double det_MIpFnN;
+  Matrix_det(F2[MIpFnN], det_MIpFnN);
   Matrix_eye(F2[Ident],DIM_3);
+  Matrix_AxB(F2[AM], 1.0,0.0,A,0,M,0);
+
+  for(int a=0; a<DIM_3x3; a++)
+    F2[Ru].m_pdata[a] = dt*F2[Ru].m_pdata[a] + F2[AM].m_pdata[a] - F2[Ident].m_pdata[a];  
+  
+  Matrix_AxB(F2[ATRu], 1.0,0.0,A,1,F2[Ru],0);  
   
   for(int a=0; a<DIM_3x3; a++)
-    R[a] = dt*F2[Ru].m_pdata[a]-(F2[Ident].m_pdata[a] - M.m_pdata[a]) - lambda*det_MIpFn*F2[MIT].m_pdata[a];
+    R[a] = F2[ATRu].m_pdata[a] - lambda*det_MIpFnN*F2[MIT].m_pdata[a];
   
-  R[DIM_3x3] = det_MIpFn - 1.0;
+  R[DIM_3x3] = det_MIpFnN - 1.0;
           
   for(int a = 0; a < F2end; a++)
     Matrix_cleanup(F2[a]); 
@@ -88,42 +118,63 @@ int compute_compute_residual_M(double *R, double *M_in, double *MI_in, double *p
   return err;
 }
 
-int construct_tangent_M(double *K_out, double *MI_in, double *pFn_in, double *eFnp1_in, double *Fa_in, double *C_in,
-                        double *drdtaus,double lambda, double dt,
+int construct_tangent_M(double *K_out, double *M_in, double *MI_in, double *pFn_in, double *eFnp1_in, double *Fa_in, double *C_in,
+                        double *N_in, double *A_in, double *drdtaus,double lambda, double dt,
                         ELASTICITY *elasticity,SLIP_SYSTEM *slip)
 {
   int err = 0;
 
-  Matrix(double) MI,pFn,eFnp1,Fa;
+  Matrix(double) M,MI,pFn,eFnp1,Fa,N,A;
+      M.m_row =     M.m_col = DIM_3;     M.m_pdata =    M_in;
      MI.m_row =    MI.m_col = DIM_3;    MI.m_pdata =    MI_in;
     pFn.m_row =   pFn.m_col = DIM_3;   pFn.m_pdata =   pFn_in; 
   eFnp1.m_row = eFnp1.m_col = DIM_3; eFnp1.m_pdata = eFnp1_in;
      Fa.m_row =    Fa.m_col = DIM_3;    Fa.m_pdata =    Fa_in;     
-  
+      N.m_row =     N.m_col = DIM_3;     N.m_pdata = N_in;  // N = hFn*hFnp1_I
+      A.m_row =     A.m_col = DIM_3;     A.m_pdata = A_in;  // A = pFn*N_I*pFn_I     
   Matrix(double) Kuu, Kuu_a, Kuu_b;
   Matrix_construct_init(double,Kuu,  DIM_3x3,DIM_3x3,0.0);
   Matrix_construct_init(double,Kuu_a,DIM_3x3,DIM_3x3,0.0); 
   Matrix_construct_init(double,Kuu_b,DIM_3x3,DIM_3x3,0.0);
   
-  enum {AA,det_MIpFn_MI,MIpFn,F2end};
+  enum {AA,det_MIpFnN_MI,MIpFnN,AM,F2end};
   Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
   for (int a = 0; a < F2end; a++)
     Matrix_construct_redim(double, F2[a],DIM_3,DIM_3);
   
   Matrix_AxB(F2[AA],1.0,0.0,eFnp1,1,Fa,0);
-    
+  Matrix_AxB(F2[AM],1.0,0.0,A,1,M,0);
+  
+  // compute dt*sum dgamm/dtau Dtau[dM]*Pa 
   for(int a=0; a<slip->N_SYS; a++)
   {
     compute_Kuu_a(Kuu_a.m_pdata,F2[AA].m_pdata,elasticity->S,C_in,(slip->p_sys)+a*DIM_3x3,elasticity->L,drdtaus[a]); 
     Matrix_AplusB(Kuu,1.0,Kuu,dt,Kuu_a);
-  }      
+  }
   
-  Matrix_AxB(F2[MIpFn],1.0,0.0,MI,0,pFn,0);
-  double det_MIpFn;
-  Matrix_det(F2[MIpFn], det_MIpFn);  
+  // compute AT*(dt*sum dgamm/dtau Dtau[dM]*Pa + A*dM  
+  for(int ia=1; ia<=DIM_3; ia++)
+  {
+    for(int ic=1; ic<=DIM_3; ic++)
+    {
+      for(int id=1; id<=DIM_3; id++)
+      {
+        for(int ie=1; ie<=DIM_3; ie++)
+        {
+          Tns4_v(Kuu_a,ia,ic,id,ie) = 0.0;
+          for(int ib=1; ib<=DIM_3; ib++)
+            Tns4_v(Kuu_a,ia,ic,id,ie) += Mat_v(A,ib,ia)*(Tns4_v(Kuu,ib,ic,id,ie) + Mat_v(A,ib,id)*(ic==ie));
+        }
+      }
+    }
+  }  
   
+  Matrix_Tns2_AxBxC(F2[MIpFnN],1.0,0.0,MI,pFn,N);
+  double det_MIpFnN;
+  Matrix_det(F2[MIpFnN], det_MIpFnN);  
+
+  // compute tr(MI*dM)*MI' + (MI*dU*MI)'  
   err += compute_Kuu_b(Kuu_b.m_pdata,MI.m_pdata);  
-  Matrix_AplusB(Kuu,1.0,Kuu,lambda*det_MIpFn,Kuu_b);
   
   Matrix(double) K;
   K.m_row = K.m_col = DIM_3x3+1;  K.m_pdata = K_out;
@@ -131,14 +182,14 @@ int construct_tangent_M(double *K_out, double *MI_in, double *pFn_in, double *eF
   for(int a=1; a<=DIM_3x3; a++)
   {
     for(int b=1; b<=DIM_3x3; b++)
-      Mat_v(K,a,b) = Mat_v(Kuu,a,b) + 1.0*(a==b);
+      Mat_v(K,a,b) = Mat_v(Kuu_a,a,b) + lambda*det_MIpFnN*Mat_v(Kuu_b,a,b);
   }
   
-  Matrix_AeqBT(F2[det_MIpFn_MI],det_MIpFn,MI);
+  Matrix_AeqBT(F2[det_MIpFnN_MI],det_MIpFnN,MI);
   for(int a=1; a<=DIM_3x3; a++)
   {
-    Mat_v(K,a,DIM_3x3+1) = -F2[det_MIpFn_MI].m_pdata[a-1];
-    Mat_v(K,DIM_3x3+1,a) = -F2[det_MIpFn_MI].m_pdata[a-1];    
+    Mat_v(K,a,DIM_3x3+1) = -F2[det_MIpFnN_MI].m_pdata[a-1];
+    Mat_v(K,DIM_3x3+1,a) = -F2[det_MIpFnN_MI].m_pdata[a-1];    
   }
 
   Mat_v(K,DIM_3x3+1,DIM_3x3+1) = 0.0;  
@@ -153,7 +204,8 @@ int construct_tangent_M(double *K_out, double *MI_in, double *pFn_in, double *eF
 }
 
 double Newton_Rapson4M(double *M_out, double *lambda,
-                    double *pFn_in, double *pFnI_in, double *Fnp1_in, double *Fa_in,
+                    double *pFn_in, double *pFnI_in, double *Fa_in,
+                    double *N_in, double *A_in,
                     double g_np1_k, double dt,
                     MATERIAL_CONSTITUTIVE_MODEL *mat,
                     ELASTICITY *elasticity,
@@ -169,12 +221,10 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   SLIP_SYSTEM *slip = mat->mat_p->slip;
   
   // this will use pointers, no need Matrix_cleanup -->
-  Matrix(double) M, pFn, pFnI, Fnp1, Fa;
-     M.m_row =    M.m_col = DIM_3;    M.m_pdata = M_out;
-   pFn.m_row =  pFn.m_col = DIM_3;  pFn.m_pdata =  pFn_in;       
-  pFnI.m_row = pFnI.m_col = DIM_3; pFnI.m_pdata = pFnI_in;  
-  Fnp1.m_row = Fnp1.m_col = DIM_3; Fnp1.m_pdata = Fnp1_in;
-    Fa.m_row =   Fa.m_col = DIM_3;   Fa.m_pdata =   Fa_in;  
+  Matrix(double) M, Fa;
+     M.m_row =    M.m_col = DIM_3;    M.m_pdata = M_out;   
+    Fa.m_row =   Fa.m_col = DIM_3;   Fa.m_pdata =   Fa_in;
+    
   // this will use pointers, no need Matrix_cleanup -->  
   
   enum {eFnp1,MI,C,F2end};
@@ -205,7 +255,6 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   // relative error (norm_R/norm_R_0) becomes large and Newton Rapson
   // is not convered.
   
-  
   int is_it_cnvg_on_eng_norm = 0;
   
   int cnt = 0;
@@ -214,7 +263,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   for(int a = 0; a<solver_info->max_itr_M; a++)
   {
     cnt++;
-    Matrix_Tns2_AxBxC(F2[eFnp1],1.0,0.0,Fnp1,pFnI,M);
+    Matrix_AxB(F2[eFnp1],1.0,0.0,Fa,0,M,0);
           
     Matrix_inv(M, F2[MI]);
     Matrix_AxB(F2[C],1.0,0.0,F2[eFnp1],1,F2[eFnp1],0);        
@@ -231,8 +280,8 @@ double Newton_Rapson4M(double *M_out, double *lambda,
     err += compute_d_gamma_d_tau(F1[dgamma_dtaus].m_pdata, g_np1_k, F1[taus].m_pdata, mat->mat_p);    
 
     // compute R (risidual)
-    err += compute_compute_residual_M(R.m_pdata,M.m_pdata,F2[MI].m_pdata,pFn.m_pdata,pFnI.m_pdata,  
-                                      F1[gamma_dots].m_pdata, *lambda, dt, slip);
+    err += compute_compute_residual_M(R.m_pdata,M.m_pdata,F2[MI].m_pdata,pFn_in,pFnI_in,
+                                      N_in, A_in, F1[gamma_dots].m_pdata, *lambda, dt, slip);
     *d_gamma = 0.0;
     
     for(int s = 0; s<slip->N_SYS; s++)
@@ -266,8 +315,8 @@ double Newton_Rapson4M(double *M_out, double *lambda,
       break;    
                                       
     // compute dR/dM                                      
-    err += construct_tangent_M(K.m_pdata, F2[MI].m_pdata,pFn.m_pdata,F2[eFnp1].m_pdata,Fa.m_pdata,F2[C].m_pdata,    
-                               F1[dgamma_dtaus].m_pdata,*lambda, dt,elasticity,slip);
+    err += construct_tangent_M(K.m_pdata, M_out, F2[MI].m_pdata,pFn_in,F2[eFnp1].m_pdata,Fa_in,F2[C].m_pdata,
+                               N_in, A_in, F1[dgamma_dtaus].m_pdata,*lambda, dt,elasticity,slip);
     
     // solve system of equation
 
@@ -342,7 +391,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   return err;
 }
 
-int Newton_Rapson_hardening(double *g_np1, double *M_in, double *pFnI_in, double *Fnp1_in, 
+int Newton_Rapson_hardening(double *g_np1, double *eFnp1_in, 
                             double g_n, double g_np1_k, double dt,
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
                             ELASTICITY *elasticity,
@@ -353,17 +402,12 @@ int Newton_Rapson_hardening(double *g_np1, double *M_in, double *pFnI_in, double
   SLIP_SYSTEM *slip = mat->mat_p->slip;
   
   // this will use pointers, no need Matrix_cleanup -->
-  Matrix(double) M, pFnI, Fnp1; 
-     M.m_row =    M.m_col = DIM_3;    M.m_pdata = M_in;
-  pFnI.m_row = pFnI.m_col = DIM_3; pFnI.m_pdata = pFnI_in;  
-  Fnp1.m_row = Fnp1.m_col = DIM_3; Fnp1.m_pdata = Fnp1_in;
+  Matrix(double) eFnp1; 
+  eFnp1.m_row = eFnp1.m_col = DIM_3; eFnp1.m_pdata = eFnp1_in;
   // <-- this will use pointers, no need Matrix_cleanup
   
-  enum {eFnp1,C,F2end};
-  Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
-  for (int a = 0; a < F2end; a++) {
-    Matrix_construct_redim(double, F2[a],DIM_3,DIM_3);
-  }
+  Matrix(double) C;
+  Matrix_construct_redim(double,C,DIM_3,DIM_3);
 
   enum {taus,gamma_dots,F1end};
   Matrix(double) *F1 = malloc(F1end*sizeof(Matrix(double)));
@@ -372,13 +416,12 @@ int Newton_Rapson_hardening(double *g_np1, double *M_in, double *pFnI_in, double
   } 
   
   // compute stress -->            
-  Matrix_Tns2_AxBxC(F2[eFnp1],1.0,0.0,Fnp1,pFnI,M);
-  Matrix_AxB(F2[C], 1.0, 0.0, F2[eFnp1],1,F2[eFnp1],0);    
-  elasticity->update_elasticity(elasticity,F2[eFnp1].m_pdata, 0);
+  Matrix_AxB(C, 1.0, 0.0, eFnp1,1,eFnp1,0);    
+  elasticity->update_elasticity(elasticity,eFnp1.m_pdata, 0);
   // <-- compute stress
   
   // compute taus
-  err += compute_tau_alphas(F1[taus].m_pdata,F2[C].m_pdata, elasticity->S, slip);        
+  err += compute_tau_alphas(F1[taus].m_pdata,C.m_pdata, elasticity->S, slip);
   // taus -> gamma_dots
   err += compute_gamma_dots(F1[gamma_dots].m_pdata, F1[taus].m_pdata, g_np1_k, mat->mat_p);
   // gamma_dots -> gamma_dot_np1
@@ -389,10 +432,7 @@ int Newton_Rapson_hardening(double *g_np1, double *M_in, double *pFnI_in, double
   *g_np1  = compute_g_np1(gs_np1, g_n, dt, gamma_dot_np1, mat->mat_p);
 
   
-  // cleanup temporal variables
-  for(int a = 0; a < F2end; a++)
-    Matrix_cleanup(F2[a]);   
-  free(F2);
+  Matrix_cleanup(C);   
      
   for(int a = 0; a < F1end; a++)
     Matrix_cleanup(F1[a]);
@@ -402,7 +442,7 @@ int Newton_Rapson_hardening(double *g_np1, double *M_in, double *pFnI_in, double
 }    
    
 int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_out, double *lambda, 
-                            double *pFn_in, double *Fn_in, double *Fnp1_in, 
+                            double *pFn_in, double *Fn_in, double *Fnp1_in, double *hFn_in, double *hFnp1_in,
                             double g_n, double dt, 
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
                             ELASTICITY *elasticity, 
@@ -419,15 +459,17 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   g_0 = (mat->mat_p)->g0;
 
   // this will use pointers, no need Matrix_cleanup -->
-  Matrix(double) pFnp1, M, pFn, Fn, Fnp1;
+  Matrix(double) pFnp1, M, pFn, Fn, Fnp1, hFn, hFnp1;
   pFnp1.m_row = pFnp1.m_col = DIM_3; pFnp1.m_pdata = pFnp1_out;   
       M.m_row =     M.m_col = DIM_3;     M.m_pdata = M_out;
     pFn.m_row =   pFn.m_col = DIM_3;   pFn.m_pdata = pFn_in;
      Fn.m_row =    Fn.m_col = DIM_3;    Fn.m_pdata = Fn_in;  
-   Fnp1.m_row =  Fnp1.m_col = DIM_3;  Fnp1.m_pdata = Fnp1_in; 
+   Fnp1.m_row =  Fnp1.m_col = DIM_3;  Fnp1.m_pdata = Fnp1_in;
+    hFn.m_row =   hFn.m_col = DIM_3;   hFn.m_pdata = hFn_in;
+  hFnp1.m_row = hFnp1.m_col = DIM_3; hFnp1.m_pdata = hFnp1_in;        
   // <-- this will use pointers, no need Matrix_cleanup
   
-  enum {eFn,eFnI,pFnI,FnI,Fr,FrI,Fa,MI,F2end};
+  enum {eFn,eFnI,pFnI,FnI,Fr,FrI,Fa,MI,hFnI,eFnp1,hFnp1I,A,N,NI,F2end};
   Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
   for (int a = 0; a < F2end; a++) {
     Matrix_construct_redim(double, F2[a],DIM_3,DIM_3);
@@ -437,7 +479,9 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   int info = 0;
   Matrix_inv_check_err(pFn, F2[pFnI], info);
   err += info;
-  Matrix_AxB(F2[eFn],1.0,0.0,Fn,0,F2[pFnI],0);
+  Matrix_inv_check_err(hFn, F2[hFnI], info);
+  err += info;  
+  Matrix_Tns2_AxBxC(F2[eFn],1.0,0.0,Fn,F2[hFnI],F2[pFnI]);
   // compute Fr
   Matrix_inv_check_err(Fn, F2[FnI], info);
   err += info;
@@ -445,12 +489,19 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   Matrix_inv_check_err(F2[Fr], F2[FrI], info);
   err += info;
   // guess initial M
-  Matrix_AxB(F2[eFnI],1.0,0.0,pFn,0,F2[FnI],0); 
-
+  Matrix_inv_check_err(F2[eFn], F2[eFnI], info);
+  err += info;  
   Matrix_Tns2_AxBxC(M,1.0,0.0,F2[eFnI],F2[FrI],F2[eFn]);
-  //Matrix_AxB(M,1.0,0.0,F2[eFnI],0,Fnp1, 0);
-    
-  Matrix_AxB(F2[Fa],1.0,0.0,F2[Fr],0,F2[eFn],0); 
+  // compute Fa  
+  Matrix_AxB(F2[Fa],1.0,0.0,F2[Fr],0,F2[eFn],0);
+  // compute N : N = hFn*hFnp1_I
+  Matrix_inv_check_err(hFnp1, F2[hFnp1I], info);
+  err += info;
+  Matrix_AxB(F2[N],1.0,0.0,hFn,0,F2[hFnp1I],0);   
+  // compute A : A = pFn*N_I*pFn_I   
+  Matrix_inv_check_err(F2[N], F2[NI], info);
+  err += info;
+  Matrix_Tns2_AxBxC(F2[A],1.0,0.0,pFn,F2[NI],F2[pFnI]);    
 
   int is_it_cnvg_M = 0;
   double norm_R_0 = 0.0;
@@ -467,21 +518,25 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
 
     if(k==0)
     {
-      err += Newton_Rapson_hardening(&g_np1_kp1, M.m_pdata, F2[pFnI].m_pdata, Fnp1.m_pdata,
+      // initial guess M is computed based on assumption that eFnp1 = eFn
+      // so that initial hardening is computed using eFn
+      err += Newton_Rapson_hardening(&g_np1_kp1, F2[eFn].m_pdata,
                             g_n, g_np1_k, dt, mat, elasticity, solver_info);
 
       err_g = sqrt((g_np1_kp1 - g_np1_k)*(g_np1_kp1 - g_np1_k));
       g_np1_k = g_np1_kp1;      
     }
     err += Newton_Rapson4M(M.m_pdata, lambda, 
-                           pFn.m_pdata, F2[pFnI].m_pdata, Fnp1.m_pdata, F2[Fa].m_pdata, 
+                           pFn.m_pdata, F2[pFnI].m_pdata, F2[Fa].m_pdata,F2[N].m_pdata,F2[A].m_pdata, 
                            g_np1_k, dt, mat, elasticity, solver_info,&is_it_cnvg_M,
                            &norm_R_0,d_gamma,k);                           
 
     if(err>0)
       break;
-      
-    err += Newton_Rapson_hardening(&g_np1_kp1, M.m_pdata, F2[pFnI].m_pdata, Fnp1.m_pdata, 
+    
+    // compute eFnp1 = Fr*M
+    Matrix_AxB(F2[eFnp1], 1.0,0.0,F2[Fa],0,M,0);
+    err += Newton_Rapson_hardening(&g_np1_kp1, F2[eFnp1].m_pdata, 
                             g_n, g_np1_k, dt, mat, elasticity, solver_info);
     
     err_g = sqrt((g_np1_kp1 - g_np1_k)*(g_np1_kp1 - g_np1_k));
@@ -519,7 +574,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   if((err_g/g_0)<solver_info->tol_hardening && is_it_cnvg_M)
   {
     Matrix_inv(M,F2[MI]);
-    Matrix_AxB(pFnp1,1.0,0.0,F2[MI],0,pFn,0);  
+    Matrix_Tns2_AxBxC(pFnp1,1.0,0.0,F2[MI],pFn,F2[N]);  
     *g_out = g_np1_kp1;      
     *is_it_cnvg = 1;
   }
@@ -534,7 +589,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
 }
 
 int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double *g_out, double *lambda, 
-                            double *pFn_in, double *Fn_in, double *Fnp1_in, 
+                            double *pFn_in, double *Fn_in, double *Fnp1_in, double *hFn_in, double *hFnp1_in,
                             double g_n, double dt, 
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
                             ELASTICITY *elasticity, 
@@ -577,6 +632,7 @@ int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double
                                          F2[pFn_s].m_pdata,
                                          F2[ Fn_s].m_pdata,
                                          F2[  F_s].m_pdata,
+                                         hFn_in, hFnp1_in,
                                          g_n_s,dt_s,mat,
                                          elasticity,solver_info,d_gamma,&is_sub_cnvg);
     if((*d_gamma)/D_GAMMA_D>D_GAMMA_TOL || !is_sub_cnvg)
@@ -601,19 +657,20 @@ int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double
     
   return err;
 }                            
-int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, double *lambda, 
-                            double *pFn_in, double *Fn_in, double *Fnp1_in, 
-                            double g_n, double dt, 
-                            MATERIAL_CONSTITUTIVE_MODEL *mat,
-                            ELASTICITY *elasticity, 
-                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info)
+
+int staggered_Newton_Rapson_generalized(double *pFnp1_out, double *M_out, double *g_out, double *lambda, 
+                                        double *pFn_in, double *Fn_in, double *Fnp1_in, double *hFn_in, double *hFnp1_in,  
+                                        double g_n, double dt, 
+                                        MATERIAL_CONSTITUTIVE_MODEL *mat,
+                                        ELASTICITY *elasticity, 
+                                        CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info)
 {
   int err = 0;
   double lambda_in = *lambda;
   int is_it_cnvg = 0;
   double d_gamma;
   err += staggered_Newton_Rapson_compute(pFnp1_out, M_out, g_out,lambda, 
-                                         pFn_in,Fn_in,Fnp1_in,g_n,dt,mat,
+                                         pFn_in,Fn_in,Fnp1_in,hFn_in,hFnp1_in,g_n,dt,mat,
                                          elasticity,solver_info,&d_gamma,&is_it_cnvg);
 
   if(solver_info->max_subdivision<2)
@@ -642,7 +699,7 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, dou
       err = 0;
       is_it_cnvg = 0;
       err += staggered_Newton_Rapson_subdivision(pFnp1_out, M_out, g_out,lambda, 
-                                                 pFn_in,Fn_in,Fnp1_in,g_n,dt,
+                                                 pFn_in,Fn_in,Fnp1_in,hFn_in,hFnp1_in,g_n,dt,
                                                  mat,elasticity,solver_info,stepno,&d_gamma,&is_it_cnvg);
       stepno *= 2;
       w = d_gamma/D_GAMMA_D;
@@ -690,4 +747,25 @@ int Fnp1_Implicit(double *Fnp1_out, double *Fn_in, double *L_in, double dt)
 
   Matrix_cleanup(AI);  
   return err;
+}
+
+int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, double *lambda, 
+                            double *pFn_in, double *Fn_in, double *Fnp1_in, 
+                            double g_n, double dt, 
+                            MATERIAL_CONSTITUTIVE_MODEL *mat,
+                            ELASTICITY *elasticity, 
+                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info)
+{
+  double hFn[9]; // hFn*hFnp1_I
+  hFn[1] = hFn[2] = hFn[3] = hFn[5] = hFn[6] = hFn[7] = 0.0;
+  hFn[0] = hFn[4] = hFn[8] = 1.0;
+
+  double hFnp1[9]; // hFn*hFnp1_I
+  hFnp1[1] = hFnp1[2] = hFnp1[3] = hFnp1[5] = hFnp1[6] = hFnp1[7] = 0.0;
+  hFnp1[0] = hFnp1[4] = hFnp1[8] = 1.0;
+    
+  int err = staggered_Newton_Rapson_generalized(pFnp1_out, M_out, g_out,lambda, 
+                                                pFn_in, Fn_in, Fnp1_in, hFn, hFnp1, 
+                                                g_n, dt, mat, elasticity, solver_info);
+  return err;                                      
 }
