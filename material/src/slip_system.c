@@ -105,9 +105,6 @@ int rotate_crystal_orientation(SLIP_SYSTEM* slip_out, double *R_in, SLIP_SYSTEM*
   Matrix_construct_redim(double, RT, DIM_3,DIM_3);
   Matrix_AeqBT(RT,1.0,R);
   
-   Pa_in.m_col =  Pa_in.m_row = DIM_3;
-  Pa_out.m_col = Pa_out.m_row = DIM_3;
-    
   for(int a=0; a<slip_in->N_SYS; a++)
   {
      Pa_in.m_pdata =  (slip_in->p_sys) + a*DIM_3x3;
