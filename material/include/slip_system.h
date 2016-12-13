@@ -19,7 +19,35 @@ typedef struct SLIP_SYSTEM SLIP_SYSTEM;
 int construct_slip_system(SLIP_SYSTEM *slip, int type);
 int destruct_slip_system(SLIP_SYSTEM *slip);
 
+/// compute rotation matrix using Euler angles
+///
+/// \param[out] R_in computed rotation matrxi
+/// \param[out] Ax_in rotation matrix of phi
+/// \param[out] Ay_in rotation matrix of theta
+/// \param[out] Az_in rotation matrix of psi
+/// \param[in] phi 1st Euler angle
+/// \param[in] theta 2nd Euler angle
+/// \param[in] psi 3rd Euler angle
+/// \return non-zero on interal error
+int rotation_matrix_of_Euler_angles(double *R_in, 
+                                    double *Ax_in,
+                                    double *Ay_in,
+                                    double *Az_in,
+                                    double phi, 
+                                    double theta, 
+                                    double psi);
+
+/// compute rotation matrices using array of Euler angles
+///
+/// \param[out] R_out computed rotation matrices
+/// \param[in] angles array of Euler angles angles = [phi_0, theta_0, psi_0
+///                                                    phi_1, theta_1, psi_1
+///                                                              :
+///                                                                   ]
+/// \param[in] ortno number of orientation angles
+/// \return non-zero on interal error 
 int set_crystal_orientations(double *R_out, double *angles, int ortno);
+
 int rotate_crystal_orientation(SLIP_SYSTEM* slip_out, double *R, SLIP_SYSTEM* slip_in);
 int generate_random_crystal_orientation(double* angles, int angle_no);
 #endif
