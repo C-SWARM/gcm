@@ -51,48 +51,85 @@ int destruct_slip_system(SLIP_SYSTEM *slip)
   return err;
 }
 
+/// compute rotation matrix using Euler angles
+/// R = Az(psi)*Ay(theta)*Ax(phi)
+///
+/// \param[out] R_in computed rotation matrxi
+/// \param[out] Ax_in rotation matrix of phi
+/// \param[out] Ay_in rotation matrix of theta
+/// \param[out] Az_in rotation matrix of psi
+/// \param[in] phi 1st Euler angle
+/// \param[in] theta 2nd Euler angle
+/// \param[in] psi 3rd Euler angle
+/// \return non-zero on interal error
+int rotation_matrix_of_Euler_angles(double *R_in, 
+                                    double *Ax_in,
+                                    double *Ay_in,
+                                    double *Az_in,
+                                    double phi, 
+                                    double theta, 
+                                    double psi)
+{
+  int err = 0;
+  // handle for matrix objecs based on [3x3] matrix stencil 
+  Matrix(double) Ax, Ay, Az, R;
+  Ax.m_row = Ax.m_col = DIM_3; Ax.m_pdata = Ax_in;
+  Ay.m_row = Ay.m_col = DIM_3; Ay.m_pdata = Ay_in;
+  Az.m_row = Az.m_col = DIM_3; Az.m_pdata = Az_in;
+   R.m_row =  R.m_col = DIM_3;  R.m_pdata =  R_in;
 
+  // compute rotation matrix of the 1st Euler angle phi
+  Mat_v(Ax,1,1) = 1.0;
+  Mat_v(Ax,1,2) = Mat_v(Ax,1,3) = Mat_v(Ax,2,1) = Mat_v(Ax,3,1) = 0.0;
+  Mat_v(Ax,2,2) =  cos(phi); Mat_v(Ax,2,3) = -sin(phi);
+  Mat_v(Ax,3,2) =  sin(phi); Mat_v(Ax,3,3) = cos(phi);    
+
+  // compute rotation matrix of the 2nd Euler angle theta
+  Mat_v(Ay,2,2) = 1.0;
+  Mat_v(Ay,2,1) = Mat_v(Ay,2,3) = Mat_v(Ay,1,2) = Mat_v(Ay,3,2) = 0.0;
+  Mat_v(Ay,1,1) = cos(theta); Mat_v(Ay,1,3) =  sin(theta);
+  Mat_v(Ay,3,1) = -sin(theta); Mat_v(Ay,3,3) =  cos(theta);
+
+  // compute rotation matrix of the 3rd Euler angle psi
+  Mat_v(Az,3,3) = 1.0;
+  Mat_v(Az,3,1) = Mat_v(Az,3,2) = Mat_v(Az,1,3) = Mat_v(Az,2,3) = 0.0;
+  Mat_v(Az,1,1) =  cos(psi); Mat_v(Az,1,2) = -sin(psi);
+  Mat_v(Az,2,1) =  sin(psi); Mat_v(Az,2,2) = cos(psi);
+  
+  // R = Az(psi)*Ay(theta)*Ax(phi)            
+  Matrix_Tns2_AxBxC(R,1.0,0.0,Az,Ay,Ax);
+   
+  return err;
+}
+
+/// compute rotation matrices using array of Euler angles
+///
+/// \param[out] R_out computed rotation matrices
+/// \param[in] angles array of Euler angles angles = [phi_0, theta_0, psi_0
+///                                                    phi_1, theta_1, psi_1
+///                                                              :
+///                                                                   ]
+/// \param[in] ortno number of orientation angles
+/// \return non-zero on interal error 
 int set_crystal_orientations(double *R_out, double *angles, int ortno)
 {
   int err = 0;
  
-  Matrix(double) Ax, Ay, Az, R;
-  R.m_row = R.m_col = DIM_3;
-  
-  Matrix_construct_init(double, Ax, DIM_3,DIM_3, 0.0);
-  Matrix_construct_init(double, Ay, DIM_3,DIM_3, 0.0);
-  Matrix_construct_init(double, Az, DIM_3,DIM_3, 0.0);    
-  
+  double Ax[DIM_3x3], Az[DIM_3x3], Ay[DIM_3x3]; 
+    
   for(int a = 0; a<ortno; a++)
   {
     double phi   = angles[a*DIM_3 + 0];
     double theta = angles[a*DIM_3 + 1];
     double psi   = angles[a*DIM_3 + 2];
-    R.m_pdata = R_out + DIM_3x3*a;
     
-    Mat_v(Ax,1,1) = 1.0;
-    Mat_v(Ax,1,2) = Mat_v(Ax,1,3) = Mat_v(Ax,2,1) = Mat_v(Ax,3,1) = 0.0;
-    Mat_v(Ax,2,2) =  cos(phi); Mat_v(Ax,2,3) = -sin(phi);
-    Mat_v(Ax,3,2) =  sin(phi); Mat_v(Ax,3,3) = cos(phi);    
-  
-    Mat_v(Ay,2,2) = 1.0;
-    Mat_v(Ay,2,1) = Mat_v(Ay,2,3) = Mat_v(Ay,1,2) = Mat_v(Ay,3,2) = 0.0;
-    Mat_v(Ay,1,1) = cos(theta); Mat_v(Ay,1,3) =  sin(theta);
-    Mat_v(Ay,3,1) = -sin(theta); Mat_v(Ay,3,3) =  cos(theta);
-  
-    Mat_v(Az,3,3) = 1.0;
-    Mat_v(Az,3,1) = Mat_v(Az,3,2) = Mat_v(Az,1,3) = Mat_v(Az,2,3) = 0.0;
-    Mat_v(Az,1,1) =  cos(psi); Mat_v(Az,1,2) = -sin(psi);
-    Mat_v(Az,2,1) =  sin(psi); Mat_v(Az,2,2) = cos(psi);            
-    Matrix_Tns2_AxBxC(R,1.0,0.0,Az,Ay,Ax);
+    err += rotation_matrix_of_Euler_angles(R_out + DIM_3x3*a, 
+                                           Ax, Ay, Az, phi, theta, psi);    
   }
-
-  Matrix_cleanup(Ax);
-  Matrix_cleanup(Ay);
-  Matrix_cleanup(Az);
-  
   return err;
 }
+
+
 int rotate_crystal_orientation(SLIP_SYSTEM* slip_out, double *R_in, SLIP_SYSTEM* slip_in)
 {
   int err = 0;
