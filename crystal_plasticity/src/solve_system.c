@@ -84,10 +84,10 @@ int print_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_
   return err;  
 }
                         
-int compute_compute_residual_M(double *R, double *M_in, double *MI_in, double *pFn_in, double *pFnI_in, 
-                               double *N_in, double *A_in,
-                               double *gamma_dots,double lambda,double dt,
-                               SLIP_SYSTEM *slip)
+int compute_residual_M(double *R, double *M_in, double *MI_in, double *pFn_in, double *pFnI_in, 
+                       double *N_in, double *A_in,
+                       double *gamma_dots,double lambda,double dt,
+                       SLIP_SYSTEM *slip)
 {
   int err = 0;
   
@@ -300,8 +300,8 @@ double Newton_Rapson4M(double *M_out, double *lambda,
     err += compute_d_gamma_d_tau(F1[dgamma_dtaus].m_pdata, g_np1_k, F1[taus].m_pdata, mat->mat_p);    
 
     // compute R (risidual)
-    err += compute_compute_residual_M(R.m_pdata,M.m_pdata,F2[MI].m_pdata,pFn_in,pFnI_in,
-                                      N_in, A_in, F1[gamma_dots].m_pdata, *lambda, dt, slip);
+    err += compute_residual_M(R.m_pdata,M.m_pdata,F2[MI].m_pdata,pFn_in,pFnI_in,
+                              N_in, A_in, F1[gamma_dots].m_pdata, *lambda, dt, slip);
     *d_gamma = 0.0;
     
     for(int s = 0; s<slip->N_SYS; s++)
