@@ -1,0 +1,19 @@
+# The test example computes crystal plasticity responses: tension, relaxation, and cyclic mode.
+# The inputs include crystal orienations (256 grains) and simulation parameters: params_tension.in, params_relaxation.in, params_cyclic.in. 
+# Grains are uniformly distributed and responses are computed from each process at a time. 
+# At end of simulation, stress strain results are MPI_reduced and printed out with final deformation gradients in the output folder.
+#
+# How to run:
+# compile the test code
+make
+# run the test
+mvapich2/2.1-intel-15.0-mlx
+NP=16
+./run_intgration_alg.sh $NP tension
+./run_intgration_alg.sh $NP relaxation
+./run_intgration_alg.sh $NP cyclic
+
+# check results
+/cswarm/tools/bin/numdiff -a 1.0e-6 -r 1.0e-6 ref_output/tension_256.txt    out_tension/tension_256.txt
+/cswarm/tools/bin/numdiff -a 1.0e-6 -r 1.0e-6 ref_output/relaxation_256.txt out_relaxation/relaxation_256.txt
+/cswarm/tools/bin/numdiff -a 1.0e-6 -r 1.0e-6 ref_output/cyclic_256.txt     out_cyclic/cyclic_256.txt
