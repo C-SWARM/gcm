@@ -3,6 +3,10 @@
 
 #include "material_properties.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* #ifdef __cplusplus */
+
 struct ELASTICITY;
 #ifndef TYPE_ELASTICITY
 #define TYPE_ELASTICITY
@@ -35,5 +39,10 @@ struct ELASTICITY
 
 int construct_elasticity(ELASTICITY *elasticity, MATERIAL_ELASTICITY *mat, const int compute_stiffness);
 int destruct_elasticity(ELASTICITY *elasticity);
+
+
+#ifdef __cplusplus
+}
+#endif /* #ifdef __cplusplus */
 
 #endif 
