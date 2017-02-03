@@ -4,6 +4,11 @@
 #include "material_properties.h"
 #include "hyperelasticity.h"
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* #ifdef __cplusplus */
+
 struct CRYSTAL_PLASTICITY_SOLVER_INFO
 {
   int max_itr_stag;     // maximum number of iteration for staggerd NR
@@ -71,5 +76,10 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, dou
                             CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info); 
                             
 int Fnp1_Implicit(double *Fnp1_out, double *Fn_in, double *L_in, double dt);
+
+
+#ifdef __cplusplus
+}
+#endif /* #ifdef __cplusplus */
 
 #endif

@@ -3,6 +3,11 @@
 
 #include "material_properties.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* #ifdef __cplusplus */
+
+
 void SEDF_devPotential_Mooney_Rivlin(double *C_in,
 			 MATERIAL_ELASTICITY const *mat,
 			 double *W);
@@ -58,4 +63,9 @@ void SEDF_d3UdJ3_Common_new(double *d3UdJ3, double const J);
 void SEDF_d3UdJ3_Doll_Schweizerhof_7(double *d3UdJ3, double J);
 
 void SEDF_d3UdJ3_Doll_Schweizerhof_8(double *d3UdJ3, double J);
+
+#ifdef __cplusplus
+}
+#endif /* #ifdef __cplusplus */
+
 #endif

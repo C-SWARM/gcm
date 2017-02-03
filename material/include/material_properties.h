@@ -3,6 +3,10 @@
 
 #include "slip_system.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* #ifdef __cplusplus */
+
 struct MATERIAL_ELASTICITY
 {
   double E;       // Young's modulus
@@ -127,4 +131,9 @@ int set_split_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1,
 int set_J2_plasticity_parameters(MATERIAL_J2_PLASTICITY *J2P, const double hp,
                                                               const double beta,
                                                               const double k0);
+
+#ifdef __cplusplus
+}
+#endif /* #ifdef __cplusplus */
+
 #endif 
