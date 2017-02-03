@@ -27,6 +27,14 @@ void SEDF_matStiff_Linear(double *C,
 		     MATERIAL_ELASTICITY const *mat,
 		     double *L);
 
+void SEDF_d3W_dC3_Mooney_Rivlin(double *C_in,
+			    MATERIAL_ELASTICITY const *mat,
+			    double *L_out);
+			    
+void SEDF_d3W_dC3_Linear(double *C,
+		     MATERIAL_ELASTICITY const *mat,
+		     double *L);		     
+
 void SEDF_U_Common(double *U, double const J);
 
 void SEDF_U_Doll_Schweizerhof_7(double *U, double const J);
@@ -45,4 +53,9 @@ void SEDF_d2UdJ2_Doll_Schweizerhof_7(double *d2UdJ2, double J);
 
 void SEDF_d2UdJ2_Doll_Schweizerhof_8(double *d2UdJ2, double J);
 
+void SEDF_d3UdJ3_Common_new(double *d3UdJ3, double const J);
+
+void SEDF_d3UdJ3_Doll_Schweizerhof_7(double *d3UdJ3, double J);
+
+void SEDF_d3UdJ3_Doll_Schweizerhof_8(double *d3UdJ3, double J);
 #endif

@@ -163,6 +163,94 @@ int compute_effective_Cauchy_stress(ELASTICITY *elasticity, double *sigma_eff, d
   return err;
 }
 
+int compute_tangent_of_tangent(ELASTICITY *elasticity, double *eF, double *K)
+{
+  int err = 0;
+
+  // Matrix construct --->
+  enum {C,CI,F2end};
+  Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
+  for (int a = 0; a < F2end; a++) {
+    Matrix_construct_redim(double, F2[a],DIM_3,DIM_3);
+  }
+  // <-- Matrix construct
+  
+  Matrix(double) F;
+  F.m_row = F.m_col = DIM_3; F.m_pdata = eF;
+  
+  double J = 0.0;
+  Matrix_AxB(F2[C],1.0,0.0,F,1,F,0);  
+  Matrix_inv(F2[C],F2[CI]);
+  Matrix_det(F, J); 
+  
+  double *C_I = F2[CI].m_pdata; 
+  
+  double kappa = elasticity->mat->kappa;    
+  elasticity->compute_d3W_dC3_dev(F2[C].m_pdata, elasticity->mat, K);
+  
+  double dUdJ = 0.0;
+  double d2UdJ2 = 0.0;
+  double d3UdJ3 = 0.0;
+  
+  elasticity->compute_dudj(&dUdJ, J);
+  elasticity->compute_d2udj2(&d2UdJ2, J);
+  elasticity->compute_d3udj3(&d3UdJ3, J);
+  
+  for(int i=0; i<DIM_3; i++)
+  {
+    for(int j=0; j<DIM_3; j++)
+    {
+      const int ij = DIM_3*i+j;
+      for(int k=0; k<DIM_3; k++)
+      {
+        const int ik = DIM_3*i+k;
+        for(int l=0; l<DIM_3; l++)
+        {
+          const int kl = DIM_3*k + l;
+          const int lj = DIM_3*l + j;
+          const int ijkl = DIM_3x3x3*i+DIM_3x3*j + DIM_3*k+l;
+          
+          for(int r=0; r<DIM_3; r++)
+          {
+            const int ir = DIM_3*i + r;
+            const int kr = DIM_3*k + r;
+            const int lr = DIM_3*l + r;
+            
+            for(int s=0; s<DIM_3; s++)
+            {
+              const int sj = DIM_3*s + j;
+              const int sk = DIM_3*s + k;
+              const int sl = DIM_3*s + l;
+              const int rs = DIM_3*r + s;
+              const int ijrs = DIM_3x3x3*i + DIM_3x3*j + DIM_3*r + s;
+              const int klrs = DIM_3x3x3*k + DIM_3x3*l + DIM_3*r + s;
+              const int ijklrs = DIM_3x3x3x3*3*i + DIM_3x3x3x3*j + DIM_3x3x3*k + DIM_3x3*l + DIM_3*r + s;
+              
+              const double K_vol = 2.*(
+                      (0.5*kappa*J*(dUdJ+3*J*d2UdJ2+J*J*d3UdJ3)
+                      *C_I[ij]*C_I[kl]*C_I[rs])
+                      
+                      -(kappa*J*(dUdJ+J*d2UdJ2)
+                      *(C_I[ir]*C_I[sj]*C_I[kl]
+                      + C_I[ij]*C_I[kr]*C_I[sl]
+                      + C_I[ik]*C_I[lj]*C_I[rs]))
+                      
+                      +2.*kappa*J*dUdJ*(C_I[ir]*C_I[sk]*C_I[lj]
+                      + C_I[ik]*C_I[lr]*C_I[sj])
+                      );
+              
+              K[ijklrs] += K[ijklrs];
+              
+            }
+          }
+        }
+      }
+    }
+  }
+    
+  return err;  
+}
+
 int construct_elasticity(ELASTICITY *elasticity, MATERIAL_ELASTICITY *mat, const int compute_stiffness)
 {
   int err = 0;  
@@ -176,18 +264,20 @@ int construct_elasticity(ELASTICITY *elasticity, MATERIAL_ELASTICITY *mat, const
   elasticity->compute_PK2_eff     = compute_effective_PKII_stress;
   elasticity->compute_Cauchy_eff  = compute_effective_Cauchy_stress;
   elasticity->compute_Cauchy      = compute_Cauchy_stress; 
-    
+  elasticity->compute_d3W_dC3     = compute_tangent_of_tangent;  
   switch (mat->devPotFlag)
   {
     case 1:
       elasticity->compute_potential_dev = SEDF_devPotential_Mooney_Rivlin;
       elasticity->compute_PK2_dev     = SEDF_devStress_Mooney_Rivlin;
       elasticity->compute_tangent_dev = SEDF_matStiff_Mooney_Rivlin;
+      elasticity->compute_d3W_dC3_dev = SEDF_d3W_dC3_Mooney_Rivlin;
       break;
     case 2:
       elasticity->compute_potential_dev = SEDF_devPotential_Linear;
       elasticity->compute_PK2_dev     = SEDF_devStress_Linear;
       elasticity->compute_tangent_dev = SEDF_matStiff_Linear;
+      elasticity->compute_d3W_dC3_dev = SEDF_d3W_dC3_Linear;      
       break;
     default:
       printf("ERROR: Unrecognized deviatoric potential flag (%d)\n", mat->devPotFlag);
@@ -200,16 +290,19 @@ int construct_elasticity(ELASTICITY *elasticity, MATERIAL_ELASTICITY *mat, const
       elasticity->compute_u      = SEDF_U_Common;
       elasticity->compute_dudj   = SEDF_dUdJ_Common;
       elasticity->compute_d2udj2 = SEDF_d2UdJ2_Common_new;
+      elasticity->compute_d3udj3 = SEDF_d3UdJ3_Common_new;
       break;  
     case 2:
       elasticity->compute_u      = SEDF_U_Doll_Schweizerhof_7;
       elasticity->compute_dudj   = SEDF_dUdJ_Doll_Schweizerhof_7;
       elasticity->compute_d2udj2 = SEDF_d2UdJ2_Doll_Schweizerhof_7;
+      elasticity->compute_d3udj3 = SEDF_d3UdJ3_Doll_Schweizerhof_7;
       break;
     case 3:
       elasticity->compute_u      = SEDF_U_Doll_Schweizerhof_8;
       elasticity->compute_dudj   = SEDF_dUdJ_Doll_Schweizerhof_8;
       elasticity->compute_d2udj2 = SEDF_d2UdJ2_Doll_Schweizerhof_8;
+      elasticity->compute_d3udj3 = SEDF_d3UdJ3_Doll_Schweizerhof_8;      
       break;
     default:
       printf("ERROR: Unrecognized volumetric potential flag (%d)\n",mat->volPotFlag);
@@ -224,6 +317,7 @@ int destruct_elasticity(ELASTICITY *elasticity)
   int err = 0; 
   elasticity->mat                 = NULL; 
   elasticity->update_elasticity   = NULL;
+  elasticity->compute_d3W_dC3     = NULL;
   elasticity->compute_PK2_dev     = NULL;
   elasticity->compute_tangent_dev = NULL;
   elasticity->compute_dudj        = NULL;
