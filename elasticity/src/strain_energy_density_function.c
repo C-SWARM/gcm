@@ -166,6 +166,117 @@ void SEDF_matStiff_Linear(double *C,
 	}}}}
 }
 
+/*==== Tangent of Material stiffness functions ====*/
+void SEDF_d3W_dC3_Mooney_Rivlin(double *C,
+                                 MATERIAL_ELASTICITY const *mat,
+                                 double *K)
+{
+  Matrix(double) temp, invC;
+  Matrix_construct_redim(double, invC, DIM_3, DIM_3);
+
+  temp.m_row = temp.m_col = DIM_3;
+  temp.m_pdata = C;
+  
+  Matrix_inv(temp, invC);
+
+  double detC, trC, CC;
+  Matrix_det(temp, detC);
+  Matrix_trace(temp,trC);
+  Matrix_ddot(temp,temp,CC);  
+
+  const double *C_I = invC.m_pdata; /* get constatnt pointer */
+  const double J23 = pow(detC,-1.0/3.0);
+  const double J43 = J23*J23;
+
+  for(int i=0; i<DIM_3; i++)
+  {
+    for(int j=0; j<DIM_3; j++)
+    {
+      const int ij = DIM_3*i + j;
+      for(int k=0; k<DIM_3; k++)
+      {
+        const int ik = DIM_3*i + k;
+        for(int l=0; l<DIM_3; l++)
+        {
+          const int kl = DIM_3*k + l;
+          const int lj = DIM_3*l + j;
+          for(int r=0; r<DIM_3; r++)
+          {
+            const int ir = DIM_3*i + r;
+            const int kr = DIM_3*k + r;
+            const int lr = DIM_3*l + r;
+            for(int s=0; s<DIM_3; s++)
+            {
+              const int rs = DIM_3*r + s;
+              const int sj = DIM_3*s + j;
+              const int sk = DIM_3*s + k;
+              const int sl = DIM_3*s + l;              
+              const int ijklrs = DIM_3x3x3x3*3*i + DIM_3x3x3x3*j + DIM_3x3x3*k + DIM_3x3*l + DIM_3*r + s;
+              
+              /*============ mu_10 term ==================*/
+              double M_10_term = 0.0;
+              M_10_term += 1./9.*((r==s)*C_I[ij] - trC*C[ir]*C_I[sj])*C_I[kl];
+              
+              M_10_term -= (1./9.*trC*C_I[ij]-1./3.*(i==j))*C_I[kr]*C_I[sl];
+              
+              M_10_term += 1./3.*((r==s)*C_I[ik]*C_I[lj]
+                      - trC*C_I[ir]*C_I[sk]*C_I[lj]
+                      - trC*C_I[ik]*C_I[lr]*C_I[sj]
+                      + (k==l)*C_I[ir]*C_I[sj]);
+              
+              M_10_term -= (1./27.*trC*C_I[ij]-1./9.*(i==j))*C_I[kl]*C_I[rs];
+              
+              M_10_term -= 1./9.*(trC*C_I[ik]*C_I[lj]-(k==l)*C_I[ij])*C_I[rs];
+              
+              M_10_term *= 8.*mat->m10*J23;
+              
+              /*============ mu_01 term ==================*/
+              double M_01_term = 0.0;
+              M_01_term += 2./3.*((i==r)*(s==j) - (r==s)*(i==j))*C_I[kl];
+              
+              M_01_term -= 2./3.*(C[ij]-trC*(i==j))*C_I[kr]*C_I[sl];
+              
+              M_01_term -= 2.*(C[rs]-trC*(r==s))*(2./9.*C_I[ij]*C_I[kl]
+                      + 1./3.*C_I[ik]*C_I[lj]);
+              
+              M_01_term += (CC-trC*trC)*(2./9.*C_I[ir]*C_I[sj]*C_I[kl]
+                      + 2./9.*C_I[ij]*C_I[kr]*C_I[sl]
+                      + 1./3.*C_I[ir]*C_I[sk]*C_I[lj]
+                      + 1./3.*C_I[ik]*C_I[lr]*C_I[sj]);
+              
+              M_01_term += 2./3.*((k==r)*(s==l) - (r==s)*(k==l))*C_I[ij];
+              
+              M_01_term -= 2./3.*(C[kl]-trC*(k==l))*C_I[ir]*C_I[sj];
+              
+              M_01_term -= 2./3.*((i==j)*(k==l)-(i==k)*(l==j))*C_I[rs];
+              
+              M_01_term -= 4./9.*(C[ij]-trC*(i==j))*C_I[kl]*C_I[rs];
+              
+              M_01_term += 2./3.*(CC-trC*trC)*(2./9.*C_I[ij]*C_I[kl]
+                      + 1./3.*C_I[ik]*C_I[lj])*C_I[rs];
+              
+              M_01_term -= 4./9.*(C[kl]-trC*(k==l))*C_I[ij]*C_I[rs];
+              
+              M_01_term *= 8.*mat->m01*J43;
+              
+              /*============ K ==================*/
+              K[ijklrs] = M_10_term + M_01_term;
+            }
+          }
+        }
+      }
+    }
+  }
+  Matrix_cleanup(invC);
+}
+
+void SEDF_d3W_dC3_Linear(double *C,
+		                     MATERIAL_ELASTICITY const *mat,
+		                     double *K)
+{
+  memset(K,0,729*sizeof(double));
+}
+
 /*==== Volumetric Potetntial Functions ====*/
 void SEDF_U_Common(double *U, double const J)
 {
@@ -214,4 +325,18 @@ void SEDF_d2UdJ2_Doll_Schweizerhof_8(double *d2UdJ2, double J)
   (*d2UdJ2) = 1.0/J - (-1.0 + J)/(2.0*J*J);
 }
 
+/*==== d3UdJ3 functions ===*/
+void SEDF_d3UdJ3_Common_new(double *d3UdJ3, double J)
+{
+  (*d3UdJ3) = 0.0;
+}
 
+void SEDF_d3UdJ3_Doll_Schweizerhof_7(double *d3UdJ3, double J)
+{
+  (*d3UdJ3) = (exp(-1. + J) - 2.0/(J*J*J))*0.5;
+}
+
+void SEDF_d3UdJ3_Doll_Schweizerhof_8(double *d3UdJ3, double J)
+{
+  (*d3UdJ3) = -0.5*(J + 2.0)/(J*J*J) ;
+}

@@ -27,13 +27,16 @@ struct ELASTICITY
   deviatoric_part compute_potential_dev;  
   deviatoric_part compute_PK2_dev;
   deviatoric_part compute_tangent_dev;
+  deviatoric_part compute_d3W_dC3_dev;  
   volume_part compute_u;  
   volume_part compute_dudj;
   volume_part compute_d2udj2;
+  volume_part compute_d3udj3;
   compute_elasticity_v1 compute_PK2_eff;
   compute_elasticity_v2 compute_Cauchy_eff;
   compute_elasticity_v2 compute_Cauchy;
-  
+  compute_elasticity_v2 compute_d3W_dC3;
+    
   int compute_stiffness;
 };
 
