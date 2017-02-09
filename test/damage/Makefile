@@ -6,12 +6,12 @@ PROG = test_damage_model
 # set path
 #########################################################
 DIR_TOP = $(PWD)/../..
-DIR_uts = $(DIR_TOP)/utils
-DIR_mat = $(DIR_TOP)/material
-DIR_els = $(DIR_TOP)/elasticity
-DIR_cpm = $(DIR_TOP)/crystal_plasticity
+DIR_uts = $(DIR_TOP)/src/utils
+DIR_mat = $(DIR_TOP)/src/material
+DIR_els = $(DIR_TOP)/src/elasticity
+DIR_cpm = $(DIR_TOP)/src/crystal_plasticity
 DIR_loc = $(DIR_TOP)/local_include
-DIR_dam = $(DIR_TOP)/damage
+DIR_dam = $(DIR_TOP)/src/damage
 
 CNSTVM_lib = -L$(DIR_TOP)/lib -lConstitutiveModel
 
