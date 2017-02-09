@@ -8,7 +8,7 @@ LINK = mpicc
 
 MKL_inc	= $(MKLROOT)/include
 
-LOC_inc = ../../local_include
+LOC_inc = ../../../local_include
 UTS_inc = ../../utils/include
 MAT_inc = ../../material/include
 ELS_inc = ../../elasticity/include
@@ -26,4 +26,3 @@ all: $(OBJs) $(OLIB)
 
 clean :
 	rm -rf $(OLIB) *.o
-	
