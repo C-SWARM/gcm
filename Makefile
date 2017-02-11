@@ -14,17 +14,17 @@ ARFLAGS = -rcs
 # get objs
 #########################################################
 
-SRC_uts = $(shell ls src/utils/src/*.c)
-OBJs_uts = $(SRC_uts:.c=.o)
+SRC_uts = $(shell ls src/utils/src/*.cc)
+OBJs_uts = $(SRC_uts:.cc=.o)
 
-SRC_mat = $(shell ls src/material/src/*.c)
-OBJs_mat = $(SRC_mat:.c=.o)
+SRC_mat = $(shell ls src/material/src/*.cc)
+OBJs_mat = $(SRC_mat:.cc=.o)
 
 SRC_els = $(shell ls src/elasticity/src/*.cc)
 OBJs_els = $(SRC_els:.cc=.o)
 
-SRC_cpm = $(shell ls src/crystal_plasticity/src/*.c)
-OBJs_cpm = $(SRC_cpm:.c=.o)
+SRC_cpm = $(shell ls src/crystal_plasticity/src/*.cc)
+OBJs_cpm = $(SRC_cpm:.cc=.o)
 
 SRC_dam = $(shell ls src/damage/src/*.cc)
 OBJs_dam = $(SRC_dam:.cc=.o)

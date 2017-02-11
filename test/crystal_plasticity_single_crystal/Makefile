@@ -1,5 +1,5 @@
-SRC = $(shell ls *.c)
-OBJs = $(SRC:.c=.o)
+SRC = $(shell ls *.cc)
+OBJs = $(SRC:.cc=.o)
 PROG = test_crystal_plasticity_single_crystal
 
 #########################################################
@@ -15,8 +15,8 @@ DIR_loc = $(DIR_TOP)/local_include
 CNSTVM_lib = -L$(DIR_TOP)/lib -lConstitutiveModel
 
 CC = mpicc
-CXX = mpicxx
-LINK = mpicc
+CXX = mpicxx -fpermissive
+LINK = mpicxx
 
 AR       = ar
 ARFLAGS = -rcs
@@ -36,13 +36,13 @@ INCs = -I$(DIR_uts)/include \
 	-I${MKL_inc}
 
 LIBs = $(CNSTVM_lib) $(MKL_lib)
-CFLAGS = -Wall -std=c99 -O3 -g
+CXXFLAGS = -Wall -std=c++14 -O3 -g
 
 all: $(OBJs)
-	$(LINK) $(CFLAGS) $(OBJs) $(LIBs) -o $(PROG)  
+	$(LINK) $(CXXFLAGS) $(OBJs) $(LIBs) -o $(PROG)  
 	
-%.o:%.c
-	$(CC) $(CFLAGS) $(INCs) -c $<
+%.o:%.cc
+	$(CXX) $(CXXFLAGS) $(INCs) -c $<
 
 clean :
 	rm -rf $(OLIB) $(PROG) *.o
