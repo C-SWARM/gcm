@@ -15,6 +15,10 @@ struct CONTINUUM_DAMAGE_SPLIT;
 typedef struct CONTINUUM_DAMAGE_SPLIT CONTINUUM_DAMAGE_SPLIT;
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* #ifdef __cplusplus */
+
 int continuum_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
                                      ELASTICITY *elast,
                                      double *w,
@@ -105,4 +109,9 @@ int apply_split_damage_on_stiffness(double *L_out, double *dS0_in, double *vS0_i
                                     double *dL_in, double *vL_in, 
                                     double dw, double vw, int is_it_damaged_d, int is_it_damaged_v,
                                     double dH, double vH, double dt, double mu);                                   
+
+#ifdef __cplusplus
+}
+#endif /* #ifdef __cplusplus */
+
 #endif

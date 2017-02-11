@@ -26,11 +26,11 @@ OBJs_els = $(SRC_els:.c=.o)
 SRC_cpm = $(shell ls src/crystal_plasticity/src/*.c)
 OBJs_cpm = $(SRC_cpm:.c=.o)
 
-SRC_dam = $(shell ls src/damage/src/*.c)
-OBJs_dam = $(SRC_dam:.c=.o)
+SRC_dam = $(shell ls src/damage/src/*.cc)
+OBJs_dam = $(SRC_dam:.cc=.o)
 
-SRC_cmh = $(shell ls src/constitutive_model_handle/src/*.c)
-OBJs_cmh = $(SRC_cmh:.c=.o)
+SRC_cmh = $(shell ls src/constitutive_model_handle/src/*.cc)
+OBJs_cmh = $(SRC_cmh:.cc=.o)
 
 SRC_j2p = $(shell ls src/J2_plasticity/src/*.c)
 OBJs_j2p = $(SRC_j2p:.c=.o)
