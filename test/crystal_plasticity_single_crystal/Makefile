@@ -10,11 +10,10 @@ DIR_uts = $(DIR_TOP)/src/utils
 DIR_mat = $(DIR_TOP)/src/material
 DIR_els = $(DIR_TOP)/src/elasticity
 DIR_cpm = $(DIR_TOP)/src/crystal_plasticity
-DIR_loc = $(DIR_TOP)/local_include
+DIR_loc = $(DIR_TOP)/include
 
 CNSTVM_lib = -L$(DIR_TOP)/lib -lConstitutiveModel
 
-CC = mpicc
 CXX = mpicxx -fpermissive
 LINK = mpicxx
 
@@ -26,7 +25,7 @@ MKL_lib		= -Wl,--start-group \
  	     	  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a \
  	     	  $(MKLROOT)/lib/intel64/libmkl_sequential.a \
  	     	  $(MKLROOT)/lib/intel64/libmkl_core.a \
- 	     	  -Wl,--end-group -lpthread 	     	  
+ 	     	  -Wl,--end-group -lpthread -ldl
 
 INCs = -I$(DIR_uts)/include \
 	-I$(DIR_mat)/include \

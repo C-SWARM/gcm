@@ -2,13 +2,11 @@ SRC = $(shell ls *.cc)
 
 OBJs = $(SRC:.cc=.o)
 
-CC = mpicc
 CXX = mpicxx -fpermissive
-LINK = mpicc
 
 MKL_inc	= $(MKLROOT)/include
 
-LOC_inc = ../../local_include
+LOC_inc = ../../include
 UTS_inc = ../utils/include
 MAT_inc = ../material/include
 ELS_inc = ../elasticity/include
