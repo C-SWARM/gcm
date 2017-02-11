@@ -20,8 +20,8 @@ OBJs_uts = $(SRC_uts:.c=.o)
 SRC_mat = $(shell ls src/material/src/*.c)
 OBJs_mat = $(SRC_mat:.c=.o)
 
-SRC_els = $(shell ls src/elasticity/src/*.c)
-OBJs_els = $(SRC_els:.c=.o)
+SRC_els = $(shell ls src/elasticity/src/*.cc)
+OBJs_els = $(SRC_els:.cc=.o)
 
 SRC_cpm = $(shell ls src/crystal_plasticity/src/*.c)
 OBJs_cpm = $(SRC_cpm:.c=.o)
@@ -32,8 +32,8 @@ OBJs_dam = $(SRC_dam:.cc=.o)
 SRC_cmh = $(shell ls src/constitutive_model_handle/src/*.cc)
 OBJs_cmh = $(SRC_cmh:.cc=.o)
 
-SRC_j2p = $(shell ls src/J2_plasticity/src/*.c)
-OBJs_j2p = $(SRC_j2p:.c=.o)
+SRC_j2p = $(shell ls src/J2_plasticity/src/*.cc)
+OBJs_j2p = $(SRC_j2p:.cc=.o)
 
 OBJs = $(OBJs_uts) $(OBJs_mat) $(OBJs_els) $(OBJs_cpm) $(OBJs_dam) $(OBJs_cmh) $(OBJs_j2p)
 
