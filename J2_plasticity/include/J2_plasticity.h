@@ -19,6 +19,10 @@ struct ELASTICITY;
 typedef struct ELASTICITY ELASTICITY;
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* #ifdef __cplusplus */
+
 int J2_plasticity_integration_alg(double *sp_out,
                                   double *ep_out,
                                   double *gamma_out,
@@ -65,4 +69,9 @@ int compute_Lbar_split_public(double *dLbar_out, double *vLbar_out,
                               double gamma,
                               MATERIAL_J2_PLASTICITY *J2P,             
                               ELASTICITY *elast);
+
+#ifdef __cplusplus
+}
+#endif /* #ifdef __cplusplus */
+
 #endif

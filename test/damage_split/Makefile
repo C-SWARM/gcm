@@ -1,5 +1,5 @@
-SRC = $(shell ls *.c)
-OBJs = $(SRC:.c=.o)
+SRC = $(shell ls *.cc)
+OBJs = $(SRC:.cc=.o)
 PROG = test_damage_split_model
 
 #########################################################
@@ -15,9 +15,8 @@ DIR_dam = $(DIR_TOP)/damage
 
 CNSTVM_lib = -L$(DIR_TOP)/lib -lConstitutiveModel
 
-CC = mpicc
-CXX = mpicxx
-LINK = mpicc
+CXX = mpicxx -fpermissive
+LINK = mpicxx
 
 AR       = ar
 ARFLAGS = -rcs
@@ -27,7 +26,7 @@ MKL_lib		= -Wl,--start-group \
  	     	  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a \
  	     	  $(MKLROOT)/lib/intel64/libmkl_sequential.a \
  	     	  $(MKLROOT)/lib/intel64/libmkl_core.a \
- 	     	  -Wl,--end-group -lpthread 	     	  
+ 	     	  -Wl,--end-group -lpthread -ldl
 
 INCs = -I$(DIR_uts)/include \
 	-I$(DIR_mat)/include \
@@ -38,13 +37,13 @@ INCs = -I$(DIR_uts)/include \
 	-I${MKL_inc}
 
 LIBs = $(CNSTVM_lib) $(MKL_lib)
-CFLAGS = -Wall -std=c99 -O3 -g
+CXXFLAGS = -Wall -std=c++14 -O3 -g
 
 all: $(OBJs)
-	$(LINK) $(CFLAGS) $(OBJs) $(LIBs) -o $(PROG)  
+	$(LINK) $(CXXFLAGS) $(OBJs) $(LIBs) -o $(PROG)  
 	
-%.o:%.c
-	$(CC) $(CFLAGS) $(INCs) -c $<
+%.o:%.cc
+	$(CXX) $(CXXFLAGS) $(INCs) -c $<
 
 clean :
 	rm -rf $(OLIB) $(PROG) *.o

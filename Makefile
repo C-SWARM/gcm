@@ -14,26 +14,26 @@ ARFLAGS = -rcs
 # get objs
 #########################################################
 
-SRC_uts = $(shell ls utils/src/*.c)
-OBJs_uts = $(SRC_uts:.c=.o)
+SRC_uts = $(shell ls utils/src/*.cc)
+OBJs_uts = $(SRC_uts:.cc=.o)
 
-SRC_mat = $(shell ls material/src/*.c)
-OBJs_mat = $(SRC_mat:.c=.o)
+SRC_mat = $(shell ls material/src/*.cc)
+OBJs_mat = $(SRC_mat:.cc=.o)
 
-SRC_els = $(shell ls elasticity/src/*.c)
-OBJs_els = $(SRC_els:.c=.o)
+SRC_els = $(shell ls elasticity/src/*.cc)
+OBJs_els = $(SRC_els:.cc=.o)
 
-SRC_cpm = $(shell ls crystal_plasticity/src/*.c)
-OBJs_cpm = $(SRC_cpm:.c=.o)
+SRC_cpm = $(shell ls crystal_plasticity/src/*.cc)
+OBJs_cpm = $(SRC_cpm:.cc=.o)
 
-SRC_dam = $(shell ls damage/src/*.c)
-OBJs_dam = $(SRC_dam:.c=.o)
+SRC_dam = $(shell ls damage/src/*.cc)
+OBJs_dam = $(SRC_dam:.cc=.o)
 
-SRC_cmh = $(shell ls constitutive_model_handle/src/*.c)
-OBJs_cmh = $(SRC_cmh:.c=.o)
+SRC_cmh = $(shell ls constitutive_model_handle/src/*.cc)
+OBJs_cmh = $(SRC_cmh:.cc=.o)
 
-SRC_j2p = $(shell ls J2_plasticity/src/*.c)
-OBJs_j2p = $(SRC_j2p:.c=.o)
+SRC_j2p = $(shell ls J2_plasticity/src/*.cc)
+OBJs_j2p = $(SRC_j2p:.cc=.o)
 
 OBJs = $(OBJs_uts) $(OBJs_mat) $(OBJs_els) $(OBJs_cpm) $(OBJs_dam) $(OBJs_cmh) $(OBJs_j2p)
 
