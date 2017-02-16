@@ -5,11 +5,22 @@
 #include "flowlaw.h"
 #include "hardening.h"
 #include "construct_linearization_parts.h"
+#include <ttl/ttl.h>
 
 #define D_GAMMA_D 0.005
 #define D_GAMMA_TOL 1.25
 
 #include <math.h>
+
+namespace {
+  template<int R, int D = 3, class S = double>
+  using Tensor = ttl::Tensor<R, D, S>;
+
+  static constexpr ttl::Index<'i'> i;
+  static constexpr ttl::Index<'j'> j;
+  static constexpr ttl::Index<'k'> k;
+  static constexpr ttl::Index<'l'> l;
+}
 
 /// compute C = A*B for 3 by 3 matrix
 ///
@@ -91,51 +102,50 @@ int compute_residual_M(double *R, double *M_in, double *MI_in, double *pFn_in, d
 {
   int err = 0;
   
-  Matrix(double) M,MI,pFn,pFnI, N, A;
-     M.m_row =    M.m_col = DIM_3;    M.m_pdata = M_in;
-    MI.m_row =   MI.m_col = DIM_3;   MI.m_pdata = MI_in;     
-   pFn.m_row =  pFn.m_col = DIM_3;  pFn.m_pdata = pFn_in;
-  pFnI.m_row = pFnI.m_col = DIM_3; pFnI.m_pdata = pFnI_in;
-     N.m_row =    N.m_col = DIM_3;    N.m_pdata = N_in;  // N = hFn*hFnp1_I
-     A.m_row =    A.m_col = DIM_3;    A.m_pdata = A_in;  // A = pFn*N_I*pFn_I     
+  Tensor<2, 3, double*> M(M_in);
+  Tensor<2, 3, double*> MI(MI_in);
+  Tensor<2, 3, double*> pFn(pFn_in);
+  Tensor<2, 3, double*> pFnI(pFnI_in);
+  Tensor<2, 3, double*> N(N_in);
+  Tensor<2, 3, double*> A(A_in);     
     
   enum {Ru,MIT,MIpFnN,Ident,AM,ATRu,F2end};
-  Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
+  Tensor<2> F2[F2end];   //declare an array of tensors and initialize them to 0
   for (int a = 0; a < F2end; a++) {
-    Matrix_construct_redim(double, F2[a],DIM_3,DIM_3);
+    F2[a] = {};
   } 
-
-  Matrix_init(F2[Ru], 0.0);
   
-  Matrix(double) P;
-  P.m_row = P.m_col = DIM_3;
+  //Tensor<2> P = {};   //can try putting this inside the loop (Tensor<2,double*> P((slip.p_sys) + a*DIM_3x3);)
           
   for(int a=0; a<slip->N_SYS; a++)
   {
-    P.m_pdata = (slip->p_sys) + a*DIM_3x3;
-    Matrix_AplusB(F2[Ru],1.0,F2[Ru],gamma_dots[a],P);
+    Tensor<2, 3, double*> P((slip->p_sys) + a*DIM_3x3);  //declaring p was originally done outside the loop, may want to move it back out
+    F2[Ru](i,j) += gamma_dots[a] * P(i,j);
   }
-  
-  Matrix_AeqBT(F2[MIT],1.0,MI); 
-  Matrix_Tns2_AxBxC(F2[MIpFnN],1.0,0.0,MI,pFn,N);
-  double det_MIpFnN;
-  Matrix_det(F2[MIpFnN], det_MIpFnN);
-  Matrix_eye(F2[Ident],DIM_3);
-  Matrix_AxB_3by3(F2+AM,&A,&M); // <= Matrix_AxB(F2[AM], 1.0,0.0,A,0,M,0);
 
+  F2[MIT](i,j) = MI(j,i).to(i,j);     
+  F2[MIpFnN](i,j) = MI(i,k) * pFn(k,l) * N(l,j);
+  //Matrix_Tns2_AxBxC(F2[MIpFnN],1.0,0.0,MI,pFn,N);
+  double det_MIpFnN = ttl::det(F2[MIpFnN]); 
+  F2[Ident](i,j) = ttl::identity(i,j);
+  F2[AM](i,j) = A(i,k) * M(k,j);
+  //Matrix_AxB_3by3(F2+AM,&A,&M); // <= Matrix_AxB(F2[AM], 1.0,0.0,A,0,M,0);
+  
+  F2[Ru](i,j) = dt*F2[Ru](i,j) + F2[AM](i,j) - F2[Ident](i,j);
+/*
   for(int a=0; a<DIM_3x3; a++)
     F2[Ru].m_pdata[a] = dt*F2[Ru].m_pdata[a] + F2[AM].m_pdata[a] - F2[Ident].m_pdata[a];  
+*/
   
-  Matrix_ATxB_3by3(F2+ATRu,&A,F2+Ru); // <= Matrix_AxB(F2[ATRu], 1.0,0.0,A,1,F2[Ru],0);  
+    F2[ATRu](i,j) = A(k,i).to(i,k) * F2[Ru](k,j);
+    //Matrix_ATxB_3by3(F2+ATRu,&A,F2+Ru); // <= Matrix_AxB(F2[ATRu], 1.0,0.0,A,1,F2[Ru],0);  
   
   for(int a=0; a<DIM_3x3; a++)
-    R[a] = F2[ATRu].m_pdata[a] - lambda*det_MIpFnN*F2[MIT].m_pdata[a];
+    R[a] = F2[ATRu].get(a) - lambda * det_MIpFnN * F2[MIT].get(a);
   
+
   R[DIM_3x3] = det_MIpFnN - 1.0;
           
-  for(int a = 0; a < F2end; a++)
-    Matrix_cleanup(F2[a]); 
-  free(F2);  
   return err;
 }
 
