@@ -1,9 +1,18 @@
 #include "constitutive_model.h"
 #include "flowlaw.h"
 #include "material_properties.h"
+#include <ttl/ttl.h>
 
 #include <math.h>
 
+namespace {
+  template<int R, int D = 3, class S = double>
+  using Tensor = ttl::Tensor<R, D, S>;
+
+  static constexpr ttl::Index<'i'> i;
+  static constexpr ttl::Index<'j'> j;
+  static constexpr ttl::Index<'k'> k;
+}
 
 // input double *gamma_dots, int N_SYS
 // output double *gamma_dot
@@ -34,18 +43,14 @@ int compute_tau_alphas(double *taus, double *C_in, double *S_in, SLIP_SYSTEM *sl
 {
   int err = 0;
 
-  Matrix(double) CS,C,S,P;
-  Matrix_construct_redim(double,CS,DIM_3,DIM_3);
-  C.m_row = C.m_col = DIM_3; C.m_pdata = C_in;
-  S.m_row = S.m_col = DIM_3; S.m_pdata = S_in;  
-  P.m_row = P.m_col = DIM_3;   
-  Matrix_AxB(CS,1.0,0.0,C,0,S,0);    
+  Tensor<2, 3, double*> C(C_in), S(S_in);
+  Tensor<2> CS;   
+  CS(i,j) = C(i,k) * S(k,j);   
   for(int a=0; a<slip->N_SYS; a++)
   {
-    P.m_pdata = (slip->p_sys) + a*DIM_3x3;
-    Matrix_ddot(CS,P,taus[a]);
+    Tensor<2, 3, double*> P((slip->p_sys) + a*DIM_3x3);
+    taus[a] = CS(i,j) * P(i,j);   //taus[a] equals the dot product of CS and P
   }
-  Matrix_cleanup(CS);
   return err;
 }
 
