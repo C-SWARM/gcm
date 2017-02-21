@@ -115,8 +115,6 @@ int compute_residual_M(double *R, double *M_in, double *MI_in, double *pFn_in, d
   for (int a = 0; a < F2end; a++) {
     F2[a] = {};
   } 
-  
-  //Tensor<2> P = {};   //can try putting this inside the loop (Tensor<2,double*> P((slip.p_sys) + a*DIM_3x3);)
           
   for(int a=0; a<slip->N_SYS; a++)
   {
@@ -126,20 +124,13 @@ int compute_residual_M(double *R, double *M_in, double *MI_in, double *pFn_in, d
 
   F2[MIT](i,j) = MI(j,i).to(i,j);     
   F2[MIpFnN](i,j) = MI(i,k) * pFn(k,l) * N(l,j);
-  //Matrix_Tns2_AxBxC(F2[MIpFnN],1.0,0.0,MI,pFn,N);
   double det_MIpFnN = ttl::det(F2[MIpFnN]); 
   F2[Ident](i,j) = ttl::identity(i,j);
   F2[AM](i,j) = A(i,k) * M(k,j);
-  //Matrix_AxB_3by3(F2+AM,&A,&M); // <= Matrix_AxB(F2[AM], 1.0,0.0,A,0,M,0);
   
   F2[Ru](i,j) = dt*F2[Ru](i,j) + F2[AM](i,j) - F2[Ident](i,j);
-/*
-  for(int a=0; a<DIM_3x3; a++)
-    F2[Ru].m_pdata[a] = dt*F2[Ru].m_pdata[a] + F2[AM].m_pdata[a] - F2[Ident].m_pdata[a];  
-*/
   
-    F2[ATRu](i,j) = A(k,i).to(i,k) * F2[Ru](k,j);
-    //Matrix_ATxB_3by3(F2+ATRu,&A,F2+Ru); // <= Matrix_AxB(F2[ATRu], 1.0,0.0,A,1,F2[Ru],0);  
+  F2[ATRu](i,j) = A(k,i).to(i,k) * F2[Ru](k,j);
   
   for(int a=0; a<DIM_3x3; a++)
     R[a] = F2[ATRu].get(a) - lambda * det_MIpFnN * F2[MIT].get(a);
@@ -254,10 +245,9 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   for (int a = 0; a < F2end; a++) {
     F2[a] = {};
   }
-    
+
   enum {taus,gamma_dots,dgamma_dtaus,F1end};
-  //ttl::Tensor<1, slip->N_SYS, double> F1[F1end];   //original is a size slip.N_SYSx1 matrix
-  Tensor<1, 12, double> F1[F1end];   //original is a size slip.N_SYSx1 matrix
+  Tensor<1, N_SYS, double> F1[F1end];   //using slip->N_SYS doesn't work
   for (int a = 0; a < F1end; a++) {
     F1[a] = {};
   }

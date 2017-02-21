@@ -5,6 +5,7 @@
 extern "C" {
 #endif /* #ifdef __cplusplus */
 
+const int N_SYS = 12;  //helpful for declaring ttl tensors of size slip->N_SYS
 
 enum{SLIP_SYSTEM_FCC,SLIP_SYSTEM_BCC,SLIP_SYSTEM_HCP};
 
