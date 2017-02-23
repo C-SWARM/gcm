@@ -1,0 +1,7 @@
+# The test is designed to perform two tests (with thermal and without thermal) that yield same plasticity response.
+# Two tests will be executed at a same time and produce files named without_thermal.txt and with_thermal.txt
+
+# how to compile and run
+make
+./test_crystal_plasticity_with_thermal
+diff without_thermal.txt with_thermal.txt 
