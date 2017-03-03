@@ -35,7 +35,7 @@ int compute_tau_alphas(double *taus, double *C_in, double *S_in, SLIP_SYSTEM *sl
   int err = 0;
 
   Matrix(double) CS,C,S,P;
-  Matrix_construct_redim(double,CS,DIM_3,DIM_3);
+  Matrix_construct_init(double,CS,DIM_3,DIM_3,0.0);
   C.m_row = C.m_col = DIM_3; C.m_pdata = C_in;
   S.m_row = S.m_col = DIM_3; S.m_pdata = S_in;  
   P.m_row = P.m_col = DIM_3;   
