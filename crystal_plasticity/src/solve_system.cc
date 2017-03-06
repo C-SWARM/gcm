@@ -488,6 +488,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   err += info;
   Matrix_inv_check_err(hFn, F2[hFnI], info);
   err += info;  
+  Matrix_init(F2[eFn], 0.0);
   Matrix_Tns2_AxBxC(F2[eFn],1.0,0.0,Fn,F2[hFnI],F2[pFnI]);
   // compute Fr
   Matrix_inv_check_err(Fn, F2[FnI], info);
@@ -498,6 +499,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   // guess initial M
   Matrix_inv_check_err(F2[eFn], F2[eFnI], info);
   err += info;  
+  Matrix_init(M, 0.0);
   Matrix_Tns2_AxBxC(M,1.0,0.0,F2[eFnI],F2[FrI],F2[eFn]);
   // compute Fa  
   Matrix_AxB_3by3(F2+Fa,F2+Fr,F2+eFn); // <= Matrix_AxB(F2[Fa],1.0,0.0,F2[Fr],0,F2[eFn],0);
@@ -508,6 +510,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   // compute A : A = pFn*N_I*pFn_I   
   Matrix_inv_check_err(F2[N], F2[NI], info);
   err += info;
+  Matrix_init(F2[A], 0.0);
   Matrix_Tns2_AxBxC(F2[A],1.0,0.0,pFn,F2[NI],F2[pFnI]);    
 
   int is_it_cnvg_M = 0;
@@ -581,6 +584,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   if((err_g/g_0)<solver_info->tol_hardening && is_it_cnvg_M)
   {
     Matrix_inv(M,F2[MI]);
+    Matrix_init(pFnp1, 0.0);
     Matrix_Tns2_AxBxC(pFnp1,1.0,0.0,F2[MI],pFn,F2[N]);  
     *g_out = g_np1_kp1;      
     *is_it_cnvg = 1;
