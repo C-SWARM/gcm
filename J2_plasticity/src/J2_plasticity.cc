@@ -16,7 +16,7 @@ int compute_push_forward(Matrix(double) *F,
 {  
   int err = 0;
   Matrix(double) wkspc;
-  Matrix_construct_redim(double,wkspc,DIM_3,DIM_3);
+  Matrix_construct_init(double,wkspc,DIM_3,DIM_3,0.0);
   Matrix_AxB(wkspc,1.0,0.0,*F,0,*A,0);
   Matrix_AxB(*a,1.0,0.0,wkspc,0,*F,1);    
   Matrix_cleanup(wkspc);

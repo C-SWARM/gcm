@@ -22,6 +22,7 @@ int update_PK2_elasticity_tensor(ELASTICITY *elasticity, double *Fe, int update_
   // <-- use double array as Matrix
   
   double detF;
+  Matrix_init(F2[C],0.0);
   Matrix_AxB(F2[C],1.0,0.0,F,1,F,0);  
   Matrix_inv(F2[C],F2[CI]);
   Matrix_det(F, detF);  
@@ -179,6 +180,7 @@ int compute_tangent_of_tangent(ELASTICITY *elasticity, double *eF, double *K)
   F.m_row = F.m_col = DIM_3; F.m_pdata = eF;
   
   double J = 0.0;
+  Matrix_init(F2[C],0.0);
   Matrix_AxB(F2[C],1.0,0.0,F,1,F,0);  
   Matrix_inv(F2[C],F2[CI]);
   Matrix_det(F, J); 
