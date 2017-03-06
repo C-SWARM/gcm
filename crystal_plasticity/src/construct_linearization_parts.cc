@@ -28,6 +28,7 @@ int compute_Kuu_a(double *Kuu_a_out, double *A_in,  double *S_in,
 
   Matrix_Tns4_dd_Tns2(F2[L_C], L, C);
   Matrix_AxB(F2[AA],1.0,1.0,F2[L_C],0,Pa,0);
+  Matrix_init(F2[Dtau_dM],0.0);
   Matrix_AxB(F2[Dtau_dM],1.0,0.0,A,1,F2[AA],0);
   
   for(int a=1; a<=DIM_3; a++)
