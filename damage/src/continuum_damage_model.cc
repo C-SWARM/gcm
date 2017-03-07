@@ -181,7 +181,7 @@ int continuum_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   F.m_row = F.m_col = DIM_3; F.m_pdata = F_in;
 
   Matrix(double) C;
-  Matrix_construct_redim(double,C,DIM_3,DIM_3);
+  Matrix_construct_init(double,C,DIM_3,DIM_3,0.0);
 
   double Wdev = 0.0;
   double U = 0.0;
@@ -249,7 +249,7 @@ int continuum_damage_split_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   F.m_row = F.m_col = DIM_3; F.m_pdata = F_in;
 
   Matrix(double) C;
-  Matrix_construct_redim(double,C    ,DIM_3,DIM_3);
+  Matrix_construct_init(double,C    ,DIM_3,DIM_3,0.0);
 
   double W, U, J;
   W = U = J = 0.0;
@@ -476,6 +476,7 @@ int update_damaged_elasticity_split(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   // <-- use double array as Matrix
   
   double detF;
+  Matrix_init(F2[C],0.0);
   Matrix_AxB(F2[C],1.0,0.0,F,1,F,0);  
   Matrix_inv(F2[C],F2[CI]);
   Matrix_det(F, detF);  

@@ -9,7 +9,7 @@ void test_elasticity(void)
 {
   Matrix(double) F, C, S;
   Matrix_construct_redim(double, F, 3,3);
-  Matrix_construct_redim(double, C, 3,3);
+  Matrix_construct_init(double, C, 3,3,0.0);
 
   Matrix_eye(F,3);
   
