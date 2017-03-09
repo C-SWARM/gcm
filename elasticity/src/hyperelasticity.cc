@@ -249,7 +249,11 @@ int compute_tangent_of_tangent(ELASTICITY *elasticity, double *eF, double *K)
       }
     }
   }
-    
+
+  for(int a = 0; a < F2end; a++)
+    Matrix_cleanup(F2[a]);    
+  free(F2);
+  
   return err;  
 }
 
