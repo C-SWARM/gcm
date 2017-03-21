@@ -27,7 +27,7 @@ int construct_slip_system(SLIP_SYSTEM *slip, int type)
   switch(type)
   {
     case SLIP_SYSTEM_FCC:
-      slip->N_SYS = N_SYS;
+      slip->N_SYS = N_SYS;   //sets to constant declared in slip_system.h
       slip->p_sys = (double *) malloc(sizeof(double)*12*3*3);
       sprintf(slip->name, "FCC");      
       for(int a=0; a<12*3*3; a++)

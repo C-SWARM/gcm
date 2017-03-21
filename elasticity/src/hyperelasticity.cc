@@ -1,3 +1,8 @@
+/// Authors:
+///  Sangmin Lee, [1], <slee43@nd.edu>
+///  Aaron Howell, [1], <ahowell3@nd.edu>
+///  [1] - University of Notre Dame, Notre Dame, IN
+
 #include "constitutive_model.h"
 #include "hyperelasticity.h"
 #include "strain_energy_density_function.h"
@@ -14,6 +19,9 @@ namespace {
   static constexpr ttl::Index<'l'> l;
 }
  
+/// \param[out] elasticity
+/// \param[in]  Fe
+/// \param[in]  update_stiffness
 int update_PK2_elasticity_tensor(ELASTICITY *elasticity, double *Fe, int update_stiffness)
 {
   int err = 0;

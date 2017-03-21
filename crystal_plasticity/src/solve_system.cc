@@ -1,3 +1,8 @@
+/// Authors:
+///  Sangmin Lee, [1], <slee43@nd.edu>
+///  Aaron Howell, [1], <ahowell3@nd.edu>
+///  [1] - University of Notre Dame, Notre Dame, IN
+
 #include "constitutive_model.h"
 #include "crystal_plasticity_integration.h"
 #include "material_properties.h"
@@ -96,6 +101,18 @@ int print_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_
   return err;  
 }
                         
+/// \param[out] R
+/// \param[in] M_in
+/// \param[in] MI_in
+/// \param[in] pFn_in
+/// \param[in] pFnI_in
+/// \param[in] N_in
+/// \param[in] A_in
+/// \param[in] gamma_dots
+/// \param[in] lambda
+/// \param[in] dt
+/// \param[in] slip
+/// \return non-zero on internal error
 int compute_residual_M(double *R, double *M_in, double *MI_in, double *pFn_in, double *pFnI_in, 
                        double *N_in, double *A_in,
                        double *gamma_dots,double lambda,double dt,
@@ -118,7 +135,7 @@ int compute_residual_M(double *R, double *M_in, double *MI_in, double *pFn_in, d
           
   for(int a=0; a<slip->N_SYS; a++)
   {
-    Tensor<2, 3, double*> P((slip->p_sys) + a*DIM_3x3);  //declaring p was originally done outside the loop, may want to move it back out
+    Tensor<2, 3, double*> P((slip->p_sys) + a*DIM_3x3);  
     F2[Ru](i,j) += gamma_dots[a] * P(i,j);
   }
 
@@ -141,6 +158,21 @@ int compute_residual_M(double *R, double *M_in, double *MI_in, double *pFn_in, d
   return err;
 }
 
+/// \param[out] K_out
+/// \param[in] M_in
+/// \param[in] MI_in
+/// \param[in] pFn_in
+/// \param[in] eFnp1_in
+/// \param[in] Fa_in
+/// \param[in] C_in
+/// \param[in] N_in
+/// \param[in] A_in
+/// \param[in] drdtaus
+/// \param[in] lambda
+/// \param[in] dt
+/// \param[in] elasticity
+/// \param[in] slip
+/// \return non-zero on internal error
 int construct_tangent_M(double *K_out, double *M_in, double *MI_in, double *pFn_in, double *eFnp1_in, double *Fa_in, double *C_in,
                         double *N_in, double *A_in, double *drdtaus,double lambda, double dt,
                         ELASTICITY *elasticity,SLIP_SYSTEM *slip)
@@ -175,25 +207,8 @@ int construct_tangent_M(double *K_out, double *M_in, double *MI_in, double *pFn_
   }
   
   // compute AT*(dt*sum dgamm/dtau Dtau[dM]*Pa + A*dM
-  Kuu_a(i,j,k,l) = A(i,m).to(m,i) * (Kuu(m,j,k,l) + A(m,k) * ttl::identity(j,l));  //is this equivalent?
-  /*
-  for(int ia=0; ia<DIM_3; ia++)
-  {
-    for(int ic=0; ic<DIM_3; ic++)
-    {
-      for(int id=0; id<DIM_3; id++)
-      {
-        for(int ie=0; ie<DIM_3; ie++)
-        {
-          Kuu_a.data[ia*DIM_3x3x3 + ic*DIM_3x3 + id*DIM_3 + ie] = 0.0;
-          for(int ib=0; ib<DIM_3; ib++)
-            Kuu_a.data[ia*DIM_3x3x3 + ic*DIM_3x3 + id*DIM_3 + ie] += A.get(ib*DIM_3+ia) * 
-	    (Kuu.get(ib*DIM_3x3x3 + ic*DIM_3x3 + id*DIM_3 + ie) + A.get(ib*DIM_3+id) * (ic==ie));
-        }
-      }
-    }
-    }*/
-  
+  Kuu_a(i,j,k,l) = A(i,m).to(m,i) * (Kuu(m,j,k,l) + A(m,k) * ttl::identity(j,l));
+
   F2[MIpFnN](i,j) = MI(i,k) * pFn(k,l) * N(l,j);
   double det_MIpFnN = ttl::det(F2[MIpFnN]);  
 
@@ -220,6 +235,23 @@ int construct_tangent_M(double *K_out, double *M_in, double *MI_in, double *pFn_
   return err;
 }
 
+/// \param[out] M_out
+/// \param[in] lambda
+/// \param[in] pFn_in
+/// \param[in] pFnI_in
+/// \param[in] Fa_in
+/// \param[in] N_in
+/// \param[in] A_in
+/// \param[in] g_np1_k
+/// \param[in] dt
+/// \param[in] mat
+/// \param[in] elasticity
+/// \param[in] solver_info
+/// \param[in] is_it_cnvg
+/// \param[in] norm_R_0
+/// \param[in] d_gamma
+/// \param[in] itr_stag
+/// \return non-zero on internal error
 double Newton_Rapson4M(double *M_out, double *lambda,
                     double *pFn_in, double *pFnI_in, double *Fa_in,
                     double *N_in, double *A_in,
@@ -247,7 +279,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   }
 
   enum {taus,gamma_dots,dgamma_dtaus,F1end};
-  Tensor<1, N_SYS, double> F1[F1end];   //using slip->N_SYS doesn't work
+  Tensor<1, N_SYS, double> F1[F1end];  
   for (int a = 0; a < F1end; a++) {
     F1[a] = {};
   }
@@ -331,52 +363,11 @@ double Newton_Rapson4M(double *M_out, double *lambda,
     
     // solve system of equation
 
-    int info = 0;    
-
     try
     {
-      KI(i,j) = ttl::inverse(K)(i,j);  //if there is no inverse, info needs to be set to 1
+      KI(i,j) = ttl::inverse(K)(i,j);  // attempt to take the inverse
     }
-    catch(const int err)
-    {
-      info = 1;      //set info to 1 if there is no inverse
-    }
-                    
-    if(info <= 0)
-    {
-      du(i) = -KI(i,j) * R(j);
-
-      // update M and compute energy norm = fabs(R*du)
-      double eng_norm = 0.0;      
-      for(int b=0; b<DIM_3x3; b++)
-      {
-        M.data[b] += du.data[b];
-        eng_norm += du.data[b]*R.data[b];
-      }
-      *lambda += du.data[DIM_3x3];
-      eng_norm += du.data[DIM_3x3]*R.data[DIM_3x3];
-      eng_norm = fabs(eng_norm);
-      
-      // set initial energy norm      
-      if(a==0)
-        eng_norm_0 = eng_norm;
-      
-      if(eng_norm_0<solver_info->computer_zero)
-        eng_norm_0 = solver_info->computer_zero;
-
-      // check convergence based on energy norm
-      if(eng_norm/eng_norm_0 < (solver_info->tol_M)*(solver_info->tol_M))
-      {
-        if(DEBUG_PRINT_STAT)  
-          printf("converge on energe norm %e\n", eng_norm/eng_norm_0);
-        
-        is_it_cnvg_on_eng_norm = 1;
-        break;  
-          
-      }    
-      norm_R_n = norm_R;
-    }
-    else
+    catch(const int inverseException)  // no inverse exists
     {
       if(DEBUG_PRINT_STAT)
         printf( "Matrix is singular. The solution (Crystal plasticity) could not be computed.\n");
@@ -384,6 +375,38 @@ double Newton_Rapson4M(double *M_out, double *lambda,
       err += 1;
       break;
     }
+
+    du(i) = -KI(i,j) * R(j);
+
+    // update M and compute energy norm = fabs(R*du)
+    double eng_norm = 0.0;      
+    for(int b=0; b<DIM_3x3; b++)
+    {
+      M.data[b] += du.data[b];
+      eng_norm += du.data[b]*R.data[b];
+    }
+    *lambda += du.data[DIM_3x3];
+    eng_norm += du.data[DIM_3x3]*R.data[DIM_3x3];
+    eng_norm = fabs(eng_norm);
+      
+    // set initial energy norm      
+    if(a==0)
+      eng_norm_0 = eng_norm;
+      
+    if(eng_norm_0<solver_info->computer_zero)
+      eng_norm_0 = solver_info->computer_zero;
+
+    // check convergence based on energy norm
+    if(eng_norm/eng_norm_0 < (solver_info->tol_M)*(solver_info->tol_M))
+    {
+      if(DEBUG_PRINT_STAT)  
+        printf("converge on energe norm %e\n", eng_norm/eng_norm_0);
+        
+      is_it_cnvg_on_eng_norm = 1;
+      break;  
+          
+    }    
+    norm_R_n = norm_R;
   }
   
   if(DEBUG_PRINT_STAT)

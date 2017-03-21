@@ -1,6 +1,22 @@
+/// Authors:
+///  Sangmin Lee, [1], <slee43@nd.edu>
+///  Aaron Howell, [1], <ahowell3@nd.edu>
+///  [1] - University of Notre Dame, Notre Dame, IN
+
 #include "constitutive_model.h"
 #include "strain_energy_density_function.h"
 #include "material_properties.h"
+#include <ttl/ttl.h>
+
+namespace {
+  template<int R, int D = 3, class S = double>
+  using Tensor = ttl::Tensor<R, D, S>;
+
+  static constexpr ttl::Index<'i'> i;
+  static constexpr ttl::Index<'j'> j;
+  static constexpr ttl::Index<'k'> k;
+  static constexpr ttl::Index<'l'> l;
+}
 
 /*==== Potential energy ====*/
 void SEDF_devPotential_Mooney_Rivlin(double *C_in,
@@ -45,37 +61,31 @@ void SEDF_devPotential_Linear(double *C_in,
 }		     
 			     
 /*==== Deviatoric stress functions ====*/
+/// \param[in] C_in
+/// \param[in] mat
+/// \param[out] S_out
 void SEDF_devStress_Mooney_Rivlin(double *C_in,
 			     MATERIAL_ELASTICITY const *mat,
-			     double *S)
+			     double *S_out)
 {
-  Matrix(double) C, ident, invC;
-  Matrix_construct_redim(double, ident, DIM_3, DIM_3);
-  Matrix_construct_redim(double, invC, DIM_3, DIM_3);
-
-  Matrix_eye(ident,DIM_3);
-
-  C.m_row = C.m_col = DIM_3;
-  C.m_pdata = C_in;
   
-  Matrix_inv(C, invC);
-  double detC, trC, CC;
-  Matrix_det(C, detC);
-  Matrix_trace(C,trC);
-  Matrix_ddot(C,C,CC);
+  Tensor<2, 3, double*> C(C_in);
+  Tensor<2, 3, double*> S(S_out);
+  Tensor<2> invC = ttl::inverse(C);
+  Tensor<2> ident;
+  ident(i,j) = ttl::identity(i,j);
 
-  for(int i=0; i<DIM_3x3; i++){
-    S[i] =( 
-	   (2.0*mat->m10*pow(detC,-1./3.)
-	    *(ident.m_pdata[i] - 1./3.*trC*invC.m_pdata[i]))	    
-	   +(2.0*mat->m01*pow(detC,-2./3.)
-	     *(trC*ident.m_pdata[i] - C.m_pdata[i]
-	       + 1./3.*(CC-trC*trC)*invC.m_pdata[i]))
-	    );
-  }
+  double detC = ttl::det(C);
+  double trC = C(i,i);           //trace operation
+  double CC = C(i,j) * C(i,j);   //dot product
 
- Matrix_cleanup(invC);
- Matrix_cleanup(ident);
+  S(i,j) = (
+	  (2.0*mat->m10*pow(detC,-1./3.)
+	   * (ident(i,j) - 1./3.*trC*invC(i,j)))
+	  + (2.0*mat->m01*pow(detC,-2./3.)
+	     * (trC*ident(i,j) - C(i,j)
+		+ 1./3.*(CC-trC*trC)*invC(i,j)))
+	  );
 }
 
 void SEDF_devStress_Linear(double *C,
@@ -93,58 +103,40 @@ void SEDF_devStress_Linear(double *C,
 }
 
 /*==== Material stiffness functions ====*/
+/// \param[in] C_in
+/// \param[in] mat
+/// \param[out] L_out
 void SEDF_matStiff_Mooney_Rivlin(double *C_in,
 			    MATERIAL_ELASTICITY const *mat,
 			    double *L_out)
 {
-  Matrix(double) C, L, ident, invC;
-  Matrix_construct_redim(double, ident, DIM_3, DIM_3);
-  Matrix_construct_redim(double, invC, DIM_3, DIM_3);
-
-  Matrix_eye(ident,DIM_3);
-
-  C.m_row = C.m_col = DIM_3;
-  C.m_pdata = C_in;
+  Tensor<2, 3, double*> C(C_in);
+  Tensor<4, 3, double*> L(L_out);
   
-  L.m_row = DIM_3x3x3x3; L.m_col = 1;
-  L.m_pdata = L_out;  
-  
-  Matrix_inv(C, invC);
+  Tensor<2> ident;
+  ident(i,j) = ttl::identity(i,j);
 
-  double detC, trC, CC;
-  Matrix_det(C, detC);
-  Matrix_trace(C,trC);
-  Matrix_ddot(C,C,CC);  
+  Tensor<2> invC = ttl::inverse(C);
+
+  double detC = ttl::det(C);
+  double trC = C(i,i);           //trace operation
+  double CC = C(i,j) * C(i,j);   //dot product
 
   double detC1,detC2;
   detC1 = pow(detC,-1./3.);
   detC2 = detC1*detC1;
 
-  for(int i=1; i<=DIM_3; i++)
-  {
-    for(int j=1; j<=DIM_3; j++)
-    {
-      for(int k=1; k<=DIM_3; k++)
-      {
-	      for(int l=1; l<=DIM_3; l++)
-	      {
-	        Tns4_v(L,i,j,k,l) = (4.0*mat->m10*detC1
-			       * (
-			      	  (1./9.*trC*Mat_v(invC,i,j)- 1./3.*Mat_v(ident,i,j))*Mat_v(invC,k,l)				 
-			      	  + 1./3.*(trC*Mat_v(invC,i,k)*Mat_v(invC,l,j)-Mat_v(ident,k,l)*Mat_v(invC,i,j))
-			      	 )
-			       +(4.0*mat->m01*detC2*(
-			      	    Mat_v(ident,i,j)*Mat_v(ident,k,l)-Mat_v(ident,i,k)*Mat_v(ident,l,j)				    
-			      	    + 2./3.*((Mat_v(C,i,j)-trC*Mat_v(ident,i,j))*Mat_v(invC,k,l))
-			      	    - ((CC-trC*trC)*(2./9.*Mat_v(invC,i,j)*Mat_v(invC,k,l)+1./3.*Mat_v(invC,i,k)*Mat_v(invC,l,j)))
-			      	    + 2./3.*((Mat_v(C,k,l)-trC*Mat_v(ident,k,l))*Mat_v(invC,i,j)))
-			      	 ));
-        }
-      }
-    }
-  }
-  Matrix_cleanup(invC);
-  Matrix_cleanup(ident);
+  L(i,j,k,l) = (4.0*mat->m10*detC1
+	     * (
+               (1./9.*trC*invC(i,j) - 1./3.*ident(i,j)) * invC(k,l)
+	       + 1./3.*(trC*invC(i,k)*invC(l,j)-ident(k,l)*invC(i,j))
+		)
+	     + (4.0*mat->m01*detC2*(
+		   ident(i,j)*ident(k,l)-ident(i,k)*ident(l,j)
+		   + 2./3.*((C(i,j)-trC*ident(i,j)) * invC(k,l))
+		   - ((CC-trC*trC)*(2./9.*invC(i,j)*invC(k,l)+1./3.*invC(i,k)*invC(l,j)))
+		   + 2./3.*(C(k,l)-trC*ident(k,l))*invC(i,j)))
+		);
 }
 
 void SEDF_matStiff_Linear(double *C,

@@ -1,3 +1,8 @@
+/// Authors:
+///  Sangmin Lee, [1], <slee43@nd.edu>
+///  Aaron Howell, [1], <ahowell3@nd.edu>
+///  [1] - University of Notre Dame, Notre Dame, IN
+
 #include "constitutive_model.h"
 #include "flowlaw.h"
 #include "material_properties.h"
@@ -14,8 +19,9 @@ namespace {
   static constexpr ttl::Index<'k'> k;
 }
 
-// input double *gamma_dots, int N_SYS
-// output double *gamma_dot
+/// \param[in] gamma_dots 
+/// \param[in] N_SYS
+/// \return gamma_dot
 double compute_gamma_dot(double *gamma_dots, int N_SYS)
 {
   int err = 0; 
@@ -26,6 +32,11 @@ double compute_gamma_dot(double *gamma_dots, int N_SYS)
   return gamma_dot;  
 }
 
+/// \param[out] gamma_dots 
+/// \param[in] taus
+/// \param[in] g
+/// \param[in] mat_p
+/// \return non-zero on internal error 
 int compute_gamma_dots(double *gamma_dots, double *taus, double g, 
                        MATERIAL_CRYSTAL_PLASTICITY *mat_p)
 {
@@ -39,6 +50,11 @@ int compute_gamma_dots(double *gamma_dots, double *taus, double g,
   return err;
 }       
 
+/// \param[out] taus
+/// \param[in] C_in
+/// \param[in] S_in
+/// \param[in] slip
+/// \return non-zero on internal error 
 int compute_tau_alphas(double *taus, double *C_in, double *S_in, SLIP_SYSTEM *slip)
 {
   int err = 0;
@@ -54,6 +70,11 @@ int compute_tau_alphas(double *taus, double *C_in, double *S_in, SLIP_SYSTEM *sl
   return err;
 }
 
+/// \param[out] dgamma_dtaus
+/// \param[in] g
+/// \param[in] taus
+/// \param[in] mat_p
+/// \return non-zero on internal error 
 int compute_d_gamma_d_tau(double *dgamma_dtaus, double g, double *taus, MATERIAL_CRYSTAL_PLASTICITY *mat_p)
 {
   int err = 0;
