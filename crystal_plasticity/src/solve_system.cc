@@ -417,7 +417,11 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   
   if((norm_R/(*norm_R_0) < solver_info->tol_M) && err==0 || is_it_cnvg_on_eng_norm)
     *is_it_cnvg = 1;  
-       
+  
+  for(int a = 0; a < F1end; a++)
+    Matrix_cleanup(F1[a]);
+  free(F1);  
+
   return err;
 }
 
