@@ -279,10 +279,10 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   }
 
   enum {taus,gamma_dots,dgamma_dtaus,F1end};
-  Tensor<1, N_SYS, double> F1[F1end];  
+  Matrix(double) *F1 = malloc(F1end*sizeof(Matrix(double)));
   for (int a = 0; a < F1end; a++) {
-    F1[a] = {};
-  }
+    Matrix_construct_redim(double, F1[a],slip->N_SYS, 1);
+  } 
   
   Tensor<2, 10, double> K = {};
   Tensor<2, 10, double> KI = {};
@@ -316,19 +316,19 @@ double Newton_Rapson4M(double *M_out, double *lambda,
     Tensor<2, 3, double*> S(elasticity->S);
 
     // compute taus
-    err += compute_tau_alphas(F1[taus].data,F2[C].data, S.data, slip);    
+    err += compute_tau_alphas(F1[taus].m_pdata,F2[C].data, S.data, slip);    
     // taus -> gamma_dots
-    err += compute_gamma_dots(F1[gamma_dots].data, F1[taus].data, g_np1_k, mat->mat_p);
+    err += compute_gamma_dots(F1[gamma_dots].m_pdata, F1[taus].m_pdata, g_np1_k, mat->mat_p);
     // gamma_dots,taus -> dgamma_dtaus
-    err += compute_d_gamma_d_tau(F1[dgamma_dtaus].data, g_np1_k, F1[taus].data, mat->mat_p);    
+    err += compute_d_gamma_d_tau(F1[dgamma_dtaus].m_pdata, g_np1_k, F1[taus].m_pdata, mat->mat_p);    
 
     // compute R (risidual)
     err += compute_residual_M(R.data,M.data,F2[MI].data,pFn_in,pFnI_in,
-                              N_in, A_in, F1[gamma_dots].data, *lambda, dt, slip);
+                              N_in, A_in, F1[gamma_dots].m_pdata, *lambda, dt, slip);
     *d_gamma = 0.0;
     
     for(int s = 0; s<slip->N_SYS; s++)
-      (*d_gamma) += dt*fabs(F1[gamma_dots].data[s]);
+      (*d_gamma) += dt*fabs(F1[gamma_dots].m_pdata[s]);
                                           
     norm_R = R(i) * R(i);   // norm_R equals the dot product of R and R
     norm_R = sqrt(norm_R);
@@ -359,7 +359,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
                                       
     // compute dR/dM                                      
     err += construct_tangent_M(K.data, M_out, F2[MI].data,pFn_in,F2[eFnp1].data,Fa_in,F2[C].data,
-                               N_in, A_in, F1[dgamma_dtaus].data,*lambda, dt,elasticity,slip);
+                               N_in, A_in, F1[dgamma_dtaus].m_pdata,*lambda, dt,elasticity,slip);
     
     // solve system of equation
 
