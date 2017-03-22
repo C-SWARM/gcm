@@ -15,6 +15,7 @@ namespace {
   static constexpr ttl::Index<'j'> j;
   static constexpr ttl::Index<'k'> k;
   static constexpr ttl::Index<'l'> l;
+  static constexpr ttl::Index<'m'> m;
 }
 
 /// \param[out] Kuu_a_out 
@@ -36,23 +37,15 @@ int compute_Kuu_a(double *Kuu_a_out, double *A_in,  double *S_in,
   Tensor<4, 3, double*> L(L_in);
        
   int err = 0;
-  Kuu_a = {};
 
-  enum {AA,L_C,Dtau_dM,F2end};
+  Tensor<2> AA;
+  Tensor<2> Dtau_dM;
 
-  Tensor<2> F2[F2end];   //declare an array of tensors and initialize them to 0
-  for (int a = 0; a < F2end; a++) {
-    F2[a] = {};
-  } 
-   
-  F2[AA](i,j) += Pa(i,k) * S(k,j);             //F2[AA] = 1*F2[AA] + 1*Pa*S
-  F2[AA](i,j) += S(i,k) * Pa(j,k).to(k,j);     //F2[AA] = 1*F2[AA] + 1*S*Pa'
-  F2[L_C](i,j) = L(i,j,k,l) * C(k,l);          //F2[L_C] = L:C
-  F2[AA](i,j) += F2[L_C](i,k) * Pa(k,j);       //F2[AA] = 1*F2[AA] + 1*F2[L_C]*Pa
-  F2[Dtau_dM](i,j) = A(k,i).to(i,k) * F2[AA](k,j); //F2[Dtau_dM] = A'*F2[AA]
+  AA(i,j) = Pa(i,k)*S(k,j) + S(i,k)*Pa(j,k).to(k,j) + L(i,m,k,l)*C(k,l)*Pa(m,j);
+  Dtau_dM(i,j) = A(k,i).to(i,k) * AA(k,j);
 
   //Kronecker product scaled by drdtaus_a
-  Kuu_a(i,j,k,l) = drdtaus_a * (F2[Dtau_dM])(i,j) * Pa(k,l);
+  Kuu_a(i,j,k,l) = drdtaus_a * Dtau_dM(i,j) * Pa(k,l);
 
   return err;
 }
@@ -67,7 +60,6 @@ int compute_Kuu_b(double *Kuu_b_out, double *MI_in)
   Tensor<4, 3, double*> Kuu_b(Kuu_b_out);
   Tensor<2, 3, double*> MI(MI_in);
 
-  Kuu_b = {};
   Kuu_b(i,j,k,l) = MI(j,i) * MI(l,k) + MI(l,i) * MI(j,k); 
 
  return err;

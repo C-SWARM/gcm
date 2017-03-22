@@ -101,7 +101,7 @@ int print_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_
   return err;  
 }
                         
-/// \param[out] R
+/// \param[out] R Vector with 10 elements
 /// \param[in] M_in
 /// \param[in] MI_in
 /// \param[in] pFn_in
@@ -113,13 +113,14 @@ int print_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_
 /// \param[in] dt
 /// \param[in] slip
 /// \return non-zero on internal error
-int compute_residual_M(double *R, double *M_in, double *MI_in, double *pFn_in, double *pFnI_in, 
+int compute_residual_M(double *R_out, double *M_in, double *MI_in, double *pFn_in, double *pFnI_in, 
                        double *N_in, double *A_in,
                        double *gamma_dots,double lambda,double dt,
                        SLIP_SYSTEM *slip)
 {
   int err = 0;
   
+  Tensor<1, 10, double*> R(R_out);   
   Tensor<2, 3, double*> M(M_in);
   Tensor<2, 3, double*> MI(MI_in);
   Tensor<2, 3, double*> pFn(pFn_in);
@@ -150,10 +151,9 @@ int compute_residual_M(double *R, double *M_in, double *MI_in, double *pFn_in, d
   F2[ATRu](i,j) = A(k,i).to(i,k) * F2[Ru](k,j);
   
   for(int a=0; a<DIM_3x3; a++)
-    R[a] = F2[ATRu].get(a) - lambda * det_MIpFnN * F2[MIT].get(a);
-  
+    R.data[a] = F2[ATRu].get(a) - lambda * det_MIpFnN * F2[MIT].get(a);
 
-  R[DIM_3x3] = det_MIpFnN - 1.0;
+  R.data[DIM_3x3] = det_MIpFnN - 1.0;
           
   return err;
 }
