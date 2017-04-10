@@ -24,7 +24,7 @@ void test_slip_system(void)
   double w           = 0.005;
     
   Matrix(double) F, C;  
-  Matrix_construct_redim(double, C, 3,3);  
+  Matrix_construct_init(double, C, 3,3,0.0);  
   
   F.m_row = F.m_col = 3;
   F.m_pdata = m_m;
