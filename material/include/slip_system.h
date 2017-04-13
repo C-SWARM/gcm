@@ -5,7 +5,6 @@
 extern "C" {
 #endif /* #ifdef __cplusplus */
 
-
 enum{SLIP_SYSTEM_FCC,SLIP_SYSTEM_BCC,SLIP_SYSTEM_HCP};
 
 struct SLIP_SYSTEM

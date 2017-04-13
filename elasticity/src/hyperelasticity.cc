@@ -1,92 +1,78 @@
+/// Authors:
+///  Sangmin Lee, [1], <slee43@nd.edu>
+///  Aaron Howell, [1], <ahowell3@nd.edu>
+///  [1] - University of Notre Dame, Notre Dame, IN
+
 #include "constitutive_model.h"
 #include "hyperelasticity.h"
 #include "strain_energy_density_function.h"
 #include "material_properties.h"
+#include <ttl/ttl.h>
+
+namespace {
+  template<int R,int D = 3,class S = double>
+  using Tensor = ttl::Tensor<R,D,S>;
+
+  static constexpr ttl::Index<'i'> i;
+  static constexpr ttl::Index<'j'> j;
+  static constexpr ttl::Index<'k'> k;
+  static constexpr ttl::Index<'l'> l;
+}
  
+/// \param[out] elasticity
+/// \param[in]  Fe
+/// \param[in]  update_stiffness
 int update_PK2_elasticity_tensor(ELASTICITY *elasticity, double *Fe, int update_stiffness)
 {
   int err = 0;
 
-  // Matrix construct --->
   enum {C,CI,F2end};
-  Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
+  ttl::Tensor<2, 3, double> F2[F2end];   //declare an array of tensors and initialize them to 0
   for (int a = 0; a < F2end; a++) {
-    Matrix_construct_redim(double, F2[a],DIM_3,DIM_3);
-  }
-  // <-- Matrix construct
-  
-  // use double arrays as Matrix -->
-  Matrix(double) F, S;
-  F.m_row = F.m_col = DIM_3; F.m_pdata = Fe;
-  S.m_row = S.m_col = DIM_3; S.m_pdata = elasticity->S;  
-  // <-- use double array as Matrix
-  
-  double detF;
-  Matrix_init(F2[C],0.0);
-  Matrix_AxB(F2[C],1.0,0.0,F,1,F,0);  
-  Matrix_inv(F2[C],F2[CI]);
-  Matrix_det(F, detF);  
+    F2[a] = {};
+  } 
+
+  Tensor<2, 3, double*> F(Fe);
+  Tensor<2, 3, double*> S(elasticity->S);
+
+  F2[C](i,j) = F(k,i).to(i,k) * F(k,j);   //F[C] = F inverse * F
+  F2[CI](i,j) = ttl::inverse(F2[C])(i,j);
+  double detF = ttl::det(F);
   double detC = detF*detF;
   
   // compute stress -->
   double dudj = 0.0;  
   double kappa = elasticity->mat->kappa;    
-  elasticity->compute_PK2_dev(F2[C].m_pdata, elasticity->mat, S.m_pdata);
+  elasticity->compute_PK2_dev(F2[C].data, elasticity->mat, S.data);
   elasticity->compute_dudj(&dudj, detF);
-  Matrix_AplusB(S, kappa*detF*dudj,F2[CI],1.0,S);
+  S(i,j) += kappa*detF*dudj * F2[CI](i,j);
   // <-- compute stress    
 
   //compute stiffness -->
   if(update_stiffness)
   {
-    
+
     enum {CIoxCI,CICI,SoxS,F4end};
-    Matrix(double) *F4 = malloc(F4end*sizeof(Matrix(double)));
+    Tensor<4> F4[F4end];   //declare an array of tensors and initialize them to 0
     for (int a = 0; a < F4end; a++) {
-      Matrix_construct_redim(double, F4[a],DIM_3x3x3x3,1);
+      F4[a] = {};
     }
-    // use double arrays as Matrix -->
-    Matrix(double) L;
-    L.m_row = DIM_3x3x3x3; L.m_col = 1;
-    L.m_pdata = elasticity->L;
-      
-    // <-- use double array as Matrix        
+
+    Tensor<4, 3, double*> L(elasticity->L);  
     
     double d2udj2 = 0.0;    
-    elasticity->compute_tangent_dev(F2[C].m_pdata, elasticity->mat, L.m_pdata);              
+    elasticity->compute_tangent_dev(F2[C].data, elasticity->mat, L.data);
     elasticity->compute_d2udj2(&d2udj2, detF);
 
-    for(int I=1; I<=DIM_3; I++)
-    {
-      for(int J=1; J<=DIM_3; J++)
-      {
-        for(int P=1; P<=DIM_3; P++)
-        {
-          for(int Q=1; Q<=DIM_3; Q++)
-          {
-            Tns4_v(F4[CIoxCI],I,J,P,Q) = Mat_v(F2[CI],I,J)*Mat_v(F2[CI],P,Q);
-            Tns4_v(F4[SoxS]  ,I,J,P,Q) = Mat_v(S,I,J)*Mat_v(S,P,Q);            
-            Tns4_v(F4[CICI]  ,I,J,P,Q) = Mat_v(F2[CI],I,P)*Mat_v(F2[CI],Q,J);
-          }
-        }
-      }
-    }
+    F4[CIoxCI](i,j,k,l) = F2[CI](i,j) * F2[CI](k,l);   //calculate Kronecker product
+    F4[SoxS]  (i,j,k,l) = S(i,j) * S(k,l);
+    F4[CICI]  (i,j,k,l) = F2[CI](i,k) * F2[CI](l,j); 
   
-    for(int I=1; I<=DIM_3x3x3x3; I++)
-    {
-      Vec_v(L, I) += kappa*(detF*dudj + detC*d2udj2)*Vec_v(F4[CIoxCI], I)
-                   - 2.0*kappa*detF*dudj*Vec_v(F4[CICI], I);
-    }    
-
-    for(int a = 0; a < F4end; a++)
-      Matrix_cleanup(F4[a]);    
-    free(F4);
+    L(i,j,k,l) += kappa*(detF*dudj + detC*d2udj2) * F4[CIoxCI](i,j,k,l)
+                - 2.0*kappa*detF*dudj * F4[CICI](i,j,k,l);   
   }
   // <-- compute stiffness
     
-  for(int a = 0; a < F2end; a++)
-    Matrix_cleanup(F2[a]);    
-  free(F2);
   
   return 0;
 }

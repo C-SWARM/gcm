@@ -1,12 +1,27 @@
+/// Authors:
+///  Sangmin Lee, [1], <slee43@nd.edu>
+///  Aaron Howell, [1], <ahowell3@nd.edu>
+///  [1] - University of Notre Dame, Notre Dame, IN
+
 #include "constitutive_model.h"
 #include "flowlaw.h"
 #include "material_properties.h"
+#include <ttl/ttl.h>
 
 #include <math.h>
 
+namespace {
+  template<int R, int D = 3, class S = double>
+  using Tensor = ttl::Tensor<R, D, S>;
 
-// input double *gamma_dots, int N_SYS
-// output double *gamma_dot
+  static constexpr ttl::Index<'i'> i;
+  static constexpr ttl::Index<'j'> j;
+  static constexpr ttl::Index<'k'> k;
+}
+
+/// \param[in] gamma_dots 
+/// \param[in] N_SYS
+/// \return gamma_dot
 double compute_gamma_dot(double *gamma_dots, int N_SYS)
 {
   int err = 0; 
@@ -17,6 +32,11 @@ double compute_gamma_dot(double *gamma_dots, int N_SYS)
   return gamma_dot;  
 }
 
+/// \param[out] gamma_dots 
+/// \param[in] taus
+/// \param[in] g
+/// \param[in] mat_p
+/// \return non-zero on internal error 
 int compute_gamma_dots(double *gamma_dots, double *taus, double g, 
                        MATERIAL_CRYSTAL_PLASTICITY *mat_p)
 {
@@ -30,25 +50,31 @@ int compute_gamma_dots(double *gamma_dots, double *taus, double g,
   return err;
 }       
 
+/// \param[out] taus
+/// \param[in] C_in
+/// \param[in] S_in
+/// \param[in] slip
+/// \return non-zero on internal error 
 int compute_tau_alphas(double *taus, double *C_in, double *S_in, SLIP_SYSTEM *slip)
 {
   int err = 0;
 
-  Matrix(double) CS,C,S,P;
-  Matrix_construct_init(double,CS,DIM_3,DIM_3,0.0);
-  C.m_row = C.m_col = DIM_3; C.m_pdata = C_in;
-  S.m_row = S.m_col = DIM_3; S.m_pdata = S_in;  
-  P.m_row = P.m_col = DIM_3;   
-  Matrix_AxB(CS,1.0,0.0,C,0,S,0);    
+  Tensor<2, 3, double*> C(C_in), S(S_in);
+  Tensor<2> CS;   
+  CS(i,j) = C(i,k) * S(k,j);   
   for(int a=0; a<slip->N_SYS; a++)
   {
-    P.m_pdata = (slip->p_sys) + a*DIM_3x3;
-    Matrix_ddot(CS,P,taus[a]);
+    Tensor<2, 3, double*> P((slip->p_sys) + a*DIM_3x3);
+    taus[a] = CS(i,j) * P(i,j);   //taus[a] equals the dot product of CS and P
   }
-  Matrix_cleanup(CS);
   return err;
 }
 
+/// \param[out] dgamma_dtaus
+/// \param[in] g
+/// \param[in] taus
+/// \param[in] mat_p
+/// \return non-zero on internal error 
 int compute_d_gamma_d_tau(double *dgamma_dtaus, double g, double *taus, MATERIAL_CRYSTAL_PLASTICITY *mat_p)
 {
   int err = 0;
