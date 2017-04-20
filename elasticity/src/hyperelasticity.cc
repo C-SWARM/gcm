@@ -35,8 +35,21 @@ int update_PK2_elasticity_tensor(ELASTICITY *elasticity, double *Fe, int update_
   Tensor<2, 3, double*> F(Fe);
   Tensor<2, 3, double*> S(elasticity->S);
 
-  F2[C](i,j) = F(k,i).to(i,k) * F(k,j);   //F[C] = F inverse * F
-  F2[CI](i,j) = ttl::inverse(F2[C])(i,j);
+  F2[C](i,j) = F(k,i).to(i,k) * F(k,j);   //F[C] = F inverse * F    
+    
+  try
+  {
+    F2[CI](i,j) = ttl::inverse(F2[C])(i,j);  // attempt to take the inverse
+  }
+  catch(const int inverseException)  // no inverse exists
+  {
+    if(DEBUG_PRINT_STAT)
+      printf( "Matrix is singular. PK2 could not be computed.\n");
+      
+    return 1;
+  }    
+    
+    
   double detF = ttl::det(F);
   double detC = detF*detF;
   

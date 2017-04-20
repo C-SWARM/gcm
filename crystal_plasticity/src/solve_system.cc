@@ -311,7 +311,9 @@ double Newton_Rapson4M(double *M_out, double *lambda,
 
     F2[MI](i,j) = ttl::inverse(M)(i,j);
     F2[C](i,j) = F2[eFnp1](k,i).to(i,k) * F2[eFnp1](k,j);
-    elasticity->update_elasticity(elasticity, F2[eFnp1].data, 1); // compute stiffness also
+    err += elasticity->update_elasticity(elasticity, F2[eFnp1].data, 1); // compute stiffness also
+    if(err != 0 )
+      break;
 
     Tensor<2, 3, double*> S(elasticity->S);
 
