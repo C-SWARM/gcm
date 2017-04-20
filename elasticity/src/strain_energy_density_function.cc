@@ -71,7 +71,8 @@ void SEDF_devStress_Mooney_Rivlin(double *C_in,
   
   Tensor<2, 3, double*> C(C_in);
   Tensor<2, 3, double*> S(S_out);
-  Tensor<2> invC = ttl::inverse(C);
+  Tensor<2, 3, double> invC = {};
+  inverse(C.data, DIM_3, invC.data); //Tensor<2> invC = ttl::inverse(C);
   Tensor<2> ident;
   ident(i,j) = ttl::identity(i,j);
 
@@ -115,8 +116,9 @@ void SEDF_matStiff_Mooney_Rivlin(double *C_in,
   
   Tensor<2> ident;
   ident(i,j) = ttl::identity(i,j);
-
-  Tensor<2> invC = ttl::inverse(C);
+  
+  Tensor<2, 3, double> invC = {};
+  inverse(C.data, DIM_3, invC.data); //Tensor<2> invC = ttl::inverse(C);
 
   double detC = ttl::det(C);
   double trC = C(i,i);           //trace operation

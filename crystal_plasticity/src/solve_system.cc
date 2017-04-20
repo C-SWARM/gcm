@@ -308,8 +308,9 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   {
     cnt++;
     F2[eFnp1](i,j) = Fa(i,k) * M(k,j);
+    
+    err += inverse(M.data, DIM_3, F2[MI].data);
 
-    F2[MI](i,j) = ttl::inverse(M)(i,j);
     F2[C](i,j) = F2[eFnp1](k,i).to(i,k) * F2[eFnp1](k,j);
     err += elasticity->update_elasticity(elasticity, F2[eFnp1].data, 1); // compute stiffness also
     if(err != 0 )
