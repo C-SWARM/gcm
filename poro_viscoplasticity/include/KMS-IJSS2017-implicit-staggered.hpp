@@ -31,10 +31,6 @@
 #include <iomanip>
 #include <math.h>
 
-#include <boost/numeric/mtl/mtl.hpp>
-#include <boost/numeric/itl/itl.hpp>
-
-
 // temporary operations on Tensors
 namespace{
   
@@ -734,29 +730,29 @@ void KMS_IJSS2017_Implicit_BE_Staggered<dim>::ttlsolveExceptionHandling( const t
   this->IO->log() << "  KMS_IJSS2017_Implicit_BE_Staggered integrator. Here are the system matrix \n";
   this->IO->log() << "  and the right hand side before quitting. \n";
   
-  typedef mtl::mat::dense2D<double> Matrix;
-  typedef mtl::dense_vector<double> Vector;
-
-  // Matrix analysis - using mtl
-  Matrix SysMat( dim*dim, dim*dim );
-  
-  unsigned r=0;
-  for (unsigned i=0; i<dim*dim; i++)
-    for (unsigned j=0; j<dim*dim; j++)
-      SysMat[i][j] = ttlsysmat.data[r++];
-
-  this->IO->log() << "\n  system matrix: \n" << SysMat << "\n";
-  
-  // Vector analysis - using mtl
-  Vector SysVec( dim*dim );
-  
-  r=0;
-  for (unsigned i=0; i<dim*dim; i++)
-      SysVec[i] = ttlsysvec.data[r++];
-  
-  this->IO->log() << "  right hand side:   " << SysVec << "\n\n\n";
-  
-  std::exit(-1);
+//  typedef mtl::mat::dense2D<double> Matrix;
+//  typedef mtl::dense_vector<double> Vector;
+//
+//  // Matrix analysis - using mtl
+//  Matrix SysMat( dim*dim, dim*dim );
+//  
+//  unsigned r=0;
+//  for (unsigned i=0; i<dim*dim; i++)
+//    for (unsigned j=0; j<dim*dim; j++)
+//      SysMat[i][j] = ttlsysmat.data[r++];
+//
+//  this->IO->log() << "\n  system matrix: \n" << SysMat << "\n";
+//  
+//  // Vector analysis - using mtl
+//  Vector SysVec( dim*dim );
+//  
+//  r=0;
+//  for (unsigned i=0; i<dim*dim; i++)
+//      SysVec[i] = ttlsysvec.data[r++];
+//  
+//  this->IO->log() << "  right hand side:   " << SysVec << "\n\n\n";
+//  
+//  std::exit(-1);
   
 }
 
@@ -957,25 +953,25 @@ void KMS_IJSS2017_Implicit_BE_Staggered<dim>::ttlinverseExceptionHandling( const
   this->IO->log() << "  within the Consistent Tangent Stiffness Matrix for the  \n";
   this->IO->log() << "  KMS_IJSS2017_Implicit_BE_Staggered integrator. Here is the tensor in a matrix form\n";
   
-  typedef mtl::mat::dense2D<double> Matrix;
-  // typedef mtl::dense_vector<double> Vector;
-  
-  // Matrix analysis - using mtl
-  Matrix SysMat( dim*dim, dim*dim );
-  
-  unsigned r=0;
-  for (unsigned i=0; i<dim*dim; i++)
-    for (unsigned j=0; j<dim*dim; j++)
-      SysMat[i][j] = ttlsysmat.data[r++];
-  
-  this->IO->log() << "\n  system matrix: \n" << SysMat << "\n";
-  
-  // Eigenvalues analysis - using mtl
-  mtl::mat::eigenvalue_solver<Matrix> E1( SysMat );
-  E1.setMaxIteration(100);
-  E1.setTolerance(1.0e-10);
-  E1.calc();
-  this->IO->log() << " eigenvalues: " << E1.get_eigenvalues() << "\n";
+//  typedef mtl::mat::dense2D<double> Matrix;
+//  // typedef mtl::dense_vector<double> Vector;
+//  
+//  // Matrix analysis - using mtl
+//  Matrix SysMat( dim*dim, dim*dim );
+//  
+//  unsigned r=0;
+//  for (unsigned i=0; i<dim*dim; i++)
+//    for (unsigned j=0; j<dim*dim; j++)
+//      SysMat[i][j] = ttlsysmat.data[r++];
+//  
+//  this->IO->log() << "\n  system matrix: \n" << SysMat << "\n";
+//  
+//  // Eigenvalues analysis - using mtl
+//  mtl::mat::eigenvalue_solver<Matrix> E1( SysMat );
+//  E1.setMaxIteration(100);
+//  E1.setTolerance(1.0e-10);
+//  E1.calc();
+//  this->IO->log() << " eigenvalues: " << E1.get_eigenvalues() << "\n";
   
   this->IO->log() << "\n\n  ----------------------------- \n\n\n ";
 }

@@ -35,7 +35,10 @@ OBJs_cmh = $(SRC_cmh:.cc=.o)
 SRC_j2p = $(shell ls J2_plasticity/src/*.cc)
 OBJs_j2p = $(SRC_j2p:.cc=.o)
 
-OBJs = $(OBJs_uts) $(OBJs_mat) $(OBJs_els) $(OBJs_cpm) $(OBJs_dam) $(OBJs_cmh) $(OBJs_j2p)
+SRC_pvp = $(shell ls poro_viscoplasticity/src/*.cc)
+OBJs_pvp = $(SRC_pvp:.cc=.o)
+
+OBJs = $(OBJs_uts) $(OBJs_mat) $(OBJs_els) $(OBJs_cpm) $(OBJs_dam) $(OBJs_cmh) $(OBJs_j2p) $(OBJs_pvp)
 
 all: SRC
 
@@ -49,6 +52,7 @@ SRC:
 	cd damage/src; make; cd ../..;
 	cd constitutive_model_handle/src; make; cd ../..;
 	cd J2_plasticity/src; make; cd ../..;
+	cd poro_viscoplasticity/src; make; cd ../..;
 
 	$(AR) $(ARFLAGS) $(OLIB) $(OBJs)
 	mv $(OLIB) lib	
@@ -61,4 +65,5 @@ clean:
 	cd damage/src; make clean; cd ../..;
 	cd constitutive_model_handle/src; make clean; cd ../..;
 	cd J2_plasticity/src; make clean; cd ../..;
+	cd poro_viscoplasticity/src; make clean; cd ../..;
 	cd lib; rm *.a; cd ..;
