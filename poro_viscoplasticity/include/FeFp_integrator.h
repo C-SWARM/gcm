@@ -15,7 +15,7 @@
 #include <ttl/ttl.h>
 
 #include "FiniteStrainModels_integrator.h"
-#include "SmallStrainIntegrator.h"
+//#include "SmallStrainIntegrator.h"
 #include "ttl-tools.h"
 
 
