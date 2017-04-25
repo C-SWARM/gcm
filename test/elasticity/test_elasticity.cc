@@ -29,7 +29,7 @@ void test_elasticity(void)
     Mat_v(F,2,2) = Mat_v(F,3,3) = 1 - d*a/2.0;
     Matrix_AxB(C,1.0,0.0,F,1,F,0);
     elast.update_elasticity(&elast,F.m_pdata, 0);
-    fprintf(out, "%e, %e\n", d*a, S.m_pdata[0]);
+    fprintf(out, "%e %e\n", d*a, S.m_pdata[0]);
   }
   fclose(out);        
   destruct_elasticity(&elast);

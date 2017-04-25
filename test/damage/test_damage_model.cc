@@ -52,7 +52,7 @@ void test_damage_model(void)
     err += update_damaged_elasticity(&mat_d,&elast,w,is_it_damaged,H,
                                      dt,F.m_pdata,1);
 
-    fprintf(out,"%e, %e, %e\n", d*a, S.m_pdata[0], w);
+    fprintf(out,"%e %e %e\n", d*a, S.m_pdata[0], w);
   }
   fclose(out);        
   destruct_elasticity(&elast);

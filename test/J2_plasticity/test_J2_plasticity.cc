@@ -77,7 +77,7 @@ void test_elasticity(void)
     gamma_n = gamma;
     
     double et = log(1.0-d*a);
-    fprintf(out, "%e, %e, %e, %e, %e, %e, %e\n", et, 
+    fprintf(out, "%e %e %e %e %e %e %e\n", et, 
                                                  Mat_v(sigma,1,1),
                                                  (elast.S[0]),
                                                  sigma_eff, 
