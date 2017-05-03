@@ -1489,10 +1489,299 @@ void KMS_IJSS2017_Implicit_BE_Staggered<dim>::DMDFandDSDF(
 }
 
 
+template <int dim>
+int KMS_IJSS2017_Implicit_BE_Staggered<dim>::compute_dMdF(double *dMdF_in,
+                                                          const double dt)
+  //! This function evaluates the fourth order tensor dM/Du for the KMS_IJSS2017 model
+  //! This method expects that the Step has already been updated elsewhere, since it uses quantities at step n+1
+  //! that MUST have been updated before
+  //!
+  //! 1 - Calculate intermediate operators
+  //! 2 - Calculate some derivatives wrt pc
+  //! 3 - Calculate blocks 2.1, 2.2, 2.3, 2.4 and right hand sides
+  //! 4 - Solve the system and calculate dMdF
+{
+  int err = 0;
+  using namespace ttlindexes;
+  static constexpr ttl::Index<'w'> w;
+  static constexpr ttl::Index<'x'> x;
+  static constexpr ttl::Index<'z'> z;
+  static constexpr ttl::Index<'y'> y;
+ 
+  ttl::Tensor<4, dim, double*> dMdF(dMdF_in);
+       
+  double onethird = 1.0/3.0;
+  
+    // 0 - Evaluation of dHpcdpc
+  
+    // Material parameters
+  double a1=this->Parameters->hr_a1;
+  double a2=this->Parameters->hr_a2;
+  double l1=this->Parameters->hr_Lambda1;
+  double l2=this->Parameters->hr_Lambda2;
+  
+  // derivative dHpc/dpc
+  double dHpcdpc = a1*l1*exp(-l1/this->pcnp1) + a2*l2*exp(-l2/this->pcnp1) ;
+  
+  
+  // 1 - Calculate intermediate operators  
+  // tensor M = pFn * pFnp1I
+  FTensors pFnp1I = ttl::inverse(this->pFnp1);
+    
+  FTensors M = this->pFn(i,k)*pFnp1I(k,j);
+  
+  // Zwx has been defined at page 17b of the consistent tangent operator notes
+  FTensors HattedZwx = this->UpdateHattedZwx(M);
+  
+  // Lambdazywx has been defined at page 16 of the consistent tangent operator notes
+  ttl::Tensor<4, dim, double> HattedLambdazywx;
+  ttl::Tensor<4, dim, double> dsdm = this->DSDM( this->Fnp1, this->eFnp1, this->pFnp1, this->pcnp1 );
+  HattedLambdazywx( z,y,w,x ) = dHpcdpc * dsdm( z,y,w,x ) + this->DSDpc() ( z,y ) * HattedZwx( w,x );
+  
+  // Vzykl has been defined at page 16 of the consistent tangent operator notes
+  // Note that dSdF is the partial derivative and differs from DSDF
+  // Vzykl can be seen as the "elastic" change in the second Piola-Kirchoff stress, in the sense
+  // that if an increment in F is purely elastic (DF->DeF) it causes neither changes in M nor in pc
+  // and the stress increment coincides with Vzykl.
+  ttl::Tensor<4, dim, double> Vzykl = this->dSdF( this->Fnp1, this->eFnp1, this->pFnp1, this->pcnp1 );
+  
+  // Minorcdkl and Majorcdwx have been defined at pages 16-17 of the consistent tangent operator notes
+  ttl::Tensor<4, dim, double> Minorcdkl = this->Minor_cdkl( this->Fnp1, this->eFnp1, this->pFnp1, this->Snp1, M, Vzykl );
+  ttl::Tensor<4, dim, double> HattedMajorcdwx = this->HattedMajor_cdwx( this->Fnp1, this->eFnp1, this->pFnp1, this->Snp1, M, HattedLambdazywx, dHpcdpc );
+  
+  // Phiabzy has been defined at page 18 of the consistent tangent operator notes
+  ttl::Tensor<4, dim, double> Phiabzy = this->Phi_abzy( this->Snp1, false );
+  
+  
+  // 2 - Calculate some derivatives wrt pc
+  
+  // taubar is the Frobenius norm of the deviatoric part of the Kirchoff stress.
+  // therefor if it is = 0, the Kirchoff stress is purely volumetric
+  // Note that this->KSnp1 has been updated by the method
+  // KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& updF, const double dt, bool Verbose )
+  FTensors tau = dev( this->KSnp1 );
+  double taubar = FrobeniusNorm( tau );
+  
+  // Kirchoff pressure. Beware of the sign.
+  // Note that this->KSnp1 has been updated by the method
+  // KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& updF, const double dt, bool Verbose )
+  double pi = - Trace( this->KSnp1 ) / 3.0;
+  
+    // these denominators should never be zero.
+  double oneoverd = 1.0 / this->d( this->pcnp1 );
+  double oneovergtaubar = 1.0 / this->g_tau( this->pcnp1 );
+  double oneoverm = 1.0 / this->Parameters->flr_m ;
+  double oneovergpibar = 1.0 / this->g_pi( pi, this->pcnp1 );
+  
+  
+  //! 3 - Calculate isochoric (blocks 2.1, 2.2) and volumetric (blocks 2.3, 2.4) blocks
+  //!     as well as the right hand sides
+  
+  // 2.1 and 2.2
+  ttl::Tensor<4, dim, double> Blockiso = {};
+  ttl::Tensor<4, dim, double> RHSiso = {};
+  
+  FTensors devS = dev( this->Snp1 );
+  double normPsid = FrobeniusNorm( devS );
+  
+  if (
+      ( std::fpclassify( taubar ) == FP_ZERO )
+      ||
+      ( std::fpclassify( normPsid ) == FP_ZERO )
+      )
+  {
+      // if the deviatoric part of S is zero, or if the deviatoric part of KS is zero,
+      // the block iso should be zero as well
+  }
+  else
+  {
+    double oneovertaubar = 1.0 / taubar;
+    
+      // Zwxcoeff1 is the coefficient of Zwx at page 19 of the consistent tangent operator notes,
+      // in the block 2.1. It has been studied at page 26 of the same notes
+    double Zwxcoeff1 = (
+                        oneoverd * oneoverd * this->DdDpc( this->pcnp1 ) -
+                        ( 1 - oneoverd ) * oneoverm * oneovergtaubar * this->Dg_tauDpc( this->pcnp1 )
+                        )
+    * pow( taubar * oneovergtaubar, oneoverm ) ;
+    
+      // Majorcoeff1 is the coefficient of Major_cdwx at page 19 of the consistent tangent operator notes,
+      // in the block 2.1.
+    double Majorcoeff1 = ( 1 - oneoverd ) * oneoverm * pow( taubar * oneovergtaubar, oneoverm - 1 ) * oneovergtaubar ;
+    
+    Blockiso( i,j,w,x ) = ( Zwxcoeff1 * HattedZwx( w,x ) + Majorcoeff1 * tau( k,l ) * HattedMajorcdwx( k,l,w,x ) * oneovertaubar ) * devS( i,j ) * this->Parameters->flr_gamma0 / normPsid;
+    Blockiso( i,j,w,x ) = Blockiso( i,j,w,x ) + this->gammadot_d( taubar, this->pcnp1) * Phiabzy( i,j,z,y ) * HattedLambdazywx( z,y,w,x );
+    
+    RHSiso( i,j,w,x ) = Majorcoeff1 * tau( k,l ) * Minorcdkl( k,l,w,x ) * oneovertaubar * devS( i,j ) * this->Parameters->flr_gamma0 / normPsid ;
+    RHSiso( i,j,w,x ) = RHSiso( i,j,w,x ) + this->gammadot_d( taubar, this->pcnp1) * Phiabzy( i,j,z,y ) * Vzykl( z,y,w,x );
+    
+  }
+  
+  
+    // 2.3 and 2.4
+  ttl::Tensor<4, dim, double> Blockvol = {};
+  ttl::Tensor<4, dim, double> RHSvol = {};
+  
+  double pim = this->pi_m( this->pcnp1 );
+  
+  if (  ( pi < pim ) || ( (this->pcnp1) >= this->Parameters->cf_pcinf ) )
+  { }
+  else
+  {
+      // Zwxcoeff3 is the coefficient of Zwx at page 19 of the consistent tangent operator notes,
+      // in the block 2.3. It has been studied at page 26 of the same notes
+    double Zwxcoeff3 = - ( this->Dpi_mDpc( this->pcnp1 ) + ( pi - pim ) * oneovergpibar * this->Dg_piDpc( pi, this->pcnp1 ) )  * oneovergpibar ;
+    
+      // Commoncoeff3 is defined at page 19 of the consistent tangent operator notes,
+      // in the block 2.3.
+    double Commoncoeff3 =  pow( ( pi - pim ) * oneovergpibar , oneoverm - 1 ) * oneoverm ;
+    
+    FTensors Psiv =  - onethird * this->betaC( this->pcnp1 ) * ttl::identity<dim>( i,j );
+    
+    Blockvol( i,j,w,x ) = this->Parameters->flr_gamma0 * Psiv( i,j ) * Commoncoeff3 * ( Zwxcoeff3 * HattedZwx( w,x ) - onethird * oneovergpibar * ttl::identity<dim>( k,l ) * HattedMajorcdwx( k,l,w,x )  );
+    Blockvol( i,j,w,x ) = Blockvol( i,j,w,x ) + onethird * this->gammadot_v( pi, this->pcnp1) *  this->Parameters->cf_g0 / this->Parameters->cf_pcinf * ttl::identity<dim>( i,j ) * HattedZwx( w,x ) ;
+    
+    RHSvol( i,j,w,x ) = this->Parameters->flr_gamma0 * Psiv( i,j ) * Commoncoeff3 * ( - onethird * oneovergpibar * ttl::identity<dim>( k,l ) * Minorcdkl( k,l,w,x ) );
+  }
+  
+  
+    //! 4 - Solve the system and return
+  
+  ttl::Tensor<4, dim, double> sysmat = {};
+  ttl::Tensor<4, dim, double> invsysmat = {};
+  ttl::Tensor<4, dim, double> rhs = {};
+  
+  sysmat( i,j,w,x ) = ttl::identity<dim>( i,j,w,x ) * dHpcdpc + dt * ( Blockiso( i,j,w,x ) + Blockvol( i,j,w,x ) );
+  
+  try
+  {
+    invsysmat = ttl::inverse( sysmat );
+  }
+  catch (int i)
+  {
+    //ttlinverseExceptionHandling( sysmat );
+    
+    dMdF( w,x,k,l ) = ttl::zero(  w,x,k,l  );
+    err++;
+    return err;
+  }
+  
+  rhs( i,j,w,x ) = - dt * dHpcdpc * ( RHSiso( i,j,w,x ) + RHSvol( i,j,w,x ) );  
+  dMdF( w,x,k,l ) = invsysmat( w,x,i,j ) * rhs( i,j,k,l ) ;
+  
+  return err;
+}
 
+template <int dim>
+int KMS_IJSS2017_Implicit_BE_Staggered<dim>::update_elasticity(double *eF_in,
+                                                               double pc,
+                                                               double *eS_in,
+                                                               double *L_in,
+                                                               const int compute_elasticity)
+{  
+  int err = 0;
 
+  static constexpr ttl::Index<'i'> i;
+  static constexpr ttl::Index<'j'> j;
+  static constexpr ttl::Index<'k'> k;
+  static constexpr ttl::Index<'l'> l;
+  static constexpr ttl::Index<'m'> m;
+  static constexpr ttl::Index<'n'> n;
+  static constexpr ttl::Index<'o'> o;
 
+  // compute PK2 stress
+  ttl::Tensor<2, dim, double*> eF(eF_in);
+  this->eFnp1 = eF;
+  this->pcnp1 = pc;
+      
+  ttl::Tensor<2, dim, double*> eS(eS_in);
 
+  FTensors I = ttl::identity(i,j);
+
+  // Je at step n+1
+  double eJ = det(eF);
+  
+  // Left Cauchy-Green tensor and its inverse
+  FTensors Ce;
+  Ce(i,j) = eF(k,i)*eF(k,j);
+  
+  FTensors InvCe;
+  try{
+    InvCe = ttl::inverse(Ce);
+  }
+  catch(int inv_err)
+  {
+    err++;
+    return err;
+  }
+  
+  KMS_IJSS2017_Parameters *P = this->Parameters;
+  double mu    = this->shearmodulus(pc);
+  double kappa = this->bulkmodulus(pc);
+  double trCe  = Trace(Ce);
+  double c_of_pc = this->c(pc);
+  
+  
+  
+  // Isochoric contribution
+  eS(i,j) = mu*pow(eJ, -2.0/3.0)*(I(i,j) - trCe/3.0*InvCe(i,j));
+  
+  // Volumetric contribution
+  double exponent = - pow((1.0-this->c(pc)/P->c_inf), P->pl_n)/P->K_kappa ;
+  eS(i,j) += (0.5*kappa*(eJ*log(eJ)+eJ - 1.0 ) 
+          + (c_of_pc-(P->K_p0 + c_of_pc)*pow(eJ,exponent)))* InvCe(i,j) ;
+
+  
+  if(compute_elasticity == 0)
+    return err;
+    
+ 
+  ttl::Tensor<4, dim, double*> dSdC(L_in); 
+               
+  double onethird = 1.0/3.0;
+  double powJe = pow(eJ, -2.0*onethird);
+  
+  double coh = this->c(pc);
+  double alpha = pow(1.0 - coh/P->c_inf, P->pl_n)/P->K_kappa;
+  
+  // derivatives of the Second Piola-Kirchoff stress wrt Ce
+  ttl::Tensor<4, dim, double> DSisoDCe;
+  DSisoDCe(i,j,k,l) = mu*(-onethird*powJe*InvCe(k,l))*(I(i,j) - trCe*onethird*InvCe(i,j)) +
+                      mu*powJe*onethird*(-I(k,l)*InvCe(i,j) + trCe*InvCe(i,k)*InvCe(l,j));
+
+  ttl::Tensor<4, dim, double> DSvolDCe;
+  DSvolDCe(i,j,k,l) = (kappa+alpha*pow(eJ,-alpha-1.0)*(coh+P->K_p0) + 0.5*kappa*log(eJ))*0.5*eJ*InvCe(k,l)*InvCe(i,j)
+                     -(coh + 0.5*kappa*(eJ - 1.0) - pow(eJ, -alpha)*(coh + P->K_p0) + 0.5*kappa*eJ*log(eJ))*InvCe(i,k)*InvCe(l,j);
+
+  ttl::Tensor<2, dim, double> dSdpc = this->DSDpc();
+
+  double a1 = P->hr_a1;
+  double a2 = P->hr_a2;
+  double l1 = P->hr_Lambda1;
+  double l2 = P->hr_Lambda2;
+
+  double Hpc = this->HardeningLaw(pc);
+  double pJ = exp(Hpc);
+  
+  ttl::Tensor<4, dim, double> dSdpcDCe = {};
+  if(fabs(pJ-1.0)>1.0e-6)
+  {
+    double dHpcdpc = a1*l1*exp(-l1/pc) + a2*l2*exp( -l2/pc);  
+//    dSdpcDCe(i,j,k,l) = 0.5*pJ/dHpcdpc*dSdpc(i,j)*InvCe(k,l);
+  }
+
+  ttl::Tensor<4, dim, double> DSDCe;
+  dSdC(i,j,k,l) = 2.0*(DSisoDCe(i,j,k,l) + DSvolDCe(i,j,k,l) + dSdpcDCe(i,j,k,l));
+  
+        
+//       
+//    ttl::Tensor<4, dim, double> dmdf;
+//    ttl::Tensor<4, dim, double> dsdf;
+//    DMDFandDSDF(dmdf, dsdf, dt, false);
+    
+  
+  return err;
+}                                                               
 
 
 

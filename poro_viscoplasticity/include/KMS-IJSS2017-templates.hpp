@@ -359,7 +359,96 @@ ttl::Tensor<2, dim, double> KMS_IJSS2017<dim>::SecondPKTensor( const FTensors& e
   
 }
 
+template <int dim>
+int KMS_IJSS2017<dim>::update_elasticity_test(double *eF_in, 
+                                         const double pc,
+                                         double *eS_in,
+                                         double *L_in,
+                                         int compute_elasticity)
+//! Derivative of S wrt F
+//! see page 25 of the Consistent tangent operator notes
+//! This derivative defines the 4th order tensor V(zykl)
+//!
+//! Note that this is the partial derivative of S wrt F, the total derivative
+//! accounts also for DSDM DMDF.
+//!
+{
+  int err = 0;
+  
+  using namespace ttlindexes;
+  
+  static constexpr ttl::Index<'a'> a;
+  static constexpr ttl::Index<'b'> b;
+  static constexpr ttl::Index<'e'> e;
+  static constexpr ttl::Index<'f'> f;
+  static constexpr ttl::Index<'g'> g;
+  static constexpr ttl::Index<'h'> h;
+  static constexpr ttl::Index<'x'> x;
+    
+  ttl::Tensor<2, dim, double*> eF(eF_in);    
+  ttl::Tensor<2, dim, double*> SPK(eS_in);    
 
+  // FTensors Id =  ttl::Delta<2,dim,double>(1);
+  FTensors Id2 = ttl::identity(a,b); // ttl::Delta<2,dim,double>(1);
+
+  // Je at step n+1
+  double eJ = det(eF);
+  
+  // Left Cauchy-Green tensor and its inverse
+  FTensors Ce;
+  Ce(a,b) = eF(x,a)*eF(x,b);
+  
+  FTensors InvCe;
+  try{
+    InvCe = ttl::inverse(Ce);
+  }
+  catch(int i)
+  {
+    err++;
+    return err;
+  }
+  
+  double mu    = shearmodulus(pc);
+  double kappa = bulkmodulus(pc);
+  double trCe  = Trace(Ce);
+  
+  // Isochoric contribution
+  SPK(a,b) = mu*pow(eJ, -2.0/((double) dim))*(Id2(a,b) - trCe/3.0*InvCe(a,b));
+  
+  // Volumetric contribution
+  double exponent = - pow((1.0-c(pc)/Parameters->c_inf), Parameters->pl_n)/Parameters->K_kappa ;
+  SPK(a,b) += (0.5*kappa*(eJ*log(eJ)+eJ - 1.0 ) 
+           + (c(pc)-(Parameters->K_p0 + c(pc))*pow(eJ,exponent)))* InvCe(a,b) ;
+
+  if(compute_elasticity==0)
+    return err;
+/*  
+  ttl::Tensor<4, dim, double*> dSdC(L_in); 
+               
+  double Je = det( eF );
+  double onethird = 1.0/3.0;
+  double powJe = pow(Je, -2.0*onethird);
+  
+  double coh = this->c(pc);
+  double alpha = pow(1.0 - coh/this->Parameters->c_inf, this->Parameters->pl_n)/this->Parameters->K_kappa;
+
+  // delta
+  ttl::Tensor<4, dim, double> Id4 = ttl::identity( a,b,e,f ); // ttlIdentity<dim,double>(); // ttl::Delta<4,dim,double>(1); //
+  
+  // derivatives of the Second Piola-Kirchoff stress wrt Ce
+  ttl::Tensor<4, dim, double> DSisoDCe;
+  DSisoDCe(a,b,e,f) = mu*(-onethird*powJe*InvCe(e,f))*(Id2(a,b) - trCe*onethird*InvCe(a,b)) +
+                      mu*powJe*onethird*(-Id2(e,f)*InvCe(a,b) + trCe*InvCe(a,e)*InvCe(f,b));
+
+  ttl::Tensor<4, dim, double> DSvolDCe;
+  DSvolDCe(a,b,e,f) = (kappa+alpha*pow(Je,-alpha-1.0)*(coh+this->Parameters->K_p0) + 0.5*kappa*log(Je))*0.5*Je*InvCe(e,f)*InvCe(a,b)
+                     -(coh + 0.5*kappa*(Je - 1.0) - pow(Je, -alpha)*(coh + this->Parameters->K_p0) + 0.5*kappa*Je*log(Je))*InvCe(a,e)*InvCe(f,b);
+
+  ttl::Tensor<4, dim, double> DSDCe;
+  dSdC(a,b,e,f) = DSisoDCe(a,b,e,f) + DSvolDCe(a,b,e,f);
+*/
+  return err;
+}
 
 template <int dim>
 double KMS_IJSS2017<dim>::HardeningLaw(double pc)
