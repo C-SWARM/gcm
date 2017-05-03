@@ -149,7 +149,11 @@ public:
   FTensors KirchoffStressTensor( const FTensors&, const FTensors&, const FTensors& );         //!< Estimate of the Kirchoff stress from a given pF, eF, S
   FTensors CauchyStressTensor( const FTensors&, const FTensors& );                            //!< Estimate of the Cauchy stress from a given eF, S
   
-  
+  int update_elasticity_test(double *eF_in, 
+                        const double pc,
+                        double *eS_in,
+                        double *L_in,
+                        int compute_elasticity);
 };
 
 
@@ -179,6 +183,15 @@ public:
   
   // Methods shared with all integrators
   void Initialize( const double, const FTensors&, const FTensors&,  const FTensors& );  //!< Initialize the integrator with pcn, Fn, pFn, and Sn at t=0
+  void set_data_from_PDE(double *Fnp1_in, 
+                         double *Fn_in,
+                         double *pFnp1_in,
+                         double *pFn_in,
+                         double pcnp1_in,
+                         double pcn_in);
+  void set_data_to_PDE(double *pFnp1_in,
+                       double *pcnp1_in);                       
+
   unsigned FindpcFromJpAtStepnP1( bool = false);                 //!< Estimate pc at step (n+1) from Jp at the same step, (n+1)
   unsigned SecondPKTensorAtStepnP1( bool = false );              //!< Estimate the second Piola-Kirchoff stress at step (n+1) from data at the same time step, (n+1)
 
@@ -337,7 +350,14 @@ public:
   ttl::Tensor<4, dim, double> IterativeDMDF(ttl::Tensor<4, dim, double>, const double, const bool);                              //!< This function evaluates iteratively the fourth order tensor DM/DF
   ttl::Tensor<4, dim, double> DMDF(const double, const bool);                                                                    //!< This function evaluates the fourth order tensor DM/DF
   void DMDFandDSDF(ttl::Tensor<4, dim, double> &, ttl::Tensor<4, dim, double> &, const double, const bool);                      //!< This function evaluates the fourth order tensors DM/DF and DS/DF (total derivatives)
-  
+  int compute_dMdF(double *dMdF_in,
+                   const double dt);
+                   
+  int update_elasticity(double *eF_in,
+                        double pc,
+                        double *eS_in,
+                        double *L_in,
+                        const int compute_elasticity);
 
 };
 

@@ -23,6 +23,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include <cstring>
 
 
 
@@ -330,8 +331,63 @@ void KMS_IJSS2017_Integration_Algorithms<dim>::Initialize( const double pc0, con
   
 }
 
+template <int dim>
+void KMS_IJSS2017_Integration_Algorithms<dim>::set_data_from_PDE(double *Fnp1_in, 
+                                                                 double *Fn_in,
+                                                                 double *pFnp1_in,
+                                                                 double *pFn_in,
+                                                                 double pcnp1_in,
+                                                                 double pcn_in)
+//! Initialize the integrator with pcn, Fn, and Sn at t=0
+//! The quantities at n+1 are also initialized pcn, Fn, and Sn at t=0
+//! so that the consistent tangent stiffness at the very initial time can be estimated
+//! as usual
+{
+
+  using namespace ttlindexes;
+  memcpy(this->Fnp1.data,  Fnp1_in,  sizeof(double)*dim*dim);
+  memcpy(this->Fn.data,    Fn_in,    sizeof(double)*dim*dim);
+  memcpy(this->pFnp1.data, pFnp1_in, sizeof(double)*dim*dim);
+  memcpy(this->pFn.data,   pFn_in,   sizeof(double)*dim*dim);
+      
+  // Zeroing
+  this->Dpn = ttl::identity(i,j);
+  
+  // Assignment of pcn
+  this->pcn = pcn_in;
+  this->pcnp1 = pcnp1_in;
+    
+  // Initialization of eF
+  FTensors pFnI = ttl::inverse(this->pFn);
+  this->eFn(i,j) = this->Fn(i,l)*pFnI(l,j);
+  
+  FTensors pFnp1I = ttl::inverse(this->pFnp1);
+  this->eFnp1(i,j) = this->Fnp1(i,l)*pFnp1I(l,j);  
+  
+  // Assignment of the Second Piola-Kirchoff stress
+  this->Sn   = this->SecondPKTensor(this->pFn,   pcn_in);
+  this->Snp1 = this->SecondPKTensor(this->pFnp1, pcnp1_in);
+  
+  this->KSn   = this->KirchoffStressTensor( this->pFn, this->eFn, this->Sn );
+  this->KSnp1 = this->KirchoffStressTensor( this->pFnp1, this->eFnp1, this->Snp1);
+
+  this->sigman   = this->CauchyStressTensor( this->eFn, this->Sn);
+  this->sigmanp1 = this->CauchyStressTensor( this->eFnp1, this->Snp1);
+ 
+}
 
 
+template <int dim>
+void KMS_IJSS2017_Integration_Algorithms<dim>::set_data_to_PDE(double *pFnp1_in,
+                                                               double *pcnp1_in)
+//! Initialize the integrator with pcn, Fn, and Sn at t=0
+//! The quantities at n+1 are also initialized pcn, Fn, and Sn at t=0
+//! so that the consistent tangent stiffness at the very initial time can be estimated
+//! as usual
+{
+  memcpy(pFnp1_in, this->pFnp1.data, sizeof(double)*dim*dim);
+  *pcnp1_in = this->pcnp1;
+}
 
 template <int dim>
 unsigned KMS_IJSS2017_Integration_Algorithms<dim>::FindpcFromJpAtStepnP1( bool Verbose )

@@ -113,7 +113,7 @@ void KMS_IJSS2017_Implicit_test()
   
   clock_t t;
   
-  unsigned PrintEveryNSteps= 100;
+  unsigned PrintEveryNSteps= 1;
 
   std::string logstr = pathstr + ".implicit.smb.log";
   std::string Fstr = pathstr + ".implicit.smb.F.txt";
