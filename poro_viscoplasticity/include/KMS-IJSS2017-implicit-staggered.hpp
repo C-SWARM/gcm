@@ -85,6 +85,13 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
 //! The input data is contained in logJpr that must be updated before this function is called
 {
   
+  // if pcr was set to pcinf, there is nothing to do since pc is monotonically increasing.
+
+  if ( this->pcEQpc_inf )
+    return 0;
+  
+  // otherwise look for pc
+  
   double pcr0 = pcr;
   double NRTOL = 1e-6;
   
@@ -332,10 +339,10 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& up
     
   }
   
-  if ( Verbose && it == MAX_N_OF_STAGGERED_ITERATIONS )
+  if ( it == MAX_N_OF_STAGGERED_ITERATIONS )
   {
-    std::cerr << " WARNING: KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& updF, const double dt, bool Verbose ) - Convergence was not achieved for it in the staggered scheme after " << MAX_N_OF_STAGGERED_ITERATIONS << " iterations.";
-    std::cerr << " Code did not abort but outcomes might be wrong. \n";
+    this->IO->log() << " WARNING: KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& updF, const double dt, bool Verbose ) - Convergence was not achieved for it in the staggered scheme after " << MAX_N_OF_STAGGERED_ITERATIONS << " iterations.";
+    this->IO->log() << " Code did not abort but outcomes might be wrong. \n";
   }
   
   
@@ -524,7 +531,21 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::VerboseStepUpdate( const FTens
       //ttl::Tensor<2, dim, double> dm;
       //int sysol = ttl::solve( drdm, rm, dm );
       
-      ttl::Tensor<2, dim, double> dm = ttl::solve( drdm, rm );
+      ttl::Tensor<2, dim, double> dm = {};
+      
+      try
+      {
+        
+        dm = ttl::solve( drdm, rm );
+        
+      }
+      catch (int i)
+      {
+        
+        ttlsolveExceptionHandling( drdm, rm );
+        
+      }
+
 
       if ( Verbose )
       {
@@ -646,7 +667,36 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::VerboseStepUpdate( const FTens
     std::cerr << " Code did not abort but outcomes might be wrong. \n";
   }
 
+    // if pcr is numerically very close to or even above pcinf, it is set to pcinf
+    // so that the controls take care of possible overflows
+  
+  if ( this->pcEQpc_inf == false)
+    if ( ( 1 - pcr / this->Parameters->cf_pcinf ) < 1E-6 )
+    {
+      pcr =  this->Parameters->cf_pcinf;
+      this->pcEQpc_inf = true;
+      
+        //      this->IO->log() << "\n  Time = " << std::fixed << std::setprecision(3) << this->TimeIntegrationData->CurrentTime() << ", step = " << this->TimeIntegrationData->TimeStep() ;
+        //      this->IO->log() << ", pcr set equal to pc_inf \n\n" << std::flush;
+      std::cout << " / pcr set equal to pc_inf" << std::flush;
+    }
+  
+    // if pc overcomes pcb, print it out.
+  if (
+      ( this->pcn < this->Parameters->d_pcb )
+      &&
+      ( pcr > this->Parameters->d_pcb )
+      )
+  {
+      //    this->IO->log() << "\n  Time = " << std::fixed << std::setprecision(3) << this->TimeIntegrationData->CurrentTime() << ", step = " << this->TimeIntegrationData->TimeStep() ;
+      //    this->IO->log() << ", pcr (" << std::setw(20) << std::setprecision(15) << pcr
+      //                    << ")overcomes pcb (" << std::setw(20) << std::setprecision(15) << this->Parameters->d_pcb << ")\n\n" << std::flush;
+    std::cout << " / pcr (" << std::setw(20) << std::setprecision(15) << pcr
+    << ") overcomes pcb (" << std::setw(20) << std::setprecision(15) << this->Parameters->d_pcb << ")" << std::flush;
+  }
+  
 
+  
   if ( Verbose )
   {
     std::cout << "\n    Convergence achieved for pc and M  \n";
