@@ -93,7 +93,7 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
   // otherwise look for pc
   
   double pcr0 = pcr;
-  double NRTOL = 1; // 1e-6;
+  double NRTOL = 1e-6;
   
   // Initial checks
   
@@ -144,7 +144,7 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
     
     // at this point we have fpcr>0 and fpcrp1 <0
     // the bisection method can run
-    unsigned maxIt=50000;
+    unsigned maxIt=500;
     double fpccheck = 1, fa=1;
     
     while (it < maxIt)
@@ -175,7 +175,7 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
   else
     // the NR method is used to find pcr
   {
-    unsigned maxIt=10000;
+    unsigned maxIt=100;
     pcr = pcr0;
     
     while (it < maxIt) {
@@ -232,9 +232,14 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& up
   
   // 1: r = 0
   
-  // Updated tensors
+  // Updated tensors and their clean up.
+  // The need of cleaning tensors stands in the fact that very small off-diagonal terms (of the order E-90)
+  // cause issues in the Mechanical Model Integration. Rather, if they are set to zero, no issues whatsoever
+  // arise. The check can be done on F since the diagonal term should be of magnitude 1.
+
   this->Fnp1 = updF;
-  // this->Deltat = dt;
+  this->CleanFTensors( this->Fnp1 );
+  
   FTensors InvFnp1 = ttl::inverse( this->Fnp1 );
   
   // Intermediate tensors initialization
@@ -244,6 +249,8 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& up
   // Sr  is initialized with the amount at the end of step n, since eF and pc are initialized in the same way
   
   FTensors eFr = this->eFn;
+  this->CleanFTensors( eFr );
+
   FTensors pFr = ttl::inverse(eFr)( i,k ) * this->Fnp1( k,j );
   
   FTensors Sr = this->Sn;
@@ -422,9 +429,14 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::VerboseStepUpdate( const FTens
   
   // 1: r = 0
   
-  // Updated tensors
+  // Updated tensors and their clean up.
+  // The need of cleaning tensors stands in the fact that very small off-diagonal terms (of the order E-90)
+  // cause issues in the Mechanical Model Integration. Rather, if they are set to zero, no issues whatsoever
+  // arise. The check can be done on F since the diagonal term should be of magnitude 1.
+  
   this->Fnp1 = updF;
-  // this->Deltat = dt;
+  this->CleanFTensors( this->Fnp1 );
+  
   FTensors InvFnp1 = ttl::inverse( this->Fnp1 );
   
   // Intermediate tensors initialization
@@ -434,6 +446,8 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::VerboseStepUpdate( const FTens
   // Sr  is initialized with the amount at the end of step n, since eF and pc are initialized in the same way
   
   FTensors eFr = this->eFn;
+  this->CleanFTensors( eFr );
+  
   FTensors pFr = ttl::inverse(eFr)( i,k ) * this->Fnp1( k,j );
 
   FTensors Sr = this->Sn;

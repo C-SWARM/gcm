@@ -594,35 +594,8 @@ void KMS_IJSS2017_Integration_Algorithms<dim>::IntegratorTest ( std::function<vo
   // 2
   // this->CurrentTime = InitialTime;
   //unsigned step = 0;  - replaced by the definition of timestep in the base class
+
   FTensors F;
-
-  /*
-  this->PrintStep( this->timestep, this->CurrentTime );
-  do {
-    
-    this->CurrentTime += Dt;
-    this->timestep++;
-    
-    if ( Verbose )
-      std::cout << "\n  Time = " << std::fixed << std::setprecision(2) << this->CurrentTime << ", step = " << std::setw(8) << std::setprecision(2) << this->timestep  << "\n";
-    else if ( this->IO->StepToPrint( this->timestep ) )
-      this->IO->log() << "  Time = " << std::fixed << std::setprecision(3) << this->CurrentTime << ", step = "  << this->timestep << " running" << std::flush;
-    
-    HistoryOfF( F0, this->CurrentTime, F );
-    
-    if ( Verbose )
-      this->VerboseStepUpdate( F, Dt, Verbose );
-    else
-      this->StepUpdate( F, Dt, Verbose );    
-    
-    this->StepClose();
-    this->PrintStep( this->timestep, this->CurrentTime );
-
-    if ( this->IO->StepToPrint( this->timestep ) )
-      this->IO->log() << " / completed. \n" << std::flush;
-
-  } while ( this->CurrentTime < FinalTime );
-  */
   
   this->PrintStep( this->TimeIntegrationData->TimeStep(), this->TimeIntegrationData->CurrentTime() );
   do {

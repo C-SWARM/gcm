@@ -26,11 +26,11 @@
 #include <ttl/ttl.h>
 
 #include "MechanicalModels.h"
-#include "FeFp_integrator.h"
+#include "FeFp_Integrator.h"
 #include "FeFpModels.h"
 #include "TimeIntegration_Manager.h"
-#include "material_properties.h"
-// #include "KMS-IJSS2017-parameters.h"
+//#include "material_properties.h"
+#include "KMS-IJSS2017-parameters.h"
 
 
 
@@ -323,7 +323,7 @@ class KMS_IJSS2017_Implicit_BE_Staggered   : public KMS_IJSS2017_Implicit_BE<dim
 private:
   
   double STAGGEREDTOL=1E-12;
-  unsigned MAX_N_OF_STAGGERED_ITERATIONS=1000;
+  unsigned MAX_N_OF_STAGGERED_ITERATIONS=100;
   
   void ttlsolveExceptionHandling( const ttl::Tensor<4, dim, double>&, const FTensors& );
   void ttlinverseExceptionHandling( const ttl::Tensor<4, dim, double>& );

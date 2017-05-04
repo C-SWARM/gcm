@@ -44,9 +44,6 @@ void MechanicalModels_Test_Functions<dim>::IsotropicCompaction(const FTensors& F
                              dis(gen) * perturbator, 1, dis(gen) * perturbator,
                              dis(gen) * perturbator, dis(gen) * perturbator, 1 };
   
-  double dbg00 = PerturbedId2[0][0];
-  double dbg01 = PerturbedId2[0][1];
-  double dbg02 = PerturbedId2[0][2];
   
   F(i,j) = F0(i,j) + strainrate * t * PerturbedId2(i,j);
 }
@@ -69,21 +66,34 @@ void MechanicalModels_Test_Functions<dim>::ReversedIsotropicCompaction(const FTe
 
 template <int dim>
 void MechanicalModels_Test_Functions<dim>::ReversedCompactionAndShear1(const FTensors& F0, double t, FTensors& F)
+//! This function implements an isotropic, triaxial compaction, with sign reversal and shear.
+//! Off-diagonal terms are perturbations close to zero.
 {
   
   using namespace ttlindexes;
   
     // at t=42.6 pc achieves its maximum in this experiment
   
-  double strainrate = -0.005;
+  double strainrate = -0.005, perturbator = 1E-91;
+
+  std::mt19937 gen;
+  std::uniform_real_distribution<double> dis(0.0,1.0);
+  
+  FTensors PerturbedId2 = {  1, dis(gen) * perturbator, dis(gen) * perturbator,
+    dis(gen) * perturbator, 1, dis(gen) * perturbator,
+    dis(gen) * perturbator, dis(gen) * perturbator, 1 };
+  
+  FTensors PerturbedSh2 = {  dis(gen) * perturbator, 1, dis(gen) * perturbator,
+    dis(gen) * perturbator, dis(gen) * perturbator, dis(gen) * perturbator,
+    dis(gen) * perturbator, dis(gen) * perturbator, dis(gen) * perturbator };
 
   double lambdac = (t > 46) ?strainrate * 46 * sin( 46 * M_PI/66.0 )  :  strainrate * t * sin( t * M_PI/66.0 )  ;
   double lambdas = (t > 42.6) ? ( 42.6 - t ) * strainrate : 0;
   
-  FTensors Id2 = ttl::identity(i,j);
-  FTensors Sh2 = {0,1,0,0,0,0,0,0,0};
+  // FTensors Id2 = ttl::identity(i,j);
+  // FTensors Sh2 = {0,1,0,0,0,0,0,0,0};
   
-  F(i,j) = F0(i,j) + lambdac * Id2(i,j) + lambdas * Sh2(i,j);
+  F(i,j) = F0(i,j) + lambdac * PerturbedId2(i,j) + lambdas * PerturbedSh2(i,j);
 }
 
 
