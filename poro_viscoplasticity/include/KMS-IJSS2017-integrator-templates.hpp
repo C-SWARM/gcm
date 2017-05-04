@@ -595,6 +595,7 @@ void KMS_IJSS2017_Integration_Algorithms<dim>::IntegratorTest ( std::function<vo
   // this->CurrentTime = InitialTime;
   //unsigned step = 0;  - replaced by the definition of timestep in the base class
   FTensors F;
+
   /*
   this->PrintStep( this->timestep, this->CurrentTime );
   do {

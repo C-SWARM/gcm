@@ -11,6 +11,7 @@
 
 
 #include <math.h>
+#include <random>
 
 #include "MechanicalModels.h"
 #include "ttl-tools.h"
@@ -27,14 +28,27 @@
 // ------------------
 template <int dim>
 void MechanicalModels_Test_Functions<dim>::IsotropicCompaction(const FTensors& F0, double t, FTensors& F)
+//! This function implements an isotropic, triaxial compaction.
+//! Off-diagonal terms are perturbations close to zero.
 {
-  double strainrate = -0.005;
+  double strainrate = -0.005, perturbator = 1E-13;
   
   using namespace ttlindexes;
   
-  FTensors Id2 = ttl::identity(i,j);
+  // FTensors Id2 = ttl::identity(i,j);
+ 
+  std::mt19937 gen;
+  std::uniform_real_distribution<double> dis(0.0,1.0);
   
-  F(i,j) = F0(i,j) + strainrate * t * Id2(i,j);
+  FTensors PerturbedId2 = {  1, dis(gen) * perturbator, dis(gen) * perturbator,
+                             dis(gen) * perturbator, 1, dis(gen) * perturbator,
+                             dis(gen) * perturbator, dis(gen) * perturbator, 1 };
+  
+  double dbg00 = PerturbedId2[0][0];
+  double dbg01 = PerturbedId2[0][1];
+  double dbg02 = PerturbedId2[0][2];
+  
+  F(i,j) = F0(i,j) + strainrate * t * PerturbedId2(i,j);
 }
 
 

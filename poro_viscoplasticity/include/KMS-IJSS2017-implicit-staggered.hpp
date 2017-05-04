@@ -93,7 +93,7 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
   // otherwise look for pc
   
   double pcr0 = pcr;
-  double NRTOL = 1e-6;
+  double NRTOL = 1; // 1e-6;
   
   // Initial checks
   
@@ -144,7 +144,7 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
     
     // at this point we have fpcr>0 and fpcrp1 <0
     // the bisection method can run
-    unsigned maxIt=500;
+    unsigned maxIt=50000;
     double fpccheck = 1, fa=1;
     
     while (it < maxIt)
@@ -165,17 +165,17 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
     
     pcr = c;
     
-    if ( Verbose && it == maxIt )
+    if ( it == maxIt )
     {
-      std::cerr << " WARNING: KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( ) - Convergence was not achieved in the bisection scheme after " << maxIt << " iterations.";
-      std::cerr << " Code did not abort but outcomes might be wrong. \n";
+      this->IO->log() << " WARNING: KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( ) - Convergence was not achieved in the bisection scheme after " << maxIt << " iterations." << std::flush;
+      this->IO->log() << " Code did not abort but outcomes might be wrong. \n" << std::flush;
     }
   }
   
   else
     // the NR method is used to find pcr
   {
-    unsigned maxIt=100;
+    unsigned maxIt=10000;
     pcr = pcr0;
     
     while (it < maxIt) {
@@ -189,10 +189,10 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
         break;
     }
     
-    if ( Verbose && it == maxIt )
+    if ( it == maxIt )
     {
-      std::cerr << " WARNING: KMS_IJSS2017_Explicit<dim>::FindpcFromJp( ) - Convergence was not achieved in the Newton-Raphson scheme after " << maxIt << " iterations.";
-      std::cerr << " Code did not abort but outcomes might be wrong. \n";
+      this->IO->log() << " WARNING: KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( ) - Convergence was not achieved in the Newton-Raphson scheme after " << maxIt << " iterations." << std::flush;
+      this->IO->log() << " Code did not abort but outcomes might be wrong. \n" << std::flush;
     }
   }
   
