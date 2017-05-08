@@ -116,7 +116,7 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
   
   unsigned it=0;
   
-  if ( fabs( DfDpcr ) < NRTOL )
+  if ( fabs( DfDpcr ) < NRTOL )  
     // the first derivative is almost zero, and the NR scheme becomes very bad conditioned.
     // the zero is found via bisection method
   {
@@ -198,15 +198,6 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
   
   return it;
 }
-
-
-
-
-
-
-
-
-
 
 template <int dim>
 unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& updF, const double dt, bool Verbose )

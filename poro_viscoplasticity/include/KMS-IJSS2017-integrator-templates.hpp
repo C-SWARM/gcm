@@ -365,8 +365,8 @@ void KMS_IJSS2017_Integration_Algorithms<dim>::set_data_from_PDE(double *Fnp1_in
   this->eFnp1(i,j) = this->Fnp1(i,l)*pFnp1I(l,j);  
   
   // Assignment of the Second Piola-Kirchoff stress
-  this->Sn   = this->SecondPKTensor(this->pFn,   pcn_in);
-  this->Snp1 = this->SecondPKTensor(this->pFnp1, pcnp1_in);
+  this->Sn   = this->SecondPKTensor(this->eFn,   pcn_in);
+  this->Snp1 = this->SecondPKTensor(this->eFnp1, pcnp1_in);
   
   this->KSn   = this->KirchoffStressTensor( this->pFn, this->eFn, this->Sn );
   this->KSnp1 = this->KirchoffStressTensor( this->pFnp1, this->eFnp1, this->Snp1);
@@ -375,7 +375,6 @@ void KMS_IJSS2017_Integration_Algorithms<dim>::set_data_from_PDE(double *Fnp1_in
   this->sigmanp1 = this->CauchyStressTensor( this->eFnp1, this->Snp1);
  
 }
-
 
 template <int dim>
 void KMS_IJSS2017_Integration_Algorithms<dim>::set_data_to_PDE(double *pFnp1_in,

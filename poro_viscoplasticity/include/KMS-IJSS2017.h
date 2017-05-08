@@ -29,9 +29,7 @@
 #include "FeFp_Integrator.h"
 #include "FeFpModels.h"
 #include "TimeIntegration_Manager.h"
-//#include "material_properties.h"
-#include "KMS-IJSS2017-parameters.h"
-
+#include "material_properties.h"
 
 
 class KMS_IJSS2017_IO : public FeFpModels_IO
@@ -189,6 +187,7 @@ public:
                          double *pFn_in,
                          double pcnp1_in,
                          double pcn_in);
+                         
   void set_data_to_PDE(double *pFnp1_in,
                        double *pcnp1_in);                       
 
@@ -198,7 +197,7 @@ public:
   // Integrator methods
   virtual unsigned StepUpdate( const FTensors&, const double, bool ){ return 0; }             //!< Updates stresses and internal variables from a given FnP1 and dt
   virtual unsigned VerboseStepUpdate( const FTensors&, const double, bool ){ return 0; }      //!< Updates stresses and internal variables from a given FnP1 and dt
-
+ 
   // Integrator methods: iterative DMDF used for debug
   virtual ttl::Tensor<4, dim, double> IterativeDMDF(ttl::Tensor<4, dim, double>, const double, const bool) { using namespace ttlindexes; return ttl::zero(i,j,k,l); }                              //!< This function evaluates iteratively the fourth order tensor DM/DF
   virtual ttl::Tensor<4, dim, double> DMDF(const double, const bool){ using namespace ttlindexes; return ttl::zero(i,j,k,l); }                                                                     //!< This function evaluates the fourth order tensor DM/DF
@@ -323,7 +322,7 @@ class KMS_IJSS2017_Implicit_BE_Staggered   : public KMS_IJSS2017_Implicit_BE<dim
 private:
   
   double STAGGEREDTOL=1E-12;
-  unsigned MAX_N_OF_STAGGERED_ITERATIONS=100;
+  unsigned MAX_N_OF_STAGGERED_ITERATIONS=10;
   
   void ttlsolveExceptionHandling( const ttl::Tensor<4, dim, double>&, const FTensors& );
   void ttlinverseExceptionHandling( const ttl::Tensor<4, dim, double>& );
@@ -343,7 +342,6 @@ public:
   // Integrator methods
   unsigned StepUpdate( const FTensors&, const double, bool );      //!< Updates stresses and internal variables from a given FnP1 and dt
   unsigned VerboseStepUpdate( const FTensors&, const double, bool );      //!< Updates stresses and internal variables from a given FnP1 and dt
-  
   unsigned FindpcFromJp( const double, double&, double, bool = false);               //!< Estimate pc at iteration r of the staggered algorithm from Jp at the same step
 
   // Integrator methods: DMDF
