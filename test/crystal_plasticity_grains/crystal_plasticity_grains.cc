@@ -488,10 +488,11 @@ int main(int argc,char *argv[])
       if(line[0]!='#')
         break;
     }    
-    sscanf(line, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+    sscanf(line, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %d",
                  &(mat.lame1), &(mat.lame2), &(mat.E), &(mat.nu), 
                  &(mat.gamma_dot_0), &(mat.gamma_dot_s), &(mat.m), 
-                 &(mat.g0), &(mat.G0), &(mat.gs_0), &(mat.w));
+                 &(mat.g0), &(mat.G0), &(mat.gs_0), &(mat.w), &(mat.slip_system));
+
     // read analysis name
     while(fgets(line, 1024, fp_sim)!=NULL)
     {
