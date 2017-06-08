@@ -1,14 +1,6 @@
+include make.inc
+
 OLIB = libConstitutiveModel.a
-
-#########################################################
-# compiler
-#########################################################
-CC = mpicc
-CXX = mpicxx
-LINK = mpicc
-
-AR       = ar
-ARFLAGS = -rcs
 
 #########################################################
 # get objs
