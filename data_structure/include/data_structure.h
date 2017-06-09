@@ -5,8 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "mkl_cblas.h"
+#include "math_help.h"
+#include <math.h>
 
 using namespace std;
+
+namespace gcm {
 #define DEBUG_PRINT_GCM_DATA_STRUCTURE 0
 
 #define CRM CblasRowMajor
@@ -315,7 +319,7 @@ template <class T> void Matrix<T>::initialization(const int m_size,
     
   m_row = m_size;
   m_col = n_size;
-  m_pdata = new T [m_size*n_size];
+  m_pdata = new T [m_size*n_size] ();
     
   if(m_pdata == NULL)
     cout << "Memory is not allocated. " << __func__ << ":" << __FILE__ << ":" << __LINE__ << "\n";
@@ -806,4 +810,6 @@ constexpr T operator * (const T &A, const double b)
   temp.prod(A,b);
   return temp;
 };
+} // namespace gcm
+
 #endif

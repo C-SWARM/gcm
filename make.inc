@@ -1,6 +1,6 @@
 
 # compile
-CXX = mpicxx -fpermissive
+CXX = mpicxx
 LINK = mpicxx
 AR       = ar
 ARFLAGS = -rcs

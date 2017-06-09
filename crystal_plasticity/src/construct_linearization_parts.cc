@@ -5,18 +5,6 @@
 
 #include "constitutive_model.h"
 #include "construct_linearization_parts.h"
-#include <ttl/ttl.h>
-
-namespace {
-  template<int R,int D = 3,class S = double>
-  using Tensor = ttl::Tensor<R,D,S>;
-
-  static constexpr ttl::Index<'i'> i;
-  static constexpr ttl::Index<'j'> j;
-  static constexpr ttl::Index<'k'> k;
-  static constexpr ttl::Index<'l'> l;
-  static constexpr ttl::Index<'m'> m;
-}
 
 /// \param[out] Kuu_a_out 
 /// \param[in] A_in
@@ -29,12 +17,12 @@ namespace {
 int compute_Kuu_a(double *Kuu_a_out, double *A_in,  double *S_in, 
                   double *C_in,      double *Pa_in, double *L_in, double drdtaus_a)
 {
-  Tensor<4, 3, double*> Kuu_a(Kuu_a_out);
-  Tensor<2, 3, double*> A(A_in);
-  Tensor<2, 3, double*> S(S_in);
-  Tensor<2, 3, double*> C(C_in);
-  Tensor<2, 3, double*> Pa(Pa_in);
-  Tensor<4, 3, double*> L(L_in);
+  TensorA<4> Kuu_a(Kuu_a_out);
+  TensorA<2> A(A_in);
+  TensorA<2> S(S_in);
+  TensorA<2> C(C_in);
+  TensorA<2> Pa(Pa_in);
+  TensorA<4> L(L_in);
        
   int err = 0;
 

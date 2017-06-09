@@ -5,7 +5,7 @@ SRC = $(shell ls *.cc)
 OBJs = $(SRC:.cc=.o)
 
 LOC_inc = ../../local_include
-DAT_inc = ../../data_structure
+DAT_inc = ../../data_structure/include
 UTS_inc = ../../utils/include
 MAT_inc = ../../material/include
  	     	  
