@@ -9,7 +9,9 @@
 #define DIM_3x3x3x3 81
 
 #include <ttl/ttl.h>
+#include <ttl/Library/matrix.h>
 #include <math.h>
+#include "math_help.h"
   
 namespace {
   template<int R, int D = DIM_3, class S = double>
@@ -28,20 +30,9 @@ namespace {
   static constexpr ttl::Index<'v'> v;
   static constexpr ttl::Index<'w'> w;        
     
-  template<class T1, class T2> inline int inv(T1 A, T2 AI)
+  template<class T1, class T2> int inv(T1 &A, T2 &AI)
   {
-    int err = 0;
-
-    try
-    {
-      // attempt to take the inverse
-      AI(i,j) = ttl::inverse(A)(i,j);
-    }
-    catch(const int inverseException)
-    {
-      // no inverse exists
-      err += 1;
-    }
+    int err = inverse(A.data, DIM_3, AI.data);
     return err;
   }
       
