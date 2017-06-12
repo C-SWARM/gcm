@@ -15,8 +15,8 @@ typedef struct {
   int    intg_type;      /// 
   double t1;
   double t2;
-  Matrix(double) L1;
-  Matrix(double) L2;
+  Tensor<2> L1;
+  Tensor<2> L2;
 } SIM_PARAMS;
 
 /// compute total deformation gradient by integrating velocity gradient
@@ -27,42 +27,44 @@ typedef struct {
 /// \param[in]   t   current time
 /// \param[in]  *sim simulation parameters are defined e.g dt and time step size and velocity gradient 
 /// \return non-zero on internal error
-int F_of_t(Matrix(double) *Fn,
-           Matrix(double) *F,
-           Matrix(double) *L,
+template <class T1, class T2, class T3>
+int F_of_t(T1 &Fn,
+           T2 &F,
+           T3 &L,
            double t,            
            const SIM_PARAMS *sim)
 {
   int err = 0;
   
-  Matrix_init(*L, 0.0);
+  for(int ia=0; ia<DIM_3x3; ia++)
+    L.data[ia] = 0.0;
+    
   switch(sim->intg_type)
   {
     case 1:
-      Matrix_AeqB(*L, 1.0, sim->L1);
+      L(i,j) = sim->L1(i,j);
       break;
     case 2:
       if(t<=sim->t1)
-        Matrix_AeqB(*L, 1.0, sim->L1);
-
+        L(i,j) = sim->L1(i,j);
       if((sim->t1 < t) && (t <= sim->t2))
-        Matrix_AeqB(*L, 1.0, sim->L2);
+        L(i,j) = sim->L2(i,j);
 
       if(sim->t2<t)
-        Matrix_AeqB(*L, 1.0, sim->L1);
+        L(i,j) = sim->L1(i,j);
       
       break;  
     case 3:
       if(t<=sim->t1)
-        Matrix_AeqB(*L, 1.0, sim->L1);
+        L(i,j) = sim->L1(i,j);
       
       break;
     default:
-      Matrix_AeqB(*L, 1.0, sim->L1);
+      L(i,j) = sim->L1(i,j);
       break;
   }      
   
-  Fnp1_Implicit(F->m_pdata, Fn->m_pdata, L->m_pdata, sim->dt);  
+  Fnp1_Implicit(F.data, Fn.data, L.data, sim->dt);  
   return err;
 };
 
@@ -157,51 +159,46 @@ int test_crystal_plasticity_single_crystal(const MAT_PROP *mat_in,
   err += construct_elasticity(&elast, &mat_e, 1);  
 
   // set variables for integration
-  enum {M,MI,pFn,pFnp1,pFnp1_I,eFnp1,Fn,Fnp1,L,D,sigma,F2end};
-  Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
-  for (int a = 0; a < F2end; a++) {
-    Matrix_construct_init(double, F2[a],DIM_3,DIM_3,0.0);
-    Matrix_eye(F2[a],DIM_3);
-  } 
-  
+  Tensor<2> M,MI,pFn,pFnp1,pFnp1_I,eFnp1,Fn,Fnp1,L,D,sigma;
+
+  pFn   = ttl::identity(i,j);
+  pFnp1 = ttl::identity(i,j);
+  eFnp1 = ttl::identity(i,j);
+  Fn    = ttl::identity(i,j);
+  Fnp1  = ttl::identity(i,j);
+    
   double g_n,g_np1;
   g_n = g_np1 = mat_p.g0;  
   
-  // start integration  
-  Matrix(double) result;
-  result.m_row = sim->stepno;
-  result.m_col = VNO;
-  result.m_pdata = result_out;  
-
   for(int a = 1; a<=sim->stepno; a++)
   {
     double lambda = 0.0;
     double t = a*(sim->dt);
     
     // compute total deformation gradient using velocity gradient
-    F_of_t(F2+Fn,F2+Fnp1,F2+L,t,sim); 
+    F_of_t(Fn,Fnp1,L,t,sim); 
     
-    err += staggered_Newton_Rapson(F2[pFnp1].m_pdata,F2[M].m_pdata, &g_np1, &lambda, 
-                                   F2[pFn].m_pdata, F2[Fn].m_pdata,F2[Fnp1].m_pdata, 
+    err += staggered_Newton_Rapson(pFnp1.data,M.data, &g_np1, &lambda, 
+                                   pFn.data, Fn.data,Fnp1.data, 
                                    g_n, sim->dt, &mat, &elast, &solver_info);
-    
-    Matrix_AeqB(F2[pFn],1.0,F2[pFnp1]);
-    Matrix_AeqB(F2[Fn],1.0,F2[Fnp1]);  
-    Matrix_inv(F2[pFnp1],F2[pFnp1_I]);
-    Matrix_AxB(F2[eFnp1],1.0,0.0,F2[Fnp1],0,F2[pFnp1_I],0);    
-    
+   
+    pFn = pFnp1(i,j);
+    Fn  = Fnp1(i,j);
+    err += inv(pFnp1,pFnp1_I);
+    eFnp1 = Fnp1(i,k)*pFnp1_I(k,j);
+         
     g_n = g_np1;
     
     // print result at time t    
-    err += elast.update_elasticity(&elast,F2[eFnp1].m_pdata,0);
-    err += elast.compute_Cauchy(&elast,F2[sigma].m_pdata,F2[eFnp1].m_pdata);
+    err += elast.update_elasticity(&elast,eFnp1.data,0);
+    err += elast.compute_Cauchy(&elast,sigma.data,eFnp1.data);
 
-    Matrix_symmetric(F2[L],F2[D]);
+    D(i,j) = 0.5*(L(i,j) + L(j,i));
 
-    for(int ij=1; ij<=DIM_3x3; ij++)
+    for(int ia=0; ia<DIM_3x3; ia++)
     {
-      Mat_v(result, a, ij)           += F2[sigma].m_pdata[ij-1];
-      Mat_v(result, a, ij + DIM_3x3) +=     F2[D].m_pdata[ij-1];
+      result_out[VNO*(a-1) + ia]           += sigma.data[ia];
+      result_out[VNO*(a-1) + DIM_3x3 + ia] +=     D.data[ia];
     }        
   }
   
@@ -209,18 +206,13 @@ int test_crystal_plasticity_single_crystal(const MAT_PROP *mat_in,
   sprintf(out, "%s_Fs_%d.txt", sim->file_out, grain_id);
   FILE *fp = fopen(out, "w");
   fprintf(fp, "%e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e\n",
-              F2[pFnp1].m_pdata[0], F2[pFnp1].m_pdata[1], F2[pFnp1].m_pdata[2],
-              F2[pFnp1].m_pdata[3], F2[pFnp1].m_pdata[4], F2[pFnp1].m_pdata[5],
-              F2[pFnp1].m_pdata[6], F2[pFnp1].m_pdata[7], F2[pFnp1].m_pdata[8],
-              F2[Fnp1].m_pdata[0], F2[Fnp1].m_pdata[1], F2[Fnp1].m_pdata[2],
-              F2[Fnp1].m_pdata[3], F2[Fnp1].m_pdata[4], F2[Fnp1].m_pdata[5],
-              F2[Fnp1].m_pdata[6], F2[Fnp1].m_pdata[7], F2[Fnp1].m_pdata[8]);
+              pFnp1.data[0], pFnp1.data[1], pFnp1.data[2],
+              pFnp1.data[3], pFnp1.data[4], pFnp1.data[5],
+              pFnp1.data[6], pFnp1.data[7], pFnp1.data[8],
+               Fnp1.data[0],  Fnp1.data[1],  Fnp1.data[2],
+               Fnp1.data[3],  Fnp1.data[4],  Fnp1.data[5],
+               Fnp1.data[6],  Fnp1.data[7],  Fnp1.data[8]);
   fclose(fp);
-  
-  for(int a = 0; a < F2end; a++)
-    Matrix_cleanup(F2[a]);  
-
-  free(F2);    
   err += destruct_elasticity(&elast);
   err += destruct_slip_system(&slip);
   return err;
@@ -234,7 +226,7 @@ int test_crystal_plasticity_single_crystal(const MAT_PROP *mat_in,
 /// \param[out] *n_grain number of grains read from file
 /// \param[in]  *fn_in   filebase name to be read, filename = [fn_in]_[myrank].in
 /// \param[in]  myrank  partion ID of the orientation file
-int read_orientations(Matrix(double) *angles, int *n_grain, char *fn_in, int myrank)
+int read_orientations(double *angles, int *n_grain, char *fn_in, int myrank)
 {
   int err = 0;
   char fn[1024], line[1024];
@@ -257,9 +249,14 @@ int read_orientations(Matrix(double) *angles, int *n_grain, char *fn_in, int myr
     double x1, x2, x3;        
     sscanf(line, "%d %d %lf %lf %lf", &e, &ip, &x1, &x2, &x3);
     int id = cnt + *n_grain;
-    Mat_v(*angles, id+1, 1) = x1;    
-    Mat_v(*angles, id+1, 2) = x2;        
-    Mat_v(*angles, id+1, 3) = x3;
+    if(id>MAX_GRAIN)
+    {  
+      printf("Read grains more than maximum number of grains (MAX_GRAIN = %d)\nExit.", MAX_GRAIN);
+      exit(-1); 
+    }
+    angles[id*DIM_3+0] = x1;
+    angles[id*DIM_3+1] = x2;
+    angles[id*DIM_3+2] = x3;
     cnt++;
   } 
 
@@ -292,30 +289,31 @@ int test_crystal_plasticity_grains(MAT_PROP *mat,
 {
   int err = 0;
 
-  Matrix(double) angle, result, G_result;
+  double *angle    = NULL;
+  double *result   = NULL;
+  double *G_result = NULL;
   
   // read orientation angle -->
-  int cnt_file_read = 0;
   int n_grain = 0;
 
   if(myrank==0)
   {
-    Matrix(double) temp_angle;
-    Matrix_construct_init(double, temp_angle, MAX_GRAIN, DIM_3, 0.0);
+    double *temp_angle = new double[MAX_GRAIN*DIM_3];
+ 
     for(int ia=0; ia<NP; ia++)
     {
-      err += read_orientations(&temp_angle, &n_grain, fn_in, ia);
+      err += read_orientations(temp_angle, &n_grain, fn_in, ia);
       if(err>0)
         break;
     }
     
     if(err==0)
     {
-      Matrix_construct_init(double, angle, n_grain, DIM_3, 0.0);
+      angle = new double[n_grain*DIM_3];
       for(int ia=0; ia<n_grain*DIM_3; ia++)
-        angle.m_pdata[ia] = temp_angle.m_pdata[ia];
+        angle[ia] = temp_angle[ia];
     }
-    Matrix_cleanup(temp_angle);
+    delete temp_angle;
   }
   
   MPI_Bcast(&err,1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -325,33 +323,33 @@ int test_crystal_plasticity_grains(MAT_PROP *mat,
     printf("Error on reading crystal orientations\n");
     return err;
   }
-  
+    
   MPI_Bcast(&n_grain,1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   
   if(myrank>0)
-    Matrix_construct_init(double, angle, n_grain, DIM_3, 0.0);
+    angle = new double[n_grain*DIM_3];
 
-  MPI_Bcast(angle.m_pdata,n_grain*DIM_3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(angle,n_grain*DIM_3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   if(myrank==0)
   {
     FILE *fp_angle = fopen("angles.txt", "w");
-    for(int ia=1; ia<=n_grain; ia++)
+    for(int ia=0; ia<n_grain; ia++)
     {
-      for(int ib=1; ib<=DIM_3; ib++)
-        fprintf(fp_angle, "%e ", Mat_v(angle, ia, ib));
+      for(int ib=0; ib<DIM_3; ib++)
+        fprintf(fp_angle, "%e ", angle[ia*DIM_3+ib]);
       fprintf(fp_angle, "\n");
     }
     fclose(fp_angle);
   }
   // <-- read orientation angle
 
-  Matrix_construct_init(double, result,  sim->stepno,   VNO, 0.0);
-  Matrix_construct_init(double, G_result,sim->stepno,   VNO, 0.0);
+    result = new double[sim->stepno*VNO]();
+  G_result = new double[sim->stepno*VNO]();
       
   if(nproc>=n_grain && myrank<n_grain)
   {  
-    double *temp = (angle.m_pdata) + myrank*DIM_3;
-    err += test_crystal_plasticity_single_crystal(mat,sim,result.m_pdata,temp,myrank);
+    double *temp = angle + myrank*DIM_3;
+    err += test_crystal_plasticity_single_crystal(mat,sim,result,temp,myrank);
     printf("grain[%3d] is computed.\n", myrank);              
   } 
 
@@ -363,21 +361,17 @@ int test_crystal_plasticity_grains(MAT_PROP *mat,
       if(a*nproc + myrank>=n_grain)
         break;
 
-      double *temp = (angle.m_pdata) + (a*nproc + myrank)*DIM_3;                
-      err += test_crystal_plasticity_single_crystal(mat,sim,result.m_pdata,temp,a*nproc + myrank);
+      double *temp = angle + (a*nproc + myrank)*DIM_3;                
+      err += test_crystal_plasticity_single_crystal(mat,sim,result,temp,a*nproc + myrank);
       printf("grain[%3d] is computed.\n", a*nproc + myrank);                          
     }
   }
   
-  MPI_Reduce(result.m_pdata,G_result.m_pdata,(sim->stepno)*VNO,
+  MPI_Reduce(result,G_result,(sim->stepno)*VNO,
              MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
   
   if(myrank==0)
   {
-    Matrix(double) T, D;
-    T.m_row = T.m_col = DIM_3;
-    D.m_row = D.m_col = DIM_3;
-
     char fname[1024];
     sprintf(fname, "%s_%d.txt", sim->file_out,n_grain); 
     FILE *fp = fopen(fname, "w");
@@ -385,34 +379,34 @@ int test_crystal_plasticity_grains(MAT_PROP *mat,
     double e_eff = 0.0;
     double e_11 = 0.0;
     for(int a=0; a<(sim->stepno)*VNO; a++)
-      G_result.m_pdata[a] = G_result.m_pdata[a]/n_grain;
+      G_result[a] = G_result[a]/n_grain;
       
     for(int a=0; a<sim->stepno; a++)
     {
-      T.m_pdata = G_result.m_pdata + a*VNO;
-      D.m_pdata = G_result.m_pdata + (a*VNO + DIM_3x3);
+      TensorA<2> T(G_result + a*VNO);
+      TensorA<2> D(G_result + a*VNO + DIM_3x3);
       
-      double T_eff = (Mat_v(T,1,1) - Mat_v(T,2,2))*(Mat_v(T,1,1) - Mat_v(T,2,2)) + 
-                     (Mat_v(T,2,2) - Mat_v(T,3,3))*(Mat_v(T,2,2) - Mat_v(T,3,3)) + 
-                     (Mat_v(T,3,3) - Mat_v(T,1,1))*(Mat_v(T,3,3) - Mat_v(T,1,1)) +
-                     6.0*(Mat_v(T,1,2)*Mat_v(T,1,2)+
-                          Mat_v(T,2,3)*Mat_v(T,2,3)+
-                          Mat_v(T,3,1)*Mat_v(T,3,1));
+      double T_eff = (T[0][0] - T[1][1])*(T[0][0] - T[1][1]) + 
+                     (T[1][1] - T[2][2])*(T[1][1] - T[2][2]) + 
+                     (T[2][2] - T[0][0])*(T[2][2] - T[0][0]) +
+                     6.0*(T[0][1]*T[0][1]+
+                          T[1][2]*T[1][2]+
+                          T[2][0]*T[2][0]);
 
       T_eff = sqrt(T_eff/2.0);
         
-      double DD = 0.0;
-      Matrix_ddot(D,D,DD);
+      double DD = D(i,j)*D(i,j);
       e_eff += sqrt(2.0/3.0*DD)*sim->dt;
-      e_11 += D.m_pdata[0]*sim->dt;
-      fprintf(fp, "%e %e %e %e %e\n",(a+1)*sim->dt,e_eff,T_eff, e_11, T.m_pdata[0]);
+      e_11 += D[0][0]*sim->dt;
+      fprintf(fp, "%e %e %e %e %e\n",(a+1)*sim->dt,e_eff,T_eff, e_11, T[0][0]);
     }
     fclose(fp);
-  }  
+  } 
+  
+  delete angle;
+  delete result;
+  delete G_result;
   		      
-  Matrix_cleanup(angle);
-  Matrix_cleanup(result);
-  Matrix_cleanup(G_result);
   return 0;    
 }
 
@@ -433,11 +427,8 @@ int main(int argc,char *argv[])
   
   MAT_PROP mat;
   SIM_PARAMS sim;
-  double L1[9];
-  double L2[9];
-
-  sim.L1.m_row = sim.L1.m_col = DIM_3; sim.L1.m_pdata = L1;
-  sim.L2.m_row = sim.L2.m_col = DIM_3; sim.L2.m_pdata = L2;    
+  double *L1 = sim.L1.data;
+  double *L2 = sim.L2.data;
 
   if(argc<4)
   {
@@ -492,7 +483,7 @@ int main(int argc,char *argv[])
                  &(mat.lame1), &(mat.lame2), &(mat.E), &(mat.nu), 
                  &(mat.gamma_dot_0), &(mat.gamma_dot_s), &(mat.m), 
                  &(mat.g0), &(mat.G0), &(mat.gs_0), &(mat.w), &(mat.slip_system));
-
+    mat.slip_system = 0;
     // read analysis name
     while(fgets(line, 1024, fp_sim)!=NULL)
     {
