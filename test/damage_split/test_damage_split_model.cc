@@ -13,7 +13,7 @@
 #define DIM_3   3
 #define DIM_3x3 9
 
-typedef int (*DEFORMATION_GRADIENT) (Matrix(double) *F, double t); 
+typedef int (*DEFORMATION_GRADIENT) (Tensor<2> &F, double t); 
 
 typedef struct {
   double E;
@@ -36,33 +36,33 @@ typedef struct {
   DEFORMATION_GRADIENT F_of_t;
 } SIM_PARAMS;
 
-int F_of_t_tension_const_J(Matrix(double) *F, double t)
+int F_of_t_tension_const_J(Tensor<2> &F, double t)
 {
   int err = 0;
   double d = 0.0002;
   double F11 = 1.0 + d*t;
-  F->m_pdata[0] = F11;
-  F->m_pdata[4] = F->m_pdata[8] = 1.0/sqrt(F11);
+  F.data[0] = F11;
+  F.data[4] = F.data[8] = 1.0/sqrt(F11);
     
-  F->m_pdata[1] = F->m_pdata[2] = F->m_pdata[3] = 0.0;
-  F->m_pdata[5] = F->m_pdata[6] = F->m_pdata[7] = 0.0;
+  F.data[1] = F.data[2] = F.data[3] = 0.0;
+  F.data[5] = F.data[6] = F.data[7] = 0.0;
   
   return err;
 };
 
-int F_of_t_extension(Matrix(double) *F, double t)
+int F_of_t_extension(Tensor<2> &F, double t)
 {
   int err = 0;
   double d = 0.0002;
   double F11 = 1.0 + d*t;
-  F->m_pdata[0] = F->m_pdata[4] = F->m_pdata[8] = F11;    
-  F->m_pdata[1] = F->m_pdata[2] = F->m_pdata[3] = 0.0;
-  F->m_pdata[5] = F->m_pdata[6] = F->m_pdata[7] = 0.0;
+  F.data[0] = F.data[4] = F.data[8] = F11;    
+  F.data[1] = F.data[2] = F.data[3] = 0.0;
+  F.data[5] = F.data[6] = F.data[7] = 0.0;
   
   return err;
 };
 
-int F_of_t_mixed(Matrix(double) *F, double t)
+int F_of_t_mixed(Tensor<2> &F, double t)
 {
   int err = 0;
   double d = 0.0005;
@@ -70,57 +70,57 @@ int F_of_t_mixed(Matrix(double) *F, double t)
   double t2 = 50.0;
   double t3 = 75.0;
 
-  F->m_pdata[0] = F->m_pdata[4] = F->m_pdata[8] = 1.0;    
-  F->m_pdata[1] = F->m_pdata[2] = F->m_pdata[3] = 0.0;
-  F->m_pdata[5] = F->m_pdata[6] = F->m_pdata[7] = 0.0;
+  F.data[0] = F.data[4] = F.data[8] = 1.0;    
+  F.data[1] = F.data[2] = F.data[3] = 0.0;
+  F.data[5] = F.data[6] = F.data[7] = 0.0;
       
   if(t<=t1)
   {
     double F11 = d*t;
-    F->m_pdata[0] = 1.0 + F11;
+    F.data[0] = 1.0 + F11;
   }
   if(t1<t && t<=t2)
   {
     double F11 = d*t1;
     double F21 = d*(t-t1);
-    F->m_pdata[0] = 1.0 + F11;
-    F->m_pdata[3] = F21; 
+    F.data[0] = 1.0 + F11;
+    F.data[3] = F21; 
   }
   if(t2<t && t<=t3)
   {
     double F11 = d*t1;
     double F21 = d*(t2-t1) - d*(t-t2);
-    F->m_pdata[0] = 1.0 + F11;
-    F->m_pdata[3] = F21; 
+    F.data[0] = 1.0 + F11;
+    F.data[3] = F21; 
   }
     if(t3<t)
   {
     double F11 = d*t1;
     double F22 = d*(t-t3);
-    F->m_pdata[0] = 1.0 + F11;
-    F->m_pdata[4] = 1.0 + F22;;    
+    F.data[0] = 1.0 + F11;
+    F.data[4] = 1.0 + F22;;    
   }  
   
   return err;
 };
 
-int F_of_t_tension_compression(Matrix(double) *F, double t)
+int F_of_t_tension_compression(Tensor<2> &F, double t)
 {
   int err = 0;
   double m = 0.02;
   double tmax = 100;
   double T = 2;
   double F11 = m*sin(t/tmax*2.0*T*PI);
-  F->m_pdata[0] = 1.0 + F11;
-  F->m_pdata[4] = F->m_pdata[8] = 1.0 + 0.25*F11;
+  F.data[0] = 1.0 + F11;
+  F.data[4] = F.data[8] = 1.0 + 0.25*F11;
     
-  F->m_pdata[1] = F->m_pdata[2] = F->m_pdata[3] = 0.0;
-  F->m_pdata[5] = F->m_pdata[6] = F->m_pdata[7] = 0.0;
+  F.data[1] = F.data[2] = F.data[3] = 0.0;
+  F.data[5] = F.data[6] = F.data[7] = 0.0;
   
   return err;
 };
-  
-int read_deformation_gradient(Matrix(double) *F)
+
+int read_deformation_gradient(Tensor<2> &F)
 {
   int err = 0;
   FILE *fp = fopen("deformation_gradient.txt", "r");
@@ -128,7 +128,7 @@ int read_deformation_gradient(Matrix(double) *F)
   for(int a = 0; a<F_ROW_MAX; a++)
   {
     for(int b=0; b<F_COLUMN_MAX; b++)
-      fscanf(fp, "%lf", (F->m_pdata) + a*F_COLUMN_MAX + b);
+      fscanf(fp, "%lf", (F.data) + a*F_COLUMN_MAX + b);
   }
   fclose(fp);
   return err;
@@ -169,35 +169,27 @@ int print_outputs(FILE *out, double t,
                              double J,
                              double dw, double vw, double dX, double vX,
                              double sigma_eff_0, double sigma_eff, double Eeff, double eeff,
-                             Matrix(double) *F,  Matrix(double) *sigma0,
-                             Matrix(double) *S0, Matrix(double) *sigma,
-                             Matrix(double) *S,  Matrix(double) *E,
-                             Matrix(double) *e)
+                             double *F,  double *sigma0,
+                             double *S0, double *sigma,
+                             double *S,  double *E,
+                             double *e)
 {
   fprintf(out,"%e %e ", t, J);
   fprintf(out,"%e %e %e %e %e %e %e %e %e ", 
-               Mat_v(*F,1,1),Mat_v(*F,1,2),Mat_v(*F,1,3),
-               Mat_v(*F,2,1),Mat_v(*F,2,2),Mat_v(*F,2,3),
-               Mat_v(*F,3,1),Mat_v(*F,3,2),Mat_v(*F,3,3));
+               F[0],F[1],F[2],F[3],F[4],F[5],F[6],F[7],F[8]);
   fprintf(out,"%e %e %e %e ", dw,vw,dX,vX);
   fprintf(out,"%e %e %e %e %e %e %e ",
-               Mat_v(*sigma0,1,1),Mat_v(*sigma0,2,2),Mat_v(*sigma0,3,3),
-               Mat_v(*sigma0,2,3),Mat_v(*sigma0,3,1),Mat_v(*sigma0,1,2),sigma_eff_0);
+               sigma0[0],sigma0[4],sigma0[8],sigma0[5],sigma0[6],sigma0[1], sigma_eff_0);
   fprintf(out,"%e %e %e %e %e %e ",
-               Mat_v(*S0,1,1),Mat_v(*S0,2,2),Mat_v(*S0,3,3),
-               Mat_v(*S0,2,3),Mat_v(*S0,3,1),Mat_v(*S0,1,2));
+               S0[0],S0[4],S0[8],S0[5],S0[6],S0[1]);
   fprintf(out,"%e %e %e %e %e %e %e ",
-               Mat_v(*sigma,1,1),Mat_v(*sigma,2,2),Mat_v(*sigma,3,3),
-               Mat_v(*sigma,2,3),Mat_v(*sigma,3,1),Mat_v(*sigma,1,2),sigma_eff);
+               sigma[0],sigma[4],sigma[8],sigma[5],sigma[6],sigma[1], sigma_eff);
   fprintf(out,"%e %e %e %e %e %e ",
-               Mat_v(*S,1,1),Mat_v(*S,2,2),Mat_v(*S,3,3),
-               Mat_v(*S,2,3),Mat_v(*S,3,1),Mat_v(*S,1,2));
+               S[0],S[4],S[8],S[5],S[6],S[1]);
   fprintf(out,"%e %e %e %e %e %e %e ",
-               Mat_v(*E,1,1),Mat_v(*E,2,2),Mat_v(*E,3,3),
-               Mat_v(*E,2,3),Mat_v(*E,3,1),Mat_v(*E,1,2),Eeff);
+               E[0],E[4],E[8],E[5],E[6],E[1],Eeff);
   fprintf(out,"%e %e %e %e %e %e %e\n",
-               Mat_v(*e,1,1),Mat_v(*e,2,2),Mat_v(*e,3,3),
-               Mat_v(*e,2,3),Mat_v(*e,3,1),Mat_v(*e,1,2),eeff);  
+               e[0],e[4],e[8],e[5],e[6],e[1],eeff);  
   return 0;
 };
 
@@ -229,15 +221,12 @@ int test_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
   // -----------------------
   // construct GL(3) tensors
   // -----------------------
-  enum {F,Fnp1,C,E,sigma0,S0,sigma,e,FI,FITE,F2end};
-  Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
-  for (int a = 0; a < F2end; a++) {
-    Matrix_construct_init(double, F2[a],DIM_3,DIM_3,0.0);
-    Matrix_eye(F2[a],DIM_3);
-  }    
+  Tensor<2> Fnp1,E,sigma0,S0,sigma,e,FI,eye;
+  eye = ttl::identity(i,j);
+    
+  Fnp1 = eye(i,j);
 
-  Matrix(double) S;
-  S.m_row = S.m_col = 3; S.m_pdata = elast.S;  // no need free
+  TensorA<2> S(elast.S);
 
   // --------------
   // do simulations
@@ -256,62 +245,53 @@ int test_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
   {
     double t = dt*a;
     
-    err += (sim->F_of_t)(&(F2[Fnp1]), t);
+    err += (sim->F_of_t)(Fnp1, t);
     
     // compute strains
-    Matrix_AxB(F2[C],1.0,0.0,F2[Fnp1],1,F2[Fnp1],0);
-    Matrix_AeqB(F2[E],0.5,F2[C]);
-    Mat_v(F2[E],1,1) -= 0.5; 
-    Mat_v(F2[E],2,2) -= 0.5;
-    Mat_v(F2[E],3,3) -= 0.5;
-    double Eeff = 0.0;
-    Matrix_ddot(F2[E],F2[E],Eeff);
+    E = 0.5*(Fnp1(k,i)*Fnp1(k,j) - eye(i,j));
+
+    double Eeff = E(i,j)*E(i,j);
     Eeff = sqrt(Eeff);
-    Matrix_inv(F2[Fnp1],F2[FI]);
-    Matrix_AxB(F2[FITE], 1.0,0.0,F2[FI],1,F2[E],0);
-    Matrix_AxB(F2[e],  1.0,0.0,F2[FITE], 0,F2[FI],1);
-    double eeff = 0.0;
-    Matrix_ddot(F2[e],F2[e],Eeff);
+    
+    err += inv(Fnp1,FI);
+    e = FI(k,i)*E(k,l)*FI(j,l);
+    double eeff = e(i,j)*e(i,j);
     eeff = sqrt(eeff);
 
         
     //compute undamaged values
     double sigma_eff_0 = 0.0;
     
-    err += elast.update_elasticity(&elast,F2[Fnp1].m_pdata, construct_ET);
-    err += elast.compute_Cauchy_eff(&elast, &sigma_eff_0, F2[Fnp1].m_pdata);
-    err += elast.compute_Cauchy(&elast, F2[sigma0].m_pdata, F2[Fnp1].m_pdata);
-    Matrix_AeqB(F2[S0],1.0,S);
+    err += elast.update_elasticity(&elast,Fnp1.data, construct_ET);
+    err += elast.compute_Cauchy_eff(&elast, &sigma_eff_0, Fnp1.data);
+    err += elast.compute_Cauchy(&elast, sigma0.data, Fnp1.data);
+    
+    S0 = S(i,j);
         
     //compute damaged values
     double sigma_eff = 0.0;
-    Matrix_det(F2[Fnp1], Jnp1);
+    Jnp1 = ttl::det(Fnp1);
 
     err += continuum_damage_integration_alg(&mat_d,&elast,
                                             &w,&X,&H,&is_it_damaged,
-                                            wn,Xn,dt,F2[Fnp1].m_pdata);
+                                            wn,Xn,dt,Fnp1.data);
                                                                                  
     err += update_damaged_elasticity(&mat_d,&elast,w,is_it_damaged,H,
-                                     dt,F2[Fnp1].m_pdata, construct_ET);
+                                     dt,Fnp1.data, construct_ET);
                                             
-    err += elast.compute_Cauchy_eff(&elast,&sigma_eff,F2[Fnp1].m_pdata);
-    err += elast.compute_Cauchy(&elast,F2[sigma].m_pdata,F2[Fnp1].m_pdata);
+    err += elast.compute_Cauchy_eff(&elast,&sigma_eff,Fnp1.data);
+    err += elast.compute_Cauchy(&elast,sigma.data,Fnp1.data);
     
     err += print_outputs(out,t,Jnp1,w,0.0,X,0.0,
                                   sigma_eff_0,sigma_eff,Eeff,eeff,
-                                  &F2[Fnp1], &F2[sigma0],
-                                  &F2[S0],   &F2[sigma],
-                                  &S,        &F2[E],
-                                  &F2[e]);
+                                  Fnp1.data, sigma0.data,
+                                    S0.data,  sigma.data,
+                                     S.data,      E.data,
+                                     e.data);
     wn = w;
     Xn = X;
     is_it_damaged = 0;
   }
-  
-  for(int a = 0; a < F2end; a++)
-    Matrix_cleanup(F2[a]);  
-
-  free(F2);  
     
   return err;    
 }
@@ -351,15 +331,10 @@ int test_split_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
   // -----------------------
   // construct GL(3) tensors
   // -----------------------
-  enum {F,Fnp1,C,E,sigma0,S0,sigma,e,FI,FITE,F2end};
-  Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
-  for (int a = 0; a < F2end; a++) {
-    Matrix_construct_init(double, F2[a],DIM_3,DIM_3,0.0);
-    Matrix_eye(F2[a],DIM_3);
-  }    
-
-  Matrix(double) S;
-  S.m_row = S.m_col = 3; S.m_pdata = elast.S;  // no need free
+  Tensor<2> F,Fnp1,E,sigma0,S0,sigma,e,FI,eye;
+  
+  eye = ttl::identity(i,j);
+  TensorA<2> S(elast.S);;
 
   // --------------
   // do simulations
@@ -383,55 +358,51 @@ int test_split_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
   {
     double t = dt*a;
     
-    err += (sim->F_of_t)(&(F2[Fnp1]), t);
+    err += (sim->F_of_t)(Fnp1, t);
     
     // compute strains
-    Matrix_AxB(F2[C],1.0,0.0,F2[Fnp1],1,F2[Fnp1],0);
-    Matrix_AeqB(F2[E],0.5,F2[C]);
-    Mat_v(F2[E],1,1) -= 0.5; 
-    Mat_v(F2[E],2,2) -= 0.5;
-    Mat_v(F2[E],3,3) -= 0.5;
-    double Eeff = 0.0;
-    Matrix_ddot(F2[E],F2[E],Eeff);
-    Eeff = sqrt(Eeff);
-    Matrix_inv(F2[Fnp1],F2[FI]);
-    Matrix_AxB(F2[FITE], 1.0,0.0,F2[FI],1,F2[E],0);
-    Matrix_AxB(F2[e],  1.0,0.0,F2[FITE], 0,F2[FI],1);
-    double eeff = 0.0;
-    Matrix_ddot(F2[e],F2[e],Eeff);
-    eeff = sqrt(eeff);
+    // compute strains
+    E = 0.5*(Fnp1(k,i)*Fnp1(k,j) - eye(i,j));
 
+    double Eeff = E(i,j)*E(i,j);
+    Eeff = sqrt(Eeff);
+    
+    err += inv(Fnp1,FI);
+    e = FI(k,i)*E(k,l)*FI(j,l);
+    double eeff = e(i,j)*e(i,j);
+    eeff = sqrt(eeff);
         
     //compute undamaged values
     double sigma_eff_0 = 0.0;
     
-    err += elast.update_elasticity(&elast,F2[Fnp1].m_pdata, construct_ET);
-    err += elast.compute_Cauchy_eff(&elast, &sigma_eff_0, F2[Fnp1].m_pdata);
-    err += elast.compute_Cauchy(&elast, F2[sigma0].m_pdata, F2[Fnp1].m_pdata);
-    Matrix_AeqB(F2[S0],1.0,S);
+    err += elast.update_elasticity(&elast,Fnp1.data, construct_ET);
+    err += elast.compute_Cauchy_eff(&elast, &sigma_eff_0, Fnp1.data);
+    err += elast.compute_Cauchy(&elast, sigma0.data, Fnp1.data);
+    S0 = S(i,j);
         
     //compute damaged values
     double sigma_eff = 0.0;
-    Matrix_det(F2[Fnp1], Jnp1);
+    Jnp1 = ttl::det(Fnp1);
     
     err += continuum_damage_split_integration_alg(&mat_d,&elast,
                                      &dw,&vw,&dX,&vX,&dH,&vH,
                                      &is_it_damaged_d,&is_it_damaged_v,                                     
-                                     dwn,vwn,dXn,vXn,dt,F2[Fnp1].m_pdata);    
+                                     dwn,vwn,dXn,vXn,dt,Fnp1.data);    
     
     err += update_damaged_elasticity_split(&mat_d,&elast,dw,vw,dH,vH,
                                           is_it_damaged_d,is_it_damaged_v,
-                                          dt, F2[Fnp1].m_pdata, construct_ET);
+                                          dt, Fnp1.data, construct_ET);
                                           
-    err += elast.compute_Cauchy_eff(&elast,&sigma_eff,F2[Fnp1].m_pdata);
-    err += elast.compute_Cauchy(&elast,F2[sigma].m_pdata,F2[Fnp1].m_pdata);
+    err += elast.compute_Cauchy_eff(&elast,&sigma_eff,Fnp1.data);
+    err += elast.compute_Cauchy(&elast,sigma.data,Fnp1.data);
     
     err += print_outputs(out,t,Jnp1,dw,vw,dX,vX,
                                   sigma_eff_0,sigma_eff,Eeff,eeff,
-                                  &F2[Fnp1], &F2[sigma0],
-                                  &F2[S0],   &F2[sigma],
-                                  &S,        &F2[E],
-                                  &F2[e]);          
+                                  Fnp1.data, sigma0.data,
+                                    S0.data,  sigma.data,
+                                     S.data,      E.data,
+                                     e.data);
+
     dwn = dw;
     vwn = vw;
     dXn = dX;
@@ -439,12 +410,7 @@ int test_split_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
     
     is_it_damaged_d = 0;
     is_it_damaged_v = 0;
-  }
-  
-  for(int a = 0; a < F2end; a++)
-    Matrix_cleanup(F2[a]);  
-
-  free(F2);  
+  } 
     
   return err;
 }

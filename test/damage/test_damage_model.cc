@@ -10,12 +10,8 @@ void test_damage_model(void)
 {
   int err = 0;
   
-  Matrix(double) F, C, S;
-  Matrix_construct_redim(double, F, 3,3);
-  Matrix_construct_init(double, C, 3,3,0.0);
-
-  Matrix_eye(F,3);
-  
+  Tensor<2> F = {};
+    
   MATERIAL_ELASTICITY mat_e;
   MATERIAL_CONTINUUM_DAMAGE mat_d;
   
@@ -25,8 +21,8 @@ void test_damage_model(void)
   
   ELASTICITY elast;
   construct_elasticity(&elast, &mat_e, 1);
-    
-  S.m_row = S.m_col = 3; S.m_pdata = elast.S;  
+  
+  TensorA<2> S(elast.S);  
 
   double d = 0.001;
   double dt = 1.0;
@@ -38,26 +34,24 @@ void test_damage_model(void)
   FILE *out = fopen("stress.txt", "w");
   for(int a = 0; a<100; a++)
   {
-    Mat_v(F,1,1) = 1 + d*a;
-    Mat_v(F,2,2) = Mat_v(F,3,3) = 1 - d*a/2.0;
+   
+    F[0][0] = 1.0 + d*a;
+    F[1][1] = F[2][2] = 1.0 - d*a/2.0;
 
     err += continuum_damage_integration_alg(&mat_d,&elast,
                                             &w,&X,&H,&is_it_damaged,
-                                            wn,Xn,dt,F.m_pdata);
+                                            wn,Xn,dt,F.data);
     wn = w;
     Xn = X;
     is_it_damaged = 0;
 
-    Matrix_AxB(C,1.0,0.0,F,1,F,0);
     err += update_damaged_elasticity(&mat_d,&elast,w,is_it_damaged,H,
-                                     dt,F.m_pdata,1);
+                                     dt,F.data,1);
 
-    fprintf(out,"%e %e %e\n", d*a, S.m_pdata[0], w);
+    fprintf(out,"%e %e %e\n", d*a, S.data[0], w);
   }
   fclose(out);        
   destruct_elasticity(&elast);
-  Matrix_cleanup(F);
-  Matrix_cleanup(C);
 }
 
 

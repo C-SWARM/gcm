@@ -4,10 +4,9 @@
 #include "crystal_plasticity_integration.h"
 #include "flowlaw.h"
 
-void test_crystal_plasticity_single_crystal(Matrix(double) *Fnp1, Matrix(double) *hFnp1, char *filename)
+template<class T1, class T2>
+void test_crystal_plasticity_single_crystal(T1 &Fnp1, T2 &hFnp1, const char *filename)
 {
-  double lame1 = 75600.0;
-  double lame2     = 26100.0;
   double E = 70.0e+3;
   double nu = 0.25;
   
@@ -63,35 +62,32 @@ void test_crystal_plasticity_single_crystal(Matrix(double) *Fnp1, Matrix(double)
   construct_elasticity(&elast, &mat_e, 1);  
 
   // set variables for integration
-  enum {M,pFnp1,xFn,F2end};
-  Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
-  for (int a = 0; a < F2end; a++) {
-    Matrix_construct_redim(double, F2[a],DIM_3,DIM_3);
-    Matrix_eye(F2[a],DIM_3);
-  } 
-  
+  Tensor<2> M,pFnp1,xFn;
+  M     = ttl::identity(i,j);
+  pFnp1 = ttl::identity(i,j);
+  xFn   = ttl::identity(i,j);
+      
   double g_n   = mat_p.g0;
   double g_np1 = mat_p.g0;
   double dt     = 0.1;
   double lambda = 0.0;
 
-  staggered_Newton_Rapson_generalized(F2[pFnp1].m_pdata,F2[M].m_pdata, &g_np1, &lambda, 
-                                      F2[xFn].m_pdata, F2[xFn].m_pdata,Fnp1->m_pdata, F2[xFn].m_pdata, hFnp1->m_pdata,
+  staggered_Newton_Rapson_generalized(pFnp1.data,M.data, &g_np1, &lambda, 
+                                      xFn.data, xFn.data,Fnp1.data, xFn.data, hFnp1.data,
                                       g_n, dt, &mat, &elast, &solver_info);
-    
-  Matrix_print_name(F2[pFnp1], "pFnp1");
 
-  FILE *fp = fopen(filename, "w");  
-  fprintf(fp, "%e %e %e\n%e %e %e\n%e %e %e", Mat_v(F2[pFnp1],1,1), Mat_v(F2[pFnp1],1,2), Mat_v(F2[pFnp1],1,3),
-                                              Mat_v(F2[pFnp1],2,1), Mat_v(F2[pFnp1],2,2), Mat_v(F2[pFnp1],2,3),
-                                              Mat_v(F2[pFnp1],3,1), Mat_v(F2[pFnp1],3,2), Mat_v(F2[pFnp1],3,3));
+  printf("pFnp1 = [\n%e %e %e \n%e %e %e\n%e %e %e]\n",
+          pFnp1[0][0], pFnp1[0][1], pFnp1[0][2],
+          pFnp1[1][0], pFnp1[1][1], pFnp1[1][2],
+          pFnp1[2][0], pFnp1[2][1], pFnp1[2][2]);
+              
+  FILE *fp = fopen(filename, "w");
+  fprintf(fp, "%e %e %e\n%e %e %e\n%e %e %e", pFnp1[0][0], pFnp1[0][1], pFnp1[0][2],
+                                              pFnp1[1][0], pFnp1[1][1], pFnp1[1][2],
+                                              pFnp1[2][0], pFnp1[2][1], pFnp1[2][2]);
  
   fclose(fp);  
-
-  for(int a = 0; a < F2end; a++)
-    Matrix_cleanup(F2[a]);  
-
-  free(F2);    
+  
   destruct_elasticity(&elast);
   destruct_slip_system(&slip);
 }
@@ -101,20 +97,18 @@ int main(int argc,char *argv[])
 {
   int err = 0;
   
-  Matrix(double) Fnp1, hFnp1;
-  Matrix_construct_redim(double, Fnp1,  DIM_3, DIM_3);
-  Matrix_construct_redim(double, hFnp1, DIM_3, DIM_3);
-  Matrix_eye(Fnp1, DIM_3);
-  Matrix_eye(hFnp1,DIM_3);
+  Tensor<2> Fnp1, hFnp1;
+  Fnp1  = ttl::identity(i,j);
+  hFnp1 = ttl::identity(i,j);
   
-  Mat_v(Fnp1,1,2) = Mat_v(Fnp1,1,3) = 0.01;
-  test_crystal_plasticity_single_crystal(&Fnp1, &hFnp1, "without_thermal.txt");
+  Fnp1[0][1] = Fnp1[0][2] = 0.01;
+  test_crystal_plasticity_single_crystal(Fnp1, hFnp1, "without_thermal.txt");
 
-  
-  Mat_v(hFnp1,1,1) = Mat_v(hFnp1,2,2) = Mat_v(hFnp1,3,3) = 2.0;
-   Mat_v(Fnp1,1,1) =  Mat_v(Fnp1,2,2) =  Mat_v(Fnp1,3,3) = 2.0;
-   Mat_v(Fnp1,1,2) =  Mat_v(Fnp1,1,3) = 0.02;
-  test_crystal_plasticity_single_crystal(&Fnp1, &hFnp1, "with_thermal.txt");
+  hFnp1[0][0] = hFnp1[1][1] = hFnp1[2][2] = 2.0;
+   Fnp1[0][0] =  Fnp1[1][1] =  Fnp1[2][2] = 2.0;
+   Fnp1[0][1] =  Fnp1[0][2] =  0.02;
+
+  test_crystal_plasticity_single_crystal(Fnp1, hFnp1, "with_thermal.txt");
   
   return err;
 }

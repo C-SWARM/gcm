@@ -8,19 +8,11 @@
 
 void test_elasticity(void)
 {
-  Matrix(double) F, FT, C, S, E, e, sp, sp_n, Fn, sigma;
-  Matrix_construct_init(double, F,    3,3,0.0);
-  Matrix_construct_init(double, FT,   3,3,0.0);  
-  Matrix_construct_init(double, C,    3,3,0.0);
-  Matrix_construct_init(double, E,    3,3,0.0);
-  Matrix_construct_init(double, e,    3,3,0.0);
-  Matrix_construct_init(double, sp,   3,3,0.0);
-  Matrix_construct_init(double, sp_n, 3,3,0.0);
-  Matrix_construct_init(double, Fn,   3,3,0.0);
-  Matrix_construct_init(double, sigma,   3,3,0.0);  
+  Tensor<2> F, eye, E, e, sp, sp_n, Fn, sigma;
   
-  Matrix_eye(F,3);
-  Matrix_eye(Fn,3);   
+  eye = ttl::identity(i,j); 
+  F  = eye(i,j);
+  Fn = eye(i,j);   
   
   MATERIAL_ELASTICITY mat_e;
   set_properties_using_E_and_nu(&mat_e,9.95e+3,0.25);
@@ -28,7 +20,6 @@ void test_elasticity(void)
   
   ELASTICITY elast;
   construct_elasticity(&elast, &mat_e, 1);
-  S.m_row = S.m_col = 3; S.m_pdata = elast.S;
   
   double hp = 0.2;
   double beta = 0.0;
@@ -37,7 +28,6 @@ void test_elasticity(void)
   double ep = 0.0;
   double ep_n = 0.0;
   double gamma = 0.0;
-  double gamma_n = 0.0;
   
   MATERIAL_J2_PLASTICITY J2P;
   set_J2_plasticity_parameters(&J2P,hp,beta,k0);
@@ -46,57 +36,46 @@ void test_elasticity(void)
   double d = 0.001;
   for(int a = 0; a<220; a++)
   {
-    Mat_v(F,1,1) = 1.0 - d*a;
-    Mat_v(F,2,2) = Mat_v(F,3,3) = 1.0/sqrt(1.0 - 0.5*d*a);
-    Matrix_AxB(C,1.0,0.0,F,1,F,0);
-    Matrix_AeqB(E,0.5,C);
-    Mat_v(E,1,1) -= 0.5;
-    Mat_v(E,2,2) -= 0.5;
-    Mat_v(E,3,3) -= 0.5;
+    F[0][0] = 1.0 - d*a;
+    F[1][1] = F[2][2] = 1.0/sqrt(1.0 - 0.5*d*a);
     
-    Matrix_AeqBT(FT,1.0,F);
-    Matrix_Tns2_AxBxC(e,1.0,0.0,F,E,FT);
-        
-    elast.update_elasticity(&elast,F.m_pdata, 0);
+     
+    E = 0.5*(F(k,i)*F(k,j) - eye(i,j));
 
-    J2_plasticity_integration_alg(sp.m_pdata,&ep,&gamma,
-                                  F.m_pdata,Fn.m_pdata,sp_n.m_pdata,ep_n,
+    
+    e = F(i,k)*E(k,l)*F(j,l);
+            
+    elast.update_elasticity(&elast,F.data, 0);
+
+    J2_plasticity_integration_alg(sp.data,&ep,&gamma,
+                                  F.data,Fn.data,sp_n.data,ep_n,
                                   &J2P,&mat_e);
 
     
     J2_plasticity_update_elasticity(&J2P,&elast,
-                                    F.m_pdata,Fn.m_pdata,sp.m_pdata,sp_n.m_pdata,gamma,0);
+                                    F.data,Fn.data,sp.data,sp_n.data,gamma,0);
     
     double sigma_eff = 0.0;
-    elast.compute_Cauchy_eff(&elast,&sigma_eff,F.m_pdata);
-    elast.compute_Cauchy(&elast,sigma.m_pdata,F.m_pdata);
-                                                                          
-    Matrix_AeqB(Fn,1.0,F);
-    Matrix_AeqB(sp_n,1.0,sp);
+    elast.compute_Cauchy_eff(&elast,&sigma_eff,F.data);
+    elast.compute_Cauchy(&elast,sigma.data,F.data);
+
+    Fn   = F(i,j);
+    sp_n = sp(i,j);
+    
     ep_n = ep;
-    gamma_n = gamma;
     
     double et = log(1.0-d*a);
     fprintf(out, "%e %e %e %e %e %e %e\n", et, 
-                                                 Mat_v(sigma,1,1),
-                                                 (elast.S[0]),
-                                                 sigma_eff, 
-                                                 gamma, 
-                                                 ep, 
-                                                 sp.m_pdata[0]);
+                                           sigma[0][0],
+                                           elast.S[0],
+                                           sigma_eff, 
+                                           gamma, 
+                                           ep, 
+                                           sp[0][0]);
   }
   fclose(out);
           
   destruct_elasticity(&elast);
-  Matrix_cleanup(F);
-  Matrix_cleanup(FT);  
-  Matrix_cleanup(C);
-  Matrix_cleanup(E);
-  Matrix_cleanup(e);
-  Matrix_cleanup(sp);
-  Matrix_cleanup(sp_n);
-  Matrix_cleanup(Fn);
-  Matrix_cleanup(sigma);  
 }
 
 
