@@ -74,7 +74,7 @@ int compute_residual_M(double *R_out, double *M_in, double *MI_in, double *pFn_i
   TensorA<2> N(N_in);
   TensorA<2> A(A_in);     
     
-  Tensor<2> Ru,MIT,MIpFnN,Ident,AM,ATRu;
+  Tensor<2> Ru={},MIT,MIpFnN,Ident,AM,ATRu;
           
   for(int a=0; a<slip->N_SYS; a++)
   {
@@ -119,12 +119,7 @@ int construct_tangent_M(double *K_out, double *M_in, double *MI_in, double *pFn_
 {
   int err = 0;
 
-  TensorA<2> MI(MI_in);
-  TensorA<2> pFn(pFn_in);
-  TensorA<2> eFnp1(eFnp1_in);
-  TensorA<2> Fa(Fa_in);
-  TensorA<2> N(N_in);
-  TensorA<2> A(A_in);
+  TensorA<2> MI(MI_in), pFn(pFn_in), eFnp1(eFnp1_in), Fa(Fa_in), N(N_in), A(A_in);
         
   Tensor<4> Kuu = {};
   Tensor<4> Kuu_a = {};
@@ -470,8 +465,8 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
     if(err>0)
       break;
     
-    // compute eFnp1 = Fr*M
-    eFnp1 = Fa(i,k)*M(k,j);
+    // compute eFnp1 = Fa*M
+    eFnp1 = Fa(i,r)*M(r,j);
     err += Newton_Rapson_hardening(&g_np1_kp1, eFnp1.data, 
                             g_n, g_np1_k, dt, mat, elasticity, solver_info);
     
