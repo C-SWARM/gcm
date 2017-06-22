@@ -430,6 +430,7 @@ template <class T> void Matrix<T>::cleanup(void)
       cout << "Debug mode >> delete data and set NULL\n";      
     delete m_pdata;
     m_pdata = NULL;
+    is_matrix_created = false;
   }
 
 };
