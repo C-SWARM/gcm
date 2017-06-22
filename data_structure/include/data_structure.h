@@ -89,6 +89,27 @@ bool check_matrix_size_A_B(const T &A, const T &B, const char *func_name, const 
   return is_it_same;
 }
 
+/// check Matrix size A and B for operatations: =, +, -
+///
+/// if not same, print function name and error massage.
+///
+/// \param[in] A 1st matrix to be compared
+/// \param[in] B 2nd matrix to be compared
+/// \param[in] func_name function name calling this function
+/// \param[in] lineno line number
+/// \return true or false
+template <class T>
+bool check_square_matrix(const T &A, const char *func_name, const int lineno)
+{
+  bool is_it_square = true;
+  if((A.m_row == 0) || (A.m_row !=A.m_row))
+  {
+    cout << "Matrix<T>" << func_name << "(" << lineno <<"): Error Matrix is not square!\n";
+    is_it_square = false;
+  }
+  return is_it_square;
+}
+
 /// GCM_DATA_STRUCTURE class 
 ///
 /// Topest class of the GSM datastructure
@@ -103,6 +124,8 @@ public:
   int m_col;
   /// memory for data array
   T *m_pdata;
+  /// check for reference use 
+  bool is_matrix_created;
 
   // constructors
   Matrix();                                
@@ -120,6 +143,13 @@ public:
   void initialization(const int m_size, const int n_size);                       
   void initialization(const Matrix<T> &A);                           
   void initialization(const int m_size, const int n_size, const T *p);
+  
+  void use_reference(const int m_size, const int n_size, T *p)
+  {
+    m_row = m_size;
+    m_col = n_size;
+    m_pdata = p;
+  };
 
   // deallocate memory of member array  
   void cleanup(void);
@@ -133,7 +163,7 @@ public:
   void set_values(const T &p);
 
   // get a value
-  constexpr T  get_a_value(const int m, const int n);
+  T  get_a_value(const int m, const int n);
   T* get_a_value_pointer(const int m, const int n);
   
   /// indexing data through bracket
@@ -146,6 +176,18 @@ public:
   constexpr T& operator () (const int a, const int b)
   {
     return *(m_pdata+(a-1)*m_col+(b-1));
+  };
+  
+
+  /// indexing data through bracket
+  ///
+  /// e.g. A(a) = c;
+  ///
+  /// \param[in] a row index and assumed that number of column 1
+  /// \return data component at a, b
+  constexpr T& operator () (const int a)
+  {
+    return *(m_pdata+a-1);
   };
   
   /// operator overriding for Matrix  
@@ -175,15 +217,21 @@ public:
   void prod(const Matrix<T> &A, const Matrix<T> &B); // this = A*B
   void prod(const Matrix<T> &A, const double b);     // this = A*b
   void prod(const double b);                         // this *= b (scalar)
+  void prod(const Matrix<T> &A, 
+            const int AT, 
+            const Matrix<T> &B,
+            const int BT);
   
   void trans(void);                      // transpose
+  void trans(Matrix<T> &A);
   double norm(void);                     // sqrt(this:this)
   double ddot(Matrix<T> &B);             // this:B
   double ox(Matrix<T> &A, Matrix<T> &B); // this = A /otimes B 
   void input_from_str(char *str);
   void print(void);
   void print(const char *name);
-
+  int inv(void);
+  int inv(const Matrix<T> &A);
 };  
 
 /// default constructor
@@ -256,6 +304,7 @@ template <class T> void Matrix<T>::set_nulls(void)
   m_row=0;
   m_col=0;
   m_pdata=NULL;
+  is_matrix_created = false;
   if(DEBUG_PRINT_GCM_DATA_STRUCTURE)
     cout << "Debug mode >> set NULL ...\n";
 };
@@ -320,6 +369,7 @@ template <class T> void Matrix<T>::initialization(const int m_size,
   m_row = m_size;
   m_col = n_size;
   m_pdata = new T [m_size*n_size] ();
+  is_matrix_created = true;
     
   if(m_pdata == NULL)
     cout << "Memory is not allocated. " << __func__ << ":" << __FILE__ << ":" << __LINE__ << "\n";
@@ -370,6 +420,9 @@ template <class T> void Matrix<T>::cleanup(void)
 {
   m_row = 0;
   m_col = 0;
+  
+  if(!is_matrix_created)
+    m_pdata = NULL; // release pointers if reference is used
 
   if(m_pdata!=NULL)
   {
@@ -447,8 +500,8 @@ template <class T> void Matrix<T>::set_values(const T &d)
 /// \param[in] m row index
 /// \param[in] n column index
 /// \return a data (type T) value
-template <class T> constexpr T Matrix<T>::get_a_value(const int m, 
-                                                      const int n)
+template <class T> T Matrix<T>::get_a_value(const int m, 
+                                            const int n)
 {
   return *(m_pdata+(m-1)*m_col+(n-1));
 };
@@ -666,7 +719,76 @@ template <class T> void Matrix<T>::prod(const double value)
   for(int ia=0; ia<(this->m_row*this->m_col); ia++)
     this->m_pdata[ia] *= value;    
 };
-void prod(double value);               // this *= value (scalar)*/
+
+/// perform two matrices product to itself 
+///
+/// data calling this function will be updated as a result of
+/// this = A*B
+/// \param[in] A 1st input matrix to be multiplied
+/// \param[in] AT if 1, do transpose
+/// \param[in] B 2nd input matrix to be multiplied
+/// \param[in] BT if 1, do transpose
+template <class T> void Matrix<T>::prod(const Matrix<T> &A,
+                                        const int AT,
+                                        const Matrix<T> &B,
+                                        const int BT)
+{
+  if(check_matrix_size_AxB(A, B, __func__, __LINE__))
+  {
+    this->initialization(A.m_row, B.m_col);
+    Matrix_AxB_large(*this,1.0,0.0,A,AT,B,BT);
+  }  
+};
+
+/// perform matrix transpose
+///
+/// data calling this function will be updated as a result of this = A^T
+/// data calling this function will be updated as a result of
+/// \param[in] A input matrix to be transposed
+template <class T> void Matrix<T>::trans(Matrix<T> &A)
+{
+  if(A.m_row==0 || A.m_col==0)
+    return;
+    
+  if(A.m_row==1 || A.m_col==1)
+  {
+    this->initialization(A.m_col,A.m_col,A.m_pdata);
+    return;
+  }
+  
+  this->initialization(A.m_col,A.m_row);
+  for(int ia=1; ia<=A.m_row; ia++)
+  {
+    for(int ib=1; ib<=A.m_col; ib++)
+      this->set_a_value(ib,ia,A(ia,ib));
+  }
+};
+
+
+/// perform matrix transpose
+///
+/// data calling this function will be updated as a result of this^T
+template <class T> void Matrix<T>::trans(void)
+{
+  if(this->m_row==0 || this->m_col==0)
+    return;
+        
+  if(this->m_row==1 || this->m_col==1)
+  {
+    int temp = this->m_col;
+    this->m_col = this->m_row;
+    this->m_row = temp;
+    return;
+  }
+    
+  Matrix<T> A(this->m_col,this->m_row);
+  for(int ia=1; ia<=this->m_row; ia++)
+  {
+    for(int ib=1; ib<=this->m_col; ib++)
+      A(ib,ia) = this->get_a_value(ia,ib);
+  }
+  this->initialization(A);
+};
 
 /// print Matrix components with input name
 ///
@@ -694,122 +816,36 @@ template <class T> void Matrix<T>::print(void)
   this->print(A);
 };
 
-/// operator + overriding : do result = A + B
+/// compute inverse of Matrix
 ///
-/// param[in] A 1st input object
-/// param[in] B 2nd input object
-/// return T instant
-template <class T>
-constexpr T operator + (const T &A, const T &B)
-{ 
-  T temp;
-  temp.add(A,B);
-  return temp;
+template <class T> int Matrix<T>::inv(void)
+{
+  if(check_square_matrix(*this, __func__, __LINE__))
+  {
+    Matrix<T> temp(this->m_row, this->m_col);
+    int err = inverse(this->m_pdata, this->m_row, temp.m_pdata);
+    memcpy(this->m_pdata, temp.m_pdata, (this->m_row*this->m_col)*sizeof(T));
+    return err;
+
+  }
+  else
+    return 1;
 };
 
-/// operator + overriding : do result = A + b, b = scalar
+/// compute inverse of Matrix
 ///
-/// param[in] A input object
-/// param[in] b a scalar
-/// return T instant
-template <class T>
-constexpr T operator + (const T &A, const double b)
-{ 
-  T temp;
-  temp.add(A,b);
-  return temp;
+template <class T> int Matrix<T>::inv(const Matrix<T> &A)
+{
+  if(check_square_matrix(A, __func__, __LINE__))
+  {
+    this->initialization(A.m_row, A.m_col);
+    int err = inverse(A.m_pdata, A.m_row, this->m_pdata);
+    return err;
+  }
+  else
+    return 1;
 };
 
-/// operator + overriding : do result = a + B
-///
-/// param[in] a a scalar
-/// param[in] B input object
-/// return T instant
-template <class T>
-constexpr T operator + (const double a, const T &B)
-{ 
-  T temp;
-  temp.add(B,a);
-  return temp;
-};
-
-/// operator - overriding : do result = A - B
-///
-/// param[in] A 1st input object
-/// param[in] B 2nd input object
-/// return T instant
-template <class T>
-constexpr T operator - (const T &A, const T &B)
-{ 
-  T temp;
-  temp.sub(A,B);
-  return temp;
-};
-
-/// operator - overriding : do result = A - b
-///
-/// param[in] A 1st input object
-/// param[in] B 2nd input object
-/// return T instant
-template <class T>
-constexpr T operator - (const T &A, const double b)
-{ 
-  T temp;
-  temp.add(A,-b);
-  return temp;
-};
-
-/// operator - overriding : do result = A - b
-///
-/// param[in] A 1st input object
-/// param[in] B 2nd input object
-/// return T instant
-template <class T>
-constexpr T operator - (const double b, const T &A)
-{ 
-  T temp;
-  temp.sub(b,A);
-  return temp;
-};
-
-/// operator * overriding : do result = A * B
-///
-/// param[in] A 1st input object
-/// param[in] B 2nd input object
-/// return T instant
-template <class T>
-constexpr T operator * (const T &A, const T &B)
-{ 
-  T temp;
-  temp.prod(A,B);
-  return temp;
-};
-
-/// operator * overriding : do result = a * B
-///
-/// param[in] a a scalar
-/// param[in] B input object
-/// return T instant
-template <class T>
-constexpr T operator * (const double a, const T &B)
-{ 
-  T temp;
-  temp.prod(B,a);
-  return temp;
-};
-
-/// operator * overriding : do result = A * b
-///
-/// param[in] A input object to be multiplied
-/// param[in] b a scalar to be multiplied
-/// return T instant
-template <class T>
-constexpr T operator * (const T &A, const double b)
-{ 
-  T temp;
-  temp.prod(A,b);
-  return temp;
-};
 } // namespace gcm
 
 #endif
