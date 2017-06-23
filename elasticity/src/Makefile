@@ -10,7 +10,7 @@ LOC_inc = ../../local_include
 UTS_inc = ../../utils/include
 MAT_inc = ../../material/include
  	     	  
-INCs = -I../include -I${LOC_inc} -I${UTS_inc} -I${MAT_inc} -I${MKL_inc}
+INCs = -I../include -I${LOC_inc} -I${UTS_inc} -I${MAT_inc} -m64 -I${MKL_inc}
 
 CXXFLAGS = -Wall -std=c++14 -O3 -g
 # for BGQ machine

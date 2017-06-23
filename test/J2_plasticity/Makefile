@@ -21,7 +21,7 @@ LINK = mpicxx
 AR       = ar
 ARFLAGS = -rcs
 
-MKL_inc	= $(MKLROOT)/include
+MKL_inc	= -m64 $(MKLROOT)/include
 MKL_lib		= -Wl,--start-group \
  	     	  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a \
  	     	  $(MKLROOT)/lib/intel64/libmkl_sequential.a \
