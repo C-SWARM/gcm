@@ -21,7 +21,7 @@ LINK = mpicxx
 AR       = ar
 ARFLAGS = -rcs
 
-MKL_inc	= -m64 $(MKLROOT)/include
+MKL_inc	= $(MKLROOT)/include
 MKL_lib		= -Wl,--start-group \
  	     	  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a \
  	     	  $(MKLROOT)/lib/intel64/libmkl_sequential.a \
@@ -34,7 +34,7 @@ INCs = -I$(DIR_uts)/include \
 	-I$(DIR_cpm)/include \
 	-I$(DIR_dam)/include \
 	-I$(DIR_loc) \
-	-I${MKL_inc}
+	-m64 -I${MKL_inc}
 
 LIBs = $(CNSTVM_lib) $(MKL_lib)
 CXXFLAGS = -Wall -std=c++14 -O3
