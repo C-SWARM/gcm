@@ -13,9 +13,9 @@ ELS_inc = ../../elasticity/include
  	     	  
 INCs = -I../include -I${LOC_inc} -I${UTS_inc} -I${MAT_inc} -I${ELS_inc} -m64 -I${MKL_inc}
 
-CXXFLAGS = -Wall -std=c++14 -O3 -g
+CXXFLAGS = -Wall -std=c++14 -O3
 # for BGQ machine
-#CFLAGS = -std=c99 -O3 -g -DARCH_BGQ
+#CFLAGS = -std=c99 -O3 -DARCH_BGQ
 
 all: $(OBJs) $(OLIB)
 	

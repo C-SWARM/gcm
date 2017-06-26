@@ -16,9 +16,9 @@ CXX = mpicxx
 #INCs = -I../include -I${LOC_inc} -I${UTS_inc} -I${MAT_inc} -I${ELS_inc} -I${DAG_inc} -I${PLS_inc} -I${MKL_inc}
 INCs = -I../include
 
-CXXFLAGS = -Wall -std=c++14 -O3 -g
+CXXFLAGS = -Wall -std=c++14 -O3
 # for BGQ machine
-#CFLAGS = -std=c99 -O3 -g -DARCH_BGQ
+#CFLAGS = -std=c99 -O3 -DARCH_BGQ
 
 all: $(OBJs) $(OLIB)
 	

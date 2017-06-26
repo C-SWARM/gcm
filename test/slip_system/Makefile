@@ -35,7 +35,7 @@ INCs = -I$(DIR_uts)/include \
 	-I${MKL_inc}
 
 LIBs = $(CNSTVM_lib) $(MKL_lib)
-CXXFLAGS = -Wall -std=c++14 -O3 -g
+CXXFLAGS = -Wall -std=c++14 -O3
 
 all: $(OBJs)
 	$(LINK) $(CXXFLAGS) $(OBJs) $(LIBs) -o $(PROG)  
