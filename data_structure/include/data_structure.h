@@ -68,6 +68,31 @@ bool check_matrix_size_AxB(const T &A, const T &B, const char *func_name, const 
   return is_it_same;
 };
 
+/// check Matrix size A, B and C for operatations: multiplication A*B*C
+///
+/// if not same, print function name and error massage.
+///
+/// \param[in] A 1st matrix to be compared
+/// \param[in] B 2nd matrix to be compared
+/// \param[in] C 3rd matrix to be compared
+/// \param[in] func_name function name calling this function
+/// \param[in] lineno line number
+/// \return true or false
+template <class T>
+bool check_matrix_size_AxBxC(const T &A, const T &B, const T &C, const char *func_name, const int lineno)
+{
+  bool is_it_same = true;
+  if((A.m_col !=B.m_row) || (B.m_col != C.m_row))
+  {  
+    cout << "Matrix<T>" << func_name << "(" << lineno <<"): Error Matrix size does not match. ";
+    cout << "[" << A.m_row << "x" << A.m_col <<"] * ";
+    cout << "[" << B.m_row << "x" << B.m_col <<"] * ";
+    cout << "[" << C.m_row << "x" << C.m_col <<"] \n";        
+    is_it_same = false;
+  }
+  return is_it_same;
+};
+
 /// check Matrix size A and B for operatations: =, +, -
 ///
 /// if not same, print function name and error massage.
@@ -215,6 +240,7 @@ public:
   // product
   void prod(const Matrix<T> &B);                     // this *= B
   void prod(const Matrix<T> &A, const Matrix<T> &B); // this = A*B
+  void prod(const Matrix<T> &A, const Matrix<T> &B, const Matrix<T> &C); // this = A*B*C
   void prod(const Matrix<T> &A, const double b);     // this = A*b
   void prod(const double b);                         // this *= b (scalar)
   void prod(const Matrix<T> &A, 
@@ -694,7 +720,33 @@ template <class T> void Matrix<T>::prod(const Matrix<T> &A, const Matrix<T> &B)
   {
     this->initialization(A.m_row, B.m_col);
     Matrix_AxB_large(*this,1.0,0.0,A,0,B,0);
-  }  
+  }
+  else
+    abort(); 
+};
+
+/// perform three matrices product to itself 
+///
+/// data calling this function will be updated as a result of
+/// this = A*B*C
+/// \param[in] A 1st input matrix to be multiplied
+/// \param[in] B 2nd input matrix to be multiplied
+/// \param[in] C 3rd input matrix to be multiplied
+template <class T> void Matrix<T>::prod(const Matrix<T> &A, const Matrix<T> &B, const Matrix<T> &C)
+{
+  if(check_matrix_size_AxBxC(A, B, C, __func__, __LINE__))
+  {
+    this->initialization(A.m_row, C.m_col, (T) 0.0);
+    for(int ia=0; ia<A.m_row; ia++)
+      for(int id=0; id<C.m_col; id++)
+        for(int ib=0; ib<A.m_col; ib++)
+          for(int ic=0; ic<B.m_col; ic++)
+            this->m_pdata[ia*this->m_col + id] += A.m_pdata[ia*A.m_col + ib]
+                                                 *B.m_pdata[ib*B.m_col + ic]
+                                                 *C.m_pdata[ic*C.m_col + id];
+  }
+  else
+    abort();
 };
 
 /// perform matrices product with a scalar and aply to this 
@@ -753,7 +805,7 @@ template <class T> void Matrix<T>::trans(Matrix<T> &A)
     
   if(A.m_row==1 || A.m_col==1)
   {
-    this->initialization(A.m_col,A.m_col,A.m_pdata);
+    this->initialization(A.m_col,A.m_row,A.m_pdata);
     return;
   }
   
