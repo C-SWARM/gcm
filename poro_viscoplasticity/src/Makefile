@@ -10,8 +10,10 @@ CXX = g++
 CXXFLAGS = -Wall -std=c++14 -O3 -g
 
 MAT_inc = ../../material/include
+CP_inc = ../../crystal_plasticity/include
+ELS_inc = ../../elasticity/include
 
-INCs = -I../include -I$(MKLROOT)/include -I$(MAT_inc)
+INCs = -I../include -I$(MKLROOT)/include -I$(MAT_inc) -I$(CP_inc) -I$(ELS_inc)
 
 all: $(OBJs)
 	
