@@ -85,6 +85,9 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
 //! The input data is contained in logJpr that must be updated before this function is called
 {
   
+  if(logJp>0)
+    return 0;
+    
   // if pcr was set to pcinf, there is nothing to do since pc is monotonically increasing.
 
   if ( this->pcEQpc_inf )
@@ -129,17 +132,26 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
     
     // seeking for the upper extreme of the bounding interval
     if ( fpcr > 0 )
+    {  
       do
       {
         b *= 2;
         fpcrp1 = this->HardeningLaw( b ) - logJp ;
       } while ( fpcrp1 > 0 );
+    }  
     else
+    {  
       do
       {
         a /= 2;
-        fpcrp1 = this->HardeningLaw( a ) - logJp ;
+        double H = this->HardeningLaw( a );
+        fpcrp1 = H - logJp ;
+        
+ //       if(fabs(H)<1.0e-30)
+ //         break;
+        
       } while ( fpcrp1 < 0 );
+    }
     
     
     // at this point we have fpcr>0 and fpcrp1 <0
@@ -195,6 +207,9 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
       this->IO->log() << " Code did not abort but outcomes might be wrong. \n" << std::flush;
     }
   }
+  
+  if(pcr<pcr0)
+    pcr = pcr0;
   
   return it;
 }
@@ -325,7 +340,7 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& up
     // scheme when the problem is well conditioned, and of the bisection method when the problem is ill conditioned
     
     double logJpr = log( det( pFr ) );
-    FindpcFromJp( logJpr, pcr, STAGGEREDTOL, false ); // Verbose );
+      FindpcFromJp( logJpr, pcr, STAGGEREDTOL, false ); // Verbose );
     
     // convergence check for the residual of the flow rule,
     // to exit the whole staggered algorithm
