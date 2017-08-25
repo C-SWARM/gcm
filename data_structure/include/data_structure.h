@@ -444,9 +444,6 @@ template <class T> void Matrix<T>::initialization(const int m_size,
 /// \return void
 template <class T> void Matrix<T>::cleanup(void)
 {
-  m_row = 0;
-  m_col = 0;
-  
   if(!is_matrix_created)
     m_pdata = NULL; // release pointers if reference is used
 
@@ -454,11 +451,13 @@ template <class T> void Matrix<T>::cleanup(void)
   {
     if(DEBUG_PRINT_GCM_DATA_STRUCTURE)
       cout << "Debug mode >> delete data and set NULL\n";      
-    delete m_pdata;
+    delete[] m_pdata;
     m_pdata = NULL;
     is_matrix_created = false;
   }
-
+  
+  m_row = 0;
+  m_col = 0;
 };
 
 /// check input indices are bounded by the number of row and column
