@@ -175,6 +175,10 @@ public:
            double, double, double, double, double, double, double, double,
            double, double, double, bool);
   
+  double get_K_p0(void)
+  {
+    return K_p0;
+  };
   void set_parameters(double, double, double, double, double, double, double, double,
                       double, double, double, double, double, double, double, double,
                       double, double, double, bool);
