@@ -15,7 +15,7 @@ DIR_pvp = $(DIR_TOP)/poro_viscoplasticity
 
 CNSTVM_lib = -L$(DIR_TOP)/lib -lConstitutiveModel
 
-CXX = mpicxx
+CXX = mpicxx -fpermissive
 LINK = mpicxx
 
 MKL_inc	= $(MKLROOT)/include
@@ -27,6 +27,9 @@ MKL_lib		= -Wl,--start-group \
 
 INCs = -I$(DIR_pvp)/include \
 	-I$(DIR_mat)/include \
+	-I$(DIR_els)/include \
+	-I$(DIR_cpm)/include \
+	-I$(DIR_uts)/include \
 	-I${MKL_inc}
 
 LIBs = $(CNSTVM_lib) $(MKL_lib)
