@@ -83,11 +83,10 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
 //! NR scheme to estimate pc at step (n+1) from Jp at the same step
 //! Returns the number of iterations required to convergence, whereas the new outcome is stored in pcr and returned as such
 //! The input data is contained in logJpr that must be updated before this function is called
-{
-  
+{  
   if(logJp>0)
     return 0;
-    
+  
   // if pcr was set to pcinf, there is nothing to do since pc is monotonically increasing.
 
   if ( this->pcEQpc_inf )
@@ -118,8 +117,9 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
   // Algorithm selection, either NR or bisections
   
   unsigned it=0;
+  double computer_zero = 1.0e-15;
   
-  if ( fabs( DfDpcr ) < NRTOL )  
+  if(fabs( DfDpcr ) < NRTOL )  
     // the first derivative is almost zero, and the NR scheme becomes very bad conditioned.
     // the zero is found via bisection method
   {
@@ -167,7 +167,7 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
       fa = this->HardeningLaw( a ) - logJp ;
       fpccheck = this->HardeningLaw( c ) - logJp ;
       
-      if ( fabs( fpccheck ) < PCTOL )
+      if ( fabs( fpccheck ) < computer_zero )
         break;
       else if ( fa * fpccheck > 0 )
         a = c;
@@ -184,11 +184,19 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
     }
   }
   
-  else
+
     // the NR method is used to find pcr
   {
     unsigned maxIt=100;
-    pcr = pcr0;
+//    pcr = pcr0;
+//    pcr = (l1+l2)/2.0;
+    
+    double R = this->HardeningLaw( pcr ) - logJp;
+    double norm   = sqrt(R*R);
+    double norm_0 = norm;
+    
+    if(norm_0<computer_zero)
+      norm_0 = computer_zero;
     
     while (it < maxIt) {
       
@@ -197,7 +205,7 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
       dpc /= a1 * l1 * exp( - l1 / pcr ) + a2 * l2 * exp( - l2 / pcr ) ;
       pcr += dpc;
       
-      if ( fabs(  this->HardeningLaw( pcr ) - logJp  ) < PCTOL )
+      if ( fabs(  this->HardeningLaw( pcr ) - logJp  ) < computer_zero)
         break;
     }
     
@@ -207,10 +215,10 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
       this->IO->log() << " Code did not abort but outcomes might be wrong. \n" << std::flush;
     }
   }
-  
-  if(pcr<pcr0)
-    pcr = pcr0;
-  
+    
+//  if(pcr<pcr0)
+//    pcr = pcr0;
+
   return it;
 }
 
