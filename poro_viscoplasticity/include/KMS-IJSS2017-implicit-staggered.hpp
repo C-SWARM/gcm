@@ -216,8 +216,8 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
     }
   }
     
-//  if(pcr<pcr0)
-//    pcr = pcr0;
+  if(pcr<pcr0)
+    pcr = pcr0;
 
   return it;
 }
