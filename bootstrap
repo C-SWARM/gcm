@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+set -e
+autoreconf --force --install -I m4 || exit 1
+rm -rf autom4te.cache
