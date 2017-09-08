@@ -11,7 +11,7 @@ CXXFLAGS = -Wall -std=c++14 -O3
 #CFLAGS = -std=c99 -O3 -g -DARCH_BGQ
 
 # libraries
-MKL_inc = $(MKLROOT)/include
+MKL_inc = $(MKLROOT)/include -m64
 
 MKL_lib = $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a \
  $(MKLROOT)/lib/intel64/libmkl_sequential.a \
