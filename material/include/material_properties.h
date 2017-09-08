@@ -62,13 +62,6 @@ typedef struct MATERIAL_CRYSTAL_PLASTICITY MATERIAL_CRYSTAL_PLASTICITY;
 typedef struct MATERIAL_CONTINUUM_DAMAGE MATERIAL_CONTINUUM_DAMAGE;
 typedef struct MATERIAL_J2_PLASTICITY MATERIAL_J2_PLASTICITY;
 
-struct MATERIAL_CONSTITUTIVE_MODEL
-{
-  MATERIAL_ELASTICITY *mat_e;
-  MATERIAL_CRYSTAL_PLASTICITY *mat_p;
-};
-typedef struct MATERIAL_CONSTITUTIVE_MODEL MATERIAL_CONSTITUTIVE_MODEL;
-
 /**
  * set material properties for elasticity (Mooney_Rivlin and Doll_Schweizerhof_7)
  * \param[in] E and nu
@@ -104,10 +97,6 @@ int set_properties_crystal_plasticity(MATERIAL_CRYSTAL_PLASTICITY *mat,
                                       SLIP_SYSTEM *slip, double gamma_dot_0, double gamma_dot_s, 
                                       double m, double g0, double G0, double gs_0, double w);
                                       
-int set_properties_constitutive_model(MATERIAL_CONSTITUTIVE_MODEL *mat,
-                                      MATERIAL_ELASTICITY *mat_e,
-                                      MATERIAL_CRYSTAL_PLASTICITY *mat_p);
-
 int print_material_property_crystal_plasticity(MATERIAL_CRYSTAL_PLASTICITY *mat);                                      
 
 int print_material_property_elasticity(MATERIAL_ELASTICITY *mat);
@@ -194,8 +183,7 @@ public:
   
 };
 
- 
-class MATERIAL_CONSTITUTIVE_MODEL_ALL
+class MATERIAL_CONSTITUTIVE_MODEL
 {
   public:
     MATERIAL_ELASTICITY         *mat_e;
@@ -204,7 +192,7 @@ class MATERIAL_CONSTITUTIVE_MODEL_ALL
     MATERIAL_J2_PLASTICITY      *mat_J2p;
     KMS_IJSS2017_Parameters     *mat_pvp;
 
-  MATERIAL_CONSTITUTIVE_MODEL_ALL()
+  MATERIAL_CONSTITUTIVE_MODEL()
   {
     mat_e   = NULL;
     mat_p   = NULL;
@@ -213,5 +201,9 @@ class MATERIAL_CONSTITUTIVE_MODEL_ALL
     mat_pvp = NULL;
   };
 };
+
+int set_properties_constitutive_model(MATERIAL_CONSTITUTIVE_MODEL *mat,
+                                      MATERIAL_ELASTICITY *mat_e,
+                                      MATERIAL_CRYSTAL_PLASTICITY *mat_p);
    
 #endif 
