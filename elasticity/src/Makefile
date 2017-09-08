@@ -1,20 +1,15 @@
+include ../../make.inc
+
 SRC = $(shell ls *.cc)
 
 OBJs = $(SRC:.cc=.o)
 
-CXX = mpicxx -fpermissive
-
-MKL_inc	= $(MKLROOT)/include
-
 LOC_inc = ../../local_include
+DAT_inc = ../../data_structure/include
 UTS_inc = ../../utils/include
 MAT_inc = ../../material/include
  	     	  
-INCs = -I../include -I${LOC_inc} -I${UTS_inc} -I${MAT_inc} -I${MKL_inc}
-
-CXXFLAGS = -Wall -std=c++14 -O3 -g
-# for BGQ machine
-#CFLAGS = -std=c99 -O3 -g -DARCH_BGQ
+INCs = -I../include -I${LOC_inc} -I${DAT_inc} -I${UTS_inc} -I${MAT_inc} -I${MKL_inc}
 
 all: $(OBJs) $(OLIB)
 	

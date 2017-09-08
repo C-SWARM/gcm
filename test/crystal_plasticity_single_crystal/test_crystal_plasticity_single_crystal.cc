@@ -7,8 +7,8 @@
 
 void test_crystal_plasticity_single_crystal(void)
 {
-  double lame1 = 75600.0;
-  double lame2     = 26100.0;
+  //double lame1 = 75600.0;
+  //double lame2     = 26100.0;
   double E = 70.0e+3;
   double nu = 0.25;
   
@@ -64,13 +64,14 @@ void test_crystal_plasticity_single_crystal(void)
   construct_elasticity(&elast, &mat_e, 1);  
 
   // set variables for integration
-  enum {M,MI,pFn,pFnp1,pFnp1_I,eFnp1,Fn,Fnp1,L,sigma,PK2dev,sigma_dev,F2end};
-  Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
-  for (int a = 0; a < F2end; a++) {
-    Matrix_construct_init(double, F2[a],DIM_3,DIM_3,0.0);
-    Matrix_eye(F2[a],DIM_3);
-  } 
+  Tensor<2> M,MI,pFn,pFnp1,pFnp1_I,eFnp1,Fn,Fnp1,L={},sigma,PK2dev,sigma_dev;
   
+  pFn   = ttl::identity(i,j);
+  pFnp1 = ttl::identity(i,j);
+  eFnp1 = ttl::identity(i,j);
+  Fn    = ttl::identity(i,j);
+  Fnp1  = ttl::identity(i,j);
+      
   double g_n,g_np1;
   g_n = g_np1 = mat_p.g0;
   
@@ -78,12 +79,11 @@ void test_crystal_plasticity_single_crystal(void)
   
   double d = 1.0;
   // set velocity gradient  
-  Mat_v(F2[L],1,1) = -d;
-  Mat_v(F2[L],2,2) = Mat_v(F2[L],3,3) = d/2;  
+  L[0][0] = -d;
+  L[1][1] = L[2][2] = d/2;  
   
   // start integration  
-  Matrix(double) PK2;
-  PK2.m_row = PK2.m_col = DIM_3; PK2.m_pdata = elast.S;
+  TensorA<2> PK2(elast.S);
   
   FILE *fp = fopen("single_crystal_results.txt", "w");
   
@@ -93,36 +93,33 @@ void test_crystal_plasticity_single_crystal(void)
     double t = a*dt;
     
     // compute total deformation gradient using velocity gradient
-    Fnp1_Implicit(F2[Fnp1].m_pdata, F2[Fn].m_pdata, F2[L].m_pdata, dt); 
+    Fnp1_Implicit(Fnp1.data, Fn.data, L.data, dt); 
     
-    staggered_Newton_Rapson(F2[pFnp1].m_pdata,F2[M].m_pdata, &g_np1, &lambda, 
-                            F2[pFn].m_pdata, F2[Fn].m_pdata,F2[Fnp1].m_pdata, 
+    staggered_Newton_Rapson(pFnp1.data,M.data, &g_np1, &lambda, 
+                            pFn.data, Fn.data,Fnp1.data, 
                             g_n, dt, &mat, &elast, &solver_info);
-    Matrix_AeqB(F2[pFn],1.0,F2[pFnp1]);
-    Matrix_AeqB(F2[Fn],1.0,F2[Fnp1]);  
-    Matrix_inv(F2[pFnp1],F2[pFnp1_I]);
-    Matrix_AxB(F2[eFnp1],1.0,0.0,F2[Fnp1],0,F2[pFnp1_I],0);    
+                            
+    pFn = pFnp1(i,j);
+    Fn  = Fnp1(i,j);
+    inv(pFnp1,pFnp1_I);
+    eFnp1 = Fnp1(i,k)*pFnp1_I(k,j);
+       
     g_n = g_np1;
     
     
     // print result at time t
     double sigma_eff;
     double PK2_eff;
-    double det_pF;
-    Matrix_det(F2[pFnp1], det_pF);
-    
-    elast.update_elasticity(&elast,F2[eFnp1].m_pdata,0);
+    double det_pF = ttl::det(pFnp1);
+        
+    elast.update_elasticity(&elast,eFnp1.data,0);
     elast.compute_PK2_eff(&elast,&PK2_eff);
-    elast.compute_Cauchy_eff(&elast,&sigma_eff,F2[eFnp1].m_pdata);   
+    elast.compute_Cauchy_eff(&elast,&sigma_eff,eFnp1.data);   
 
-    fprintf(fp, "%e %e %e %e %e %e\n",t,sigma_eff,PK2_eff, g_np1, det_pF, Mat_v(PK2,1,1));
+    fprintf(fp, "%e %e %e %e %e %e\n",t,sigma_eff,PK2_eff, g_np1, det_pF, PK2[0][0]);
   }    
   
   fclose(fp);  
-  for(int a = 0; a < F2end; a++)
-    Matrix_cleanup(F2[a]);  
-
-  free(F2);    
   destruct_elasticity(&elast);
   destruct_slip_system(&slip);
 }

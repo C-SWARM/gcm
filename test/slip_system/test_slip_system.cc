@@ -11,9 +11,6 @@ void test_slip_system(void)
 
   double E = 70.0e+3;
   double nu = 0.25;
-  double m_m[9] = {0.96, 0.00, 0.00, 
-                   0.00, 0.97, 0.00, 
-                   0.00, 0.00, 0.97};
   
   double gamma_dot_0 = 1.0;
   double gamma_dot_s = 50.0e+9;
@@ -23,11 +20,10 @@ void test_slip_system(void)
   double gs_0        = 330.0;
   double w           = 0.005;
     
-  Matrix(double) F, C;  
-  Matrix_construct_init(double, C, 3,3,0.0);  
-  
-  F.m_row = F.m_col = 3;
-  F.m_pdata = m_m;
+  Tensor<2> F = {0.96, 0.00, 0.00, 
+                 0.00, 0.97, 0.00, 
+                 0.00, 0.00, 0.97};
+  Tensor<2> C;
   
   MATERIAL_ELASTICITY mat_e;
   set_properties_using_E_and_nu(&mat_e,E,nu);
@@ -36,8 +32,8 @@ void test_slip_system(void)
   ELASTICITY elast;
   construct_elasticity(&elast, &mat_e, 1);
 
-  Matrix_AxB(C,1.0,0.0,F,1,F,0);
-  elast.update_elasticity(&elast,F.m_pdata,0);
+  C = F(k,i)*F(k,j);
+  elast.update_elasticity(&elast,F.data,0);
 
   SLIP_SYSTEM slip;
   construct_slip_system(&slip,0);
@@ -51,33 +47,33 @@ void test_slip_system(void)
   // create material plasticity: it needs material properties for elasticity and plasticity
   MATERIAL_CONSTITUTIVE_MODEL mat;
   set_properties_constitutive_model(&mat,&mat_e,&mat_p);
-    
   
-  Matrix(double) taus, gamma_dots, dgamma_dtaus;
-  Matrix_construct_redim(double, taus, slip.N_SYS,1);
-  Matrix_construct_redim(double, gamma_dots, slip.N_SYS,1);
-  Matrix_construct_redim(double, dgamma_dtaus, slip.N_SYS,1);
+  double *taus         = new double[slip.N_SYS];
+  double *gamma_dots   = new double[slip.N_SYS];
+  double *dgamma_dtaus = new double[slip.N_SYS];
   
   double g = 214.4;
   
-  compute_tau_alphas(taus.m_pdata, C.m_pdata, elast.S, &slip);
-  compute_gamma_dots(gamma_dots.m_pdata, taus.m_pdata, g, &mat_p);  
-  compute_d_gamma_d_tau(dgamma_dtaus.m_pdata, g, taus.m_pdata, &mat_p);
+  compute_tau_alphas(taus, C.data, elast.S, &slip);
+  compute_gamma_dots(gamma_dots, taus, g, &mat_p);  
+  compute_d_gamma_d_tau(dgamma_dtaus, g, taus, &mat_p);
   
-  Matrix_print_name(F, "eF");
-  
+  printf("eF = [\n%e %e %e \n%e %e %e\n%e %e %e]\n",
+          F[0][0], F[0][1], F[0][2],
+          F[1][0], F[1][1], F[1][2],
+          F[2][0], F[2][1], F[2][2]);
+    
   printf("\n----------------------------------------------\n");
   printf("| alpha | taus | gamma_dots | dgamma_dtaus |\n");
   for(int a=0; a<slip.N_SYS; a++)
-    printf("%2d: %e %e %e\n", a+1, taus.m_pdata[a], gamma_dots.m_pdata[a], dgamma_dtaus.m_pdata[a]);
+    printf("%2d: %e %e %e\n", a+1, taus[a], gamma_dots[a], dgamma_dtaus[a]);
   
   destruct_slip_system(&slip);
   destruct_elasticity(&elast);
   
-  Matrix_cleanup(C); 
-  Matrix_cleanup(taus);
-  Matrix_cleanup(gamma_dots);
-  Matrix_cleanup(dgamma_dtaus);          
+  delete taus;
+  delete gamma_dots;
+  delete dgamma_dtaus;
 }
 
 

@@ -72,32 +72,27 @@ int rotation_matrix_of_Euler_angles(double *R_in,
 {
   int err = 0;
   // handle for matrix objecs based on [3x3] matrix stencil 
-  Matrix(double) Ax, Ay, Az, R;
-  Ax.m_row = Ax.m_col = DIM_3; Ax.m_pdata = Ax_in;
-  Ay.m_row = Ay.m_col = DIM_3; Ay.m_pdata = Ay_in;
-  Az.m_row = Az.m_col = DIM_3; Az.m_pdata = Az_in;
-   R.m_row =  R.m_col = DIM_3;  R.m_pdata =  R_in;
-
+  TensorA<2> R(R_in), Ax(Ax_in), Ay(Ay_in), Az(Az_in);
+  
   // compute rotation matrix of the 1st Euler angle phi
-  Mat_v(Ax,1,1) = 1.0;
-  Mat_v(Ax,1,2) = Mat_v(Ax,1,3) = Mat_v(Ax,2,1) = Mat_v(Ax,3,1) = 0.0;
-  Mat_v(Ax,2,2) =  cos(phi); Mat_v(Ax,2,3) = -sin(phi);
-  Mat_v(Ax,3,2) =  sin(phi); Mat_v(Ax,3,3) = cos(phi);    
+  Ax[0][0] = 1.0;
+  Ax[0][1] = Ax[0][2] = Ax[1][0] = Ax[2][0] = 0.0;
+  Ax[1][1] =  cos(phi); Ax[1][2] = -sin(phi);
+  Ax[2][1] =  sin(phi); Ax[2][2] =  cos(phi);    
 
   // compute rotation matrix of the 2nd Euler angle theta
-  Mat_v(Ay,2,2) = 1.0;
-  Mat_v(Ay,2,1) = Mat_v(Ay,2,3) = Mat_v(Ay,1,2) = Mat_v(Ay,3,2) = 0.0;
-  Mat_v(Ay,1,1) = cos(theta); Mat_v(Ay,1,3) =  sin(theta);
-  Mat_v(Ay,3,1) = -sin(theta); Mat_v(Ay,3,3) =  cos(theta);
+  Ay[1][1] = 1.0;
+  Ay[1][0] = Ay[1][2] = Ay[0][1] = Ay[2][1] = 0.0;
+  Ay[0][0] =  cos(theta); Ay[0][2] = sin(theta);
+  Ay[2][0] = -sin(theta); Ay[2][2] = cos(theta);
 
   // compute rotation matrix of the 3rd Euler angle psi
-  Mat_v(Az,3,3) = 1.0;
-  Mat_v(Az,3,1) = Mat_v(Az,3,2) = Mat_v(Az,1,3) = Mat_v(Az,2,3) = 0.0;
-  Mat_v(Az,1,1) =  cos(psi); Mat_v(Az,1,2) = -sin(psi);
-  Mat_v(Az,2,1) =  sin(psi); Mat_v(Az,2,2) = cos(psi);
+  Az[2][2] = 1.0;
+  Az[2][0] = Az[2][1] = Az[0][2] = Az[1][2] = 0.0;
+  Az[0][0] =  cos(psi); Az[0][1] = -sin(psi);
+  Az[1][0] =  sin(psi); Az[1][1] =  cos(psi);
   
-  // R = Az(psi)*Ay(theta)*Ax(phi)            
-  Matrix_Tns2_AxBxC(R,1.0,0.0,Az,Ay,Ax);
+  R = Az(i,j)*Ay(j,k)*Ax(k,l);          
    
   return err;
 }
@@ -133,23 +128,15 @@ int set_crystal_orientations(double *R_out, double *angles, int ortno)
 int rotate_crystal_orientation(SLIP_SYSTEM* slip_out, double *R_in, SLIP_SYSTEM* slip_in)
 {
   int err = 0;
-  Matrix(double) R, RT, Pa_in, Pa_out;
-
-   Pa_in.m_row =  Pa_in.m_col = DIM_3;
-  Pa_out.m_row = Pa_out.m_col = DIM_3;
-       R.m_row =      R.m_col = DIM_3; R.m_pdata = R_in;           
-  
-  Matrix_construct_redim(double, RT, DIM_3,DIM_3);
-  Matrix_AeqBT(RT,1.0,R);
-  
+  TensorA<2> R(R_in);
+    
   for(int a=0; a<slip_in->N_SYS; a++)
   {
-     Pa_in.m_pdata =  (slip_in->p_sys) + a*DIM_3x3;
-    Pa_out.m_pdata = (slip_out->p_sys) + a*DIM_3x3;
-    Matrix_Tns2_AxBxC(Pa_out,1.0,0.0,R,Pa_in,RT);    
+    TensorA<2> Pa((slip_in->p_sys) + a*DIM_3x3);
+    TensorA<2> Pa_out((slip_out->p_sys) + a*DIM_3x3);
+    Pa_out = R(i,j)*Pa(j,k)*R(l,k);
   }
     
-  Matrix_cleanup(RT);
   return err;    
 }
 

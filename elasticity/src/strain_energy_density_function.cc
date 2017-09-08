@@ -3,41 +3,26 @@
 ///  Aaron Howell, [1], <ahowell3@nd.edu>
 ///  [1] - University of Notre Dame, Notre Dame, IN
 
+
 #include "constitutive_model.h"
 #include "strain_energy_density_function.h"
 #include "material_properties.h"
-#include <ttl/ttl.h>
-
-namespace {
-  template<int R, int D = 3, class S = double>
-  using Tensor = ttl::Tensor<R, D, S>;
-
-  static constexpr ttl::Index<'i'> i;
-  static constexpr ttl::Index<'j'> j;
-  static constexpr ttl::Index<'k'> k;
-  static constexpr ttl::Index<'l'> l;
-}
+#include <string.h>
 
 /*==== Potential energy ====*/
 void SEDF_devPotential_Mooney_Rivlin(double *C_in,
 			     MATERIAL_ELASTICITY const *mat,
 			     double *W)
 {
-  Matrix(double) C, Ch;
-  Matrix_construct_redim(double, Ch, DIM_3, DIM_3);
-
-  C.m_row = C.m_col = DIM_3;
-  C.m_pdata = C_in;
+  TensorA<2> C(C_in);
   
-  double detC, trCh, ChCh;
-  Matrix_det(C, detC);
+  double detC = ttl::det(C);
+  Tensor<2> Ch = pow(detC,-1.0/3.0)*C(i,j); 
   
-  Matrix_AeqB(Ch,pow(detC,-1.0/3.0), C);
-  Matrix_trace(Ch,trCh);
-  Matrix_ddot(Ch,Ch,ChCh);
+  double trCh = Ch(i,i);
+  double ChCh = Ch(i,j)*Ch(i,j);
   
   *W = mat->m10*(trCh-3.0) + 0.5*mat->m01*(trCh*trCh - ChCh-6.0);
-  Matrix_cleanup(Ch);
 }	
 
 
@@ -45,19 +30,21 @@ void SEDF_devPotential_Linear(double *C_in,
 			 MATERIAL_ELASTICITY const *mat,
 			 double *W)
 {
-  /* W_hat = int(S_hat)dC || W_hat = 0|C=I */
-  /* S_hat = 2G E || E = 1/2 (C-1) */
+  // W_hat = int(S_hat)dC || W_hat = 0|C=I
+  // S_hat = 2G E || E = 1/2 (C-1)
 
-  Matrix(double) C, Ch;
-
-  C.m_row = C.m_col = DIM_3;
-  C.m_pdata = C_in;
+  TensorA<2> C(C_in);
   
-  double CC, trC;
-  Matrix_ddot(C,C,CC);
-  Matrix_trace(C,trC);
+  double detC = ttl::det(C);
+  Tensor<2> Ch = pow(detC,-1.0/3.0)*C(i,j); 
+  
+  double trCh = Ch(i,i);
+  double ChCh = Ch(i,j)*Ch(i,j);
 
-   *W = 0.25*mat->G*(CC - 2.0*trC + 3.0);
+  // double trCh = Ch(i,i);
+  // double ChCh = Ch(i,j)*Ch(i,j);
+
+   *W = 0.25*mat->G*(ChCh - 2.0*trCh + 3.0);
 }		     
 			     
 /*==== Deviatoric stress functions ====*/
@@ -68,11 +55,12 @@ void SEDF_devStress_Mooney_Rivlin(double *C_in,
 			     MATERIAL_ELASTICITY const *mat,
 			     double *S_out)
 {
+  TensorA<2> C(C_in);
+  TensorA<2> S(S_out);
+  Tensor<2> invC = {};
   
-  Tensor<2, 3, double*> C(C_in);
-  Tensor<2, 3, double*> S(S_out);
-  Tensor<2, 3, double> invC = {};
-  inverse(C.data, DIM_3, invC.data); //Tensor<2> invC = ttl::inverse(C);
+  inv(C, invC);
+      
   Tensor<2> ident;
   ident(i,j) = ttl::identity(i,j);
 
@@ -111,15 +99,16 @@ void SEDF_matStiff_Mooney_Rivlin(double *C_in,
 			    MATERIAL_ELASTICITY const *mat,
 			    double *L_out)
 {
-  Tensor<2, 3, double*> C(C_in);
+  TensorA<2> C(C_in);
   Tensor<4, 3, double*> L(L_out);
   
   Tensor<2> ident;
   ident(i,j) = ttl::identity(i,j);
   
-  Tensor<2, 3, double> invC = {};
-  inverse(C.data, DIM_3, invC.data); //Tensor<2> invC = ttl::inverse(C);
-
+  Tensor<2> invC = {};
+  
+  inv(C,invC);
+  
   double detC = ttl::det(C);
   double trC = C(i,i);           //trace operation
   double CC = C(i,j) * C(i,j);   //dot product
@@ -165,20 +154,16 @@ void SEDF_d3W_dC3_Mooney_Rivlin(double *C,
                                  MATERIAL_ELASTICITY const *mat,
                                  double *K)
 {
-  Matrix(double) temp, invC;
-  Matrix_construct_redim(double, invC, DIM_3, DIM_3);
+  TensorA<2> Cin(C);
+  Tensor<2> invC;
 
-  temp.m_row = temp.m_col = DIM_3;
-  temp.m_pdata = C;
-  
-  Matrix_inv(temp, invC);
+  inv(Cin, invC);
 
-  double detC, trC, CC;
-  Matrix_det(temp, detC);
-  Matrix_trace(temp,trC);
-  Matrix_ddot(temp,temp,CC);  
+  double detC = ttl::det(Cin);
+  double trC = Cin(i,i);
+  double CC = Cin(i,j)*Cin(i,j);
 
-  const double *C_I = invC.m_pdata; /* get constatnt pointer */
+  const double *C_I = invC.data; /* get constatnt pointer */
   const double J23 = pow(detC,-1.0/3.0);
   const double J43 = J23*J23;
 
@@ -261,7 +246,6 @@ void SEDF_d3W_dC3_Mooney_Rivlin(double *C,
       }
     }
   }
-  Matrix_cleanup(invC);
 }
 
 void SEDF_d3W_dC3_Linear(double *C,

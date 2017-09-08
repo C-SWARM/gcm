@@ -6,25 +6,15 @@
 #include "constitutive_model.h"
 #include "flowlaw.h"
 #include "material_properties.h"
-#include <ttl/ttl.h>
 
 #include <math.h>
 
-namespace {
-  template<int R, int D = 3, class S = double>
-  using Tensor = ttl::Tensor<R, D, S>;
-
-  static constexpr ttl::Index<'i'> i;
-  static constexpr ttl::Index<'j'> j;
-  static constexpr ttl::Index<'k'> k;
-}
 
 /// \param[in] gamma_dots 
 /// \param[in] N_SYS
 /// \return gamma_dot
 double compute_gamma_dot(double *gamma_dots, int N_SYS)
 {
-  int err = 0; 
   double gamma_dot = 0.0;
   for(int a = 0; a<N_SYS; a++)
     gamma_dot += fabs(gamma_dots[a]);
@@ -59,12 +49,12 @@ int compute_tau_alphas(double *taus, double *C_in, double *S_in, SLIP_SYSTEM *sl
 {
   int err = 0;
 
-  Tensor<2, 3, double*> C(C_in), S(S_in);
+  TensorA<2> C(C_in), S(S_in);
   Tensor<2> CS;   
   CS(i,j) = C(i,k) * S(k,j);   
   for(int a=0; a<slip->N_SYS; a++)
   {
-    Tensor<2, 3, double*> P((slip->p_sys) + a*DIM_3x3);
+    TensorA<2> P((slip->p_sys) + a*DIM_3x3);
     taus[a] = CS(i,j) * P(i,j);   //taus[a] equals the dot product of CS and P
   }
   return err;

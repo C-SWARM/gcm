@@ -1,3 +1,5 @@
+include ../../make.inc
+
 SRC = $(shell ls *.cc)
 OBJs = $(SRC:.cc=.o)
 PROG = test_damage_model
@@ -15,19 +17,6 @@ DIR_dam = $(DIR_TOP)/damage
 
 CNSTVM_lib = -L$(DIR_TOP)/lib -lConstitutiveModel
 
-CXX = mpicxx -fpermissive
-LINK = mpicxx
-
-AR       = ar
-ARFLAGS = -rcs
-
-MKL_inc	= $(MKLROOT)/include
-MKL_lib		= -Wl,--start-group \
- 	     	  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a \
- 	     	  $(MKLROOT)/lib/intel64/libmkl_sequential.a \
- 	     	  $(MKLROOT)/lib/intel64/libmkl_core.a \
- 	     	  -Wl,--end-group -lpthread -ldl
-
 INCs = -I$(DIR_uts)/include \
 	-I$(DIR_mat)/include \
 	-I$(DIR_els)/include \
@@ -37,7 +26,6 @@ INCs = -I$(DIR_uts)/include \
 	-I${MKL_inc}
 
 LIBs = $(CNSTVM_lib) $(MKL_lib)
-CXXFLAGS = -Wall -std=c++14 -O3 -g
 
 all: $(OBJs)
 	$(LINK) $(CXXFLAGS) $(OBJs) $(LIBs) -o $(PROG)  

@@ -119,7 +119,6 @@ int damage_split_evolutions(MATERIAL_CONTINUUM_DAMAGE *mat_d,
     
   double gh = Gh - dXn;
   double gu = Gu - vXn;
-  double g  = Gh + Gu;
 
   double H1, H2;
   err += continuum_damage_Weibull_evolution(&H1,alpha_dev*W + beta_dev*U,mat_d);
@@ -177,20 +176,18 @@ int continuum_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 {
   int err = 0;
   
-  Matrix(double) F;
-  F.m_row = F.m_col = DIM_3; F.m_pdata = F_in;
-
-  Matrix(double) C;
-  Matrix_construct_init(double,C,DIM_3,DIM_3,0.0);
+  TensorA<2> F(F_in);
+  double J = ttl::det(F);
+    
+  Tensor<2> C;
+  C = F(k,i)*F(k,j);
 
   double Wdev = 0.0;
   double U = 0.0;
   
-  Matrix_AxB(C,1.0,0.0,F,1,F,0);
-  double J = 0.0;
-  Matrix_det(F,J);
   
-  elast->compute_potential_dev(C.m_pdata, elast->mat, &Wdev);
+  
+  elast->compute_potential_dev(C.data, elast->mat, &Wdev);
   elast->compute_u(&U, J);
   
   U *= (elast->mat->kappa);
@@ -199,7 +196,6 @@ int continuum_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 
   err += damage_evolutions(mat_d,w,X,H,is_it_damaged,wn,Xn, Y, dt); 
   
-  Matrix_cleanup(C); 
   return err;
 }
 
@@ -216,13 +212,7 @@ int continuum_damage_integration_alg_public(MATERIAL_CONTINUUM_DAMAGE *mat_d,
                                             double Y)
 {
   int err = 0;
-  
-  Matrix(double) F;
-  F.m_row = F.m_col = DIM_3; F.m_pdata = F_in;
-
-  double J = 0.0;
-  Matrix_det(F,J);
-
+      
   err += damage_evolutions(mat_d,w,X,H,is_it_damaged,wn,Xn, Y, dt);   
   return err;
 }
@@ -245,28 +235,23 @@ int continuum_damage_split_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 {
   int err = 0;
   
-  Matrix(double) F;
-  F.m_row = F.m_col = DIM_3; F.m_pdata = F_in;
+  TensorA<2> F(F_in);
+  double J = ttl::det(F);
+    
+  Tensor<2> C;
+  C = F(k,i)*F(k,j);
 
-  Matrix(double) C;
-  Matrix_construct_init(double,C    ,DIM_3,DIM_3,0.0);
-
-  double W, U, J;
-  W = U = J = 0.0;
+  double W, U;
+  W = U = 0.0;
   
-  Matrix_AxB(C,1.0,0.0,F,1,F,0);
-  Matrix_det(F, J);
-  
-  elast->compute_potential_dev(C.m_pdata, elast->mat, &W);    
+  elast->compute_potential_dev(C.data, elast->mat, &W);    
   elast->compute_u(&U,J);
   U *= (elast->mat->kappa);
   
   err += damage_split_evolutions(mat_d,elast,dw,vw,dX,vX,dH,vH,
-                                      is_it_damaged_d,is_it_damaged_v,
-                                      dwn,vwn,dXn,vXn,
-                                      W,U,J,dt);
-    
-  Matrix_cleanup(C);
+                                 is_it_damaged_d,is_it_damaged_v,
+                                 dwn,vwn,dXn,vXn,
+                                 W,U,J,dt);
   return err;
 }
 
@@ -291,16 +276,13 @@ int continuum_damage_split_integration_alg_public(MATERIAL_CONTINUUM_DAMAGE *mat
 {
   int err = 0;
   
-  Matrix(double) F;
-  F.m_row = F.m_col = DIM_3; F.m_pdata = F_in;
-
-  double J = 0.0;
-  Matrix_det(F,J);
-
+  TensorA<2> F(F_in);
+  double J = ttl::det(F);
+    
   err += damage_split_evolutions(mat_d,elast,dw,vw,dX,vX,dH,vH,
-                                      is_it_damaged_d,is_it_damaged_v,
-                                      dwn,vwn,dXn,vXn,
-                                      W,U,J,dt);    
+                                 is_it_damaged_d,is_it_damaged_v,
+                                 dwn,vwn,dXn,vXn,
+                                 W,U,J,dt);    
   return err;
 }
 
@@ -317,23 +299,18 @@ int apply_damage_on_stiffness(double *L_out, double *S0_in, double *L_in,
                               double dt, double mu)
 {
   int err = 0;
-  Matrix(double) L, S0;
-  S0.m_row = S0.m_col = DIM_3; S0.m_pdata = S0_in;
-  L.m_row  = DIM_3x3x3x3; L.m_col = 1; L.m_pdata = L_out;  
-
-  for(int a=0; a<DIM_3x3x3x3; a++)
-    L.m_pdata[a] = (1.0 - w)*L_in[a];
+  for(int ia=0; ia<DIM_3x3x3x3; ia++)
+    L_out[ia] *= (1.0 - w);
           
   if(is_it_damaged)
   {
+    TensorA<2> S0(S0_in);
+    TensorA<4> L(L_out);
+    
     double dt_mu = dt*mu;
     double evo = dt_mu*H/(1.0+dt_mu);
-
-    for(int I=1; I<=DIM_3; I++)
-      for(int J=1; J<=DIM_3; J++)
-        for(int P=1; P<=DIM_3; P++)
-          for(int Q=1; Q<=DIM_3; Q++)
-            Tns4_v(L,I,J,P,Q) -= evo*Mat_v(S0,I,J)*Mat_v(S0,P,Q);     
+    
+    L(i,j,k,l) = L(i,j,k,l) - evo*S0(i,j)*S0(k,l);
   }            
 
   return err;  
@@ -350,42 +327,28 @@ int update_damaged_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 {
   int err = 0;
   elast->update_elasticity(elast,F_in, compute_stiffness);
-
-  Matrix(double) S;
-  S.m_row = S.m_col = DIM_3;
-  S.m_pdata = elast->S;
-
-  Matrix(double) S0;
-  Matrix_construct_redim(double, S0,DIM_3,DIM_3);
-  Matrix_AeqB(S0,1.0,S);
               
   if(compute_stiffness)
-  {    
-    Matrix(double) L;
-    L.m_row = DIM_3x3x3x3; L.m_col = 1;
-    L.m_pdata = elast->L;
+  {
+    TensorA<2> S(elast->S);
+    Tensor<2> S0 = S;   
     
-    for(int I=1; I<=DIM_3x3x3x3; I++)
-      Vec_v(L, I) *= (1.0 - w);
-          
+    for(int ia=0; ia<DIM_3x3x3x3; ia++)
+      elast->L[ia] *= (1.0 - w);
+         
+    TensorA<4> L(elast->L);
+    
     if(is_it_damaged)
     {
-
       double dt_mu = dt*(mat_d->mu);
       double evo = dt_mu*H/(1.0+dt_mu);
-
-      for(int I=1; I<=DIM_3; I++)
-        for(int J=1; J<=DIM_3; J++)
-          for(int P=1; P<=DIM_3; P++)
-            for(int Q=1; Q<=DIM_3; Q++)
-              Tns4_v(L,I,J,P,Q) -= evo*Mat_v(S0,I,J)*Mat_v(S0,P,Q);     
+      
+      L(i,j,k,l) = L(i,j,k,l) - evo*S0(i,j)*S0(k,l);
     }            
   }
-
-  Matrix_cleanup(S0);
   
   for(int a=0; a<DIM_3x3; a++)
-    S.m_pdata[a] *= (1.0 - w);
+    elast->S[a] *= (1.0 - w);
   
   return err;
 }
@@ -404,47 +367,24 @@ int apply_split_damage_on_stiffness(double *L_out, double *dS0_in, double *vS0_i
                                     double dH, double vH, double dt, double mu)
 {
   int err = 0;
-  Matrix(double) dS0, vS0;
-  dS0.m_row = dS0.m_col = DIM_3; dS0.m_pdata = dS0_in;
-  vS0.m_row = vS0.m_col = DIM_3; vS0.m_pdata = vS0_in;
   
-  enum {dSS,vSS,F4end};
-  Matrix(double) *F4 = malloc(F4end*sizeof(Matrix(double)));
-  for (int a = 0; a < F4end; a++) {
-    Matrix_construct_redim(double, F4[a],DIM_3x3x3x3,1);
-  }
+  TensorA<2> dS0(dS0_in), vS0(vS0_in);
+  Tensor<4> dSS, vSS;
   
-  for(int I=1; I<=DIM_3; I++)
-  {
-    for(int J=1; J<=DIM_3; J++)
-    {
-      for(int P=1; P<=DIM_3; P++)
-      {
-        for(int Q=1; Q<=DIM_3; Q++)
-        {
-          Tns4_v(F4[dSS],I,J,P,Q) = Mat_v(dS0,I,J)*Mat_v(dS0,P,Q);
-          Tns4_v(F4[vSS],I,J,P,Q) = Mat_v(vS0,I,J)*Mat_v(vS0,P,Q);            
-        }
-      }
-    }
-  }
-
+  dSS(i,j,k,l) = dS0(i,j)*dS0(k,l);
+  vSS(i,j,k,l) = vS0(i,j)*vS0(k,l);
+  
   double dt_mu = dt*mu;
       
   for(int a=0; a<DIM_3x3x3x3; a++)
   {    
     L_out[a] = (1-dw)*dL_in[a] + (1-vw)*vL_in[a];
     if(is_it_damaged_d)
-      L_out[a] += (dt_mu)/(1.0+dt_mu)*(dH)*F4[dSS].m_pdata[a];
+      L_out[a] += (dt_mu)/(1.0+dt_mu)*(dH)*dSS.data[a];
 
     if(is_it_damaged_v)
-      L_out[a] += (dt_mu)/(1.0+dt_mu)*(vH)*F4[vSS].m_pdata[a];                           
+      L_out[a] += (dt_mu)/(1.0+dt_mu)*(vH)*vSS.data[a];                           
   }
-
-  for(int a = 0; a < F4end; a++)
-    Matrix_cleanup(F4[a]);    
-  free(F4);
-
   return err;  
 }
 
@@ -462,96 +402,47 @@ int update_damaged_elasticity_split(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 {
   int err = 0;
 
-  enum {C,CI,dS_0,vS_0,F2end};
-  Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
-  for (int a = 0; a < F2end; a++) {
-    Matrix_construct_redim(double, F2[a],DIM_3,DIM_3);
-  }
-  // <-- Matrix construct
+  Tensor<2> C,CI,dS_0,vS_0;
   
-  // use double arrays as Matrix -->
-  Matrix(double) F, S;
-  F.m_row = F.m_col = DIM_3; F.m_pdata = F_in;
-  S.m_row = S.m_col = DIM_3; S.m_pdata = elasticity->S;  
-  // <-- use double array as Matrix
+  // use double arrays as Matrix
+  TensorA<2> F(F_in), S(elasticity->S);
   
-  double detF;
-  Matrix_init(F2[C],0.0);
-  Matrix_AxB(F2[C],1.0,0.0,F,1,F,0);  
-  Matrix_inv(F2[C],F2[CI]);
-  Matrix_det(F, detF);  
+  double detF = ttl::det(F);
+  C = F(k,i)*F(k,j);
+  inv(C,CI);
+  
   double detC = detF*detF;
   
   // compute stress -->
   double dudj = 0.0;  
   double kappa = elasticity->mat->kappa;    
-  elasticity->compute_PK2_dev(F2[C].m_pdata, elasticity->mat, F2[dS_0].m_pdata);
+  elasticity->compute_PK2_dev(C.data, elasticity->mat, dS_0.data);
   elasticity->compute_dudj(&dudj, detF);
-  Matrix_AeqB(F2[vS_0], kappa*detF*dudj, F2[CI]);
+  
+  vS_0(i,j) = kappa*detF*dudj*CI(i,j);
           
   if(compute_stiffness)
   {
-    enum {dL,dSS,vSS,CIoxCI,CICI,SoxS,F4end};
-    Matrix(double) *F4 = malloc(F4end*sizeof(Matrix(double)));
-    for (int a = 0; a < F4end; a++) {
-      Matrix_construct_redim(double, F4[a],DIM_3x3x3x3,1);
-    }
-    // use double arrays as Matrix -->
-    Matrix(double) L;
-    L.m_row = DIM_3x3x3x3; L.m_col = 1;
-    L.m_pdata = elasticity->L;
+    Tensor<4> dL;
+    TensorA<4> L(elasticity->L);
       
-    // <-- use double array as Matrix        
-    
     double d2udj2 = 0.0;    
-    elasticity->compute_tangent_dev(F2[C].m_pdata, elasticity->mat, F4[dL].m_pdata);              
+    elasticity->compute_tangent_dev(C.data, elasticity->mat, dL.data);              
     elasticity->compute_d2udj2(&d2udj2, detF);
+    
+    L(i,j,k,l) = (1-dw)*dL(i,j,k,l) + (1-vw)*(kappa*(detF*dudj + detC*d2udj2)*CI(i,j)*CI(k,l)
+                                              -2.0*kappa*detF*dudj*CI(i,k)*CI(l,j));
 
-    for(int I=1; I<=DIM_3; I++)
-    {
-      for(int J=1; J<=DIM_3; J++)
-      {
-        for(int P=1; P<=DIM_3; P++)
-        {
-          for(int Q=1; Q<=DIM_3; Q++)
-          {
-            Tns4_v(F4[CIoxCI],I,J,P,Q) = Mat_v(F2[CI],I,J)*Mat_v(F2[CI],P,Q);
-            Tns4_v(F4[SoxS]  ,I,J,P,Q) = Mat_v(S,I,J)*Mat_v(S,P,Q);            
-            Tns4_v(F4[CICI]  ,I,J,P,Q) = Mat_v(F2[CI],I,P)*Mat_v(F2[CI],Q,J);
-            Tns4_v(F4[dSS]   ,I,J,P,Q) = Mat_v(F2[dS_0],I,J)*Mat_v(F2[dS_0],P,Q);
-            Tns4_v(F4[vSS]   ,I,J,P,Q) = Mat_v(F2[vS_0],I,J)*Mat_v(F2[vS_0],P,Q);            
-          }
-        }
-      }
-    }
-  
     double dt_mu = dt*(mat_d->mu);
-        
-    for(int I=1; I<=DIM_3x3x3x3; I++)
-    {
-      double vL = kappa*(detF*dudj + detC*d2udj2)*Vec_v(F4[CIoxCI], I)
-                       - 2.0*kappa*detF*dudj*Vec_v(F4[CICI], I);
-      Vec_v(L, I) = (1-dw)*Vec_v(F4[dL], I) + (1-vw)*vL;
-      if(is_it_damaged_d)
-        Vec_v(L, I) += (dt_mu)/(1.0+dt_mu)*(dH)*Vec_v(F4[dSS], I);
 
-      if(is_it_damaged_v)
-        Vec_v(L, I) += (dt_mu)/(1.0+dt_mu)*(vH)*Vec_v(F4[vSS], I);                           
-    }
+    if(is_it_damaged_d)
+      L(i,j,k,l) += (dt_mu)/(1.0+dt_mu)*(dH)*dS_0(i,j)*dS_0(k,l);
+      
 
-    for(int a = 0; a < F4end; a++)
-      Matrix_cleanup(F4[a]);    
-    free(F4);
+    if(is_it_damaged_v)
+      L(i,j,k,l) += (dt_mu)/(1.0+dt_mu)*(vH)*vS_0(i,j)*vS_0(k,l);        
   }
   
-  err += apply_split_damage_on_stress(elasticity->S, 
-                                      F2[dS_0].m_pdata, 
-                                      F2[vS_0].m_pdata, 
-                                      dw, vw);    
-
-  for(int a = 0; a < F2end; a++)
-    Matrix_cleanup(F2[a]);    
-  free(F2);
-  
+  err += apply_split_damage_on_stress(elasticity->S, dS_0.data, vS_0.data, dw, vw);      
   return err;
 }

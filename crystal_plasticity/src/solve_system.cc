@@ -10,65 +10,11 @@
 #include "flowlaw.h"
 #include "hardening.h"
 #include "construct_linearization_parts.h"
-#include <ttl/ttl.h>
 
 #define D_GAMMA_D 0.005
 #define D_GAMMA_TOL 1.25
 
 #include <math.h>
-
-namespace {
-  template<int R, int D = 3, class S = double>
-  using Tensor = ttl::Tensor<R, D, S>;
-
-  static constexpr ttl::Index<'i'> i;
-  static constexpr ttl::Index<'j'> j;
-  static constexpr ttl::Index<'k'> k;
-  static constexpr ttl::Index<'l'> l;
-  static constexpr ttl::Index<'m'> m;
-}
-
-/// compute C = A*B for 3 by 3 matrix
-///
-/// \param[out] C [3 by 3] matrix, result of A*B
-/// \param[in]  A [3 by 3] input matrix to be multiplied
-/// \param[in]  B [3 by 3] input matrix to be multiplied
-/// \return non-zero on interal error
-int Matrix_AxB_3by3(Matrix(double) *C, const Matrix(double) *A, Matrix(double) *B)
-{
-  int err = 0;
-  for(int ia=1; ia<=DIM_3; ia++)
-  {
-    for(int ib=1; ib<=DIM_3; ib++)
-    {
-      Mat_v(*C, ia, ib) = 0.0;
-      for(int ic=1; ic<=DIM_3; ic++)
-        Mat_v(*C, ia, ib) += Mat_v(*A, ia, ic)*Mat_v(*B, ic, ib);
-    }
-  }
-  return err;
-}
-
-/// compute C = A'*B for 3 by 3 matrix
-///
-/// \param[out] C [3 by 3] matrix, result of A*B
-/// \param[in]  A [3 by 3] input matrix to be multiplied
-/// \param[in]  B [3 by 3] input matrix to be multiplied
-/// \return non-zero on interal error
-int Matrix_ATxB_3by3(Matrix(double) *C, const Matrix(double) *A, Matrix(double) *B)
-{
-  int err = 0;
-  for(int ia=1; ia<=DIM_3; ia++)
-  {
-    for(int ib=1; ib<=DIM_3; ib++)
-    {
-      Mat_v(*C, ia, ib) = 0.0;
-      for(int ic=1; ic<=DIM_3; ic++)
-        Mat_v(*C, ia, ib) += Mat_v(*A, ic, ia)*Mat_v(*B, ic, ib);
-    }
-  }
-  return err;
-}
 
 int set_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info, 
                                        int max_itr_stag, int max_itr_hardening, int max_itr_M, 
@@ -121,37 +67,31 @@ int compute_residual_M(double *R_out, double *M_in, double *MI_in, double *pFn_i
   int err = 0;
   
   Tensor<1, 10, double*> R(R_out);   
-  Tensor<2, 3, double*> M(M_in);
-  Tensor<2, 3, double*> MI(MI_in);
-  Tensor<2, 3, double*> pFn(pFn_in);
-  Tensor<2, 3, double*> pFnI(pFnI_in);
-  Tensor<2, 3, double*> N(N_in);
-  Tensor<2, 3, double*> A(A_in);     
+  TensorA<2> M(M_in);
+  TensorA<2> MI(MI_in);
+  TensorA<2> pFn(pFn_in);
+  TensorA<2> pFnI(pFnI_in);
+  TensorA<2> N(N_in);
+  TensorA<2> A(A_in);     
     
-  enum {Ru,MIT,MIpFnN,Ident,AM,ATRu,F2end};
-  Tensor<2> F2[F2end];   //declare an array of tensors and initialize them to 0
-  for (int a = 0; a < F2end; a++) {
-    F2[a] = {};
-  } 
+  Tensor<2> Ru={},MIT,MIpFnN,Ident,AM,ATRu;
           
   for(int a=0; a<slip->N_SYS; a++)
   {
-    Tensor<2, 3, double*> P((slip->p_sys) + a*DIM_3x3);  
-    F2[Ru](i,j) += gamma_dots[a] * P(i,j);
+    TensorA<2> P((slip->p_sys) + a*DIM_3x3);  
+    Ru(i,j) += gamma_dots[a]*P(i,j);
   }
 
-  F2[MIT](i,j) = MI(j,i).to(i,j);     
-  F2[MIpFnN](i,j) = MI(i,k) * pFn(k,l) * N(l,j);
-  double det_MIpFnN = ttl::det(F2[MIpFnN]); 
-  F2[Ident](i,j) = ttl::identity(i,j);
-  F2[AM](i,j) = A(i,k) * M(k,j);
-  
-  F2[Ru](i,j) = dt*F2[Ru](i,j) + F2[AM](i,j) - F2[Ident](i,j);
-  
-  F2[ATRu](i,j) = A(k,i).to(i,k) * F2[Ru](k,j);
+  MIT(i,j) = MI(j,i).to(i,j);     
+  MIpFnN(i,j) = MI(i,k) * pFn(k,l) * N(l,j);
+  double det_MIpFnN = ttl::det(MIpFnN); 
+  Ident(i,j) = ttl::identity(i,j);
+  AM(i,j) = A(i,k)*M(k,j);
+  Ru(i,j) = dt*Ru(i,j) + AM(i,j) - Ident(i,j);  
+  ATRu(i,j) = A(k,i).to(i,k)*Ru(k,j);
   
   for(int a=0; a<DIM_3x3; a++)
-    R.data[a] = F2[ATRu].get(a) - lambda * det_MIpFnN * F2[MIT].get(a);
+    R.data[a] = ATRu.get(a) - lambda*det_MIpFnN*MIT.get(a);
 
   R.data[DIM_3x3] = det_MIpFnN - 1.0;
           
@@ -179,38 +119,27 @@ int construct_tangent_M(double *K_out, double *M_in, double *MI_in, double *pFn_
 {
   int err = 0;
 
-  Tensor<2, 3, double*> MI(MI_in);
-  Tensor<2, 3, double*> pFn(pFn_in);
-  Tensor<2, 3, double*> eFnp1(eFnp1_in);
-  Tensor<2, 3, double*> Fa(Fa_in);
-  Tensor<2, 3, double*> N(N_in);
-  Tensor<2, 3, double*> A(A_in);
+  TensorA<2> MI(MI_in), pFn(pFn_in), eFnp1(eFnp1_in), Fa(Fa_in), N(N_in), A(A_in);
+        
+  Tensor<4> Kuu = {};
+  Tensor<4> Kuu_a = {};
+  Tensor<4> Kuu_b = {};
 
-  Tensor<4, 3, double> Kuu = {};
-  Tensor<4, 3, double> Kuu_a = {};
-  Tensor<4, 3, double> Kuu_b = {};
-
-  enum {AA,det_MIpFnN_MI,MIpFnN,F2end};
-
-  Tensor<2> F2[F2end];   //declare an array of tensors and initialize them to 0
-  for (int a = 0; a < F2end; a++) {
-    F2[a] = {};
-  }
-  
-  F2[AA](i,j) = eFnp1(k,i).to(i,k) * Fa(k,j);
+  Tensor<2> AA,det_MIpFnN_MI,MIpFnN;  
+  AA(i,j) = eFnp1(k,i).to(i,k)*Fa(k,j);
   
   // compute dt*sum dgamm/dtau Dtau[dM]*Pa 
   for(int a=0; a<slip->N_SYS; a++)
   {
-    compute_Kuu_a(Kuu_a.data,F2[AA].data,elasticity->S,C_in,(slip->p_sys)+a*DIM_3x3,elasticity->L,drdtaus[a]);
+    compute_Kuu_a(Kuu_a.data,AA.data,elasticity->S,C_in,(slip->p_sys)+a*DIM_3x3,elasticity->L,drdtaus[a]);
     Kuu(i,j,k,l) += dt * Kuu_a(i,j,k,l);
   }
   
   // compute AT*(dt*sum dgamm/dtau Dtau[dM]*Pa + A*dM
   Kuu_a(i,j,k,l) = A(i,m).to(m,i) * (Kuu(m,j,k,l) + A(m,k) * ttl::identity(j,l));
 
-  F2[MIpFnN](i,j) = MI(i,k) * pFn(k,l) * N(l,j);
-  double det_MIpFnN = ttl::det(F2[MIpFnN]);  
+  MIpFnN(i,j) = MI(i,k) * pFn(k,l) * N(l,j);
+  double det_MIpFnN = ttl::det(MIpFnN);  
 
   // compute tr(MI*dM)*MI' + (MI*dU*MI)'  
   err += compute_Kuu_b(Kuu_b.data,MI.data);  
@@ -223,11 +152,11 @@ int construct_tangent_M(double *K_out, double *M_in, double *MI_in, double *pFn_
       K(a,b) = Kuu_a.get(a*DIM_3x3+b) + lambda * det_MIpFnN * Kuu_b.get(a*DIM_3x3+b);
   }
   
-  F2[det_MIpFnN_MI](i,j) = det_MIpFnN * MI(j,i).to(i,j);
+  det_MIpFnN_MI(i,j) = det_MIpFnN * MI(j,i).to(i,j);
   for(int a=0; a<DIM_3x3; a++)
   {
-    K(a,DIM_3x3) = -F2[det_MIpFnN_MI].get(a);  //sets last row and column to -F2[det_MIpFn_MI]
-    K(DIM_3x3,a) = -F2[det_MIpFnN_MI].get(a);   
+    K(a,DIM_3x3) = -det_MIpFnN_MI.get(a);  //sets last row and column to -det_MIpFn_MI
+    K(DIM_3x3,a) = -det_MIpFnN_MI.get(a);   
   }
 
   K(DIM_3x3,DIM_3x3) = 0.0;   //K(9,9) = 0.0
@@ -269,27 +198,21 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   
   SLIP_SYSTEM *slip = mat->mat_p->slip;
   
-  Tensor<2, 3, double*> M(M_out);   
-  Tensor<2, 3, double*> Fa(Fa_in);
+  TensorA<2> M(M_out);   
+  TensorA<2> Fa(Fa_in);
   
-  enum {eFnp1,MI,C,F2end};
-  Tensor<2> F2[F2end];   //declare an array of tensors and initialize them to 0
-  for (int a = 0; a < F2end; a++) {
-    F2[a] = {};
-  }
+  Tensor<2> eFnp1,MI,C;
 
-  enum {taus,gamma_dots,dgamma_dtaus,F1end};
-  Matrix(double) *F1 = malloc(F1end*sizeof(Matrix(double)));
-  for (int a = 0; a < F1end; a++) {
-    Matrix_construct_redim(double, F1[a],slip->N_SYS, 1);
-  } 
+  double *taus         = new double[slip->N_SYS];
+  double *gamma_dots   = new double[slip->N_SYS];
+  double *dgamma_dtaus = new double[slip->N_SYS];
   
   Tensor<2, 10, double> K = {};
   Tensor<2, 10, double> KI = {};
   Tensor<1, 10, double> R = {};
   Tensor<1, 10, double> du = {};
   
-  double norm_R;    
+  double norm_R = 0.0;    
   double eng_norm_0 = 0.0; // energy norm
   // energy norm is used to check convergence
   // eng_norm = fabs(R*du)
@@ -307,31 +230,31 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   for(int a = 0; a<solver_info->max_itr_M; a++)
   {
     cnt++;
-    F2[eFnp1](i,j) = Fa(i,k) * M(k,j);
+    eFnp1(i,j) = Fa(i,k) * M(k,j);
     
-    err += inverse(M.data, DIM_3, F2[MI].data);
+    err += inv(M, MI);
 
-    F2[C](i,j) = F2[eFnp1](k,i).to(i,k) * F2[eFnp1](k,j);
-    err += elasticity->update_elasticity(elasticity, F2[eFnp1].data, 1); // compute stiffness also
+    C(i,j) = eFnp1(k,i).to(i,k) * eFnp1(k,j);
+    err += elasticity->update_elasticity(elasticity, eFnp1.data, 1); // compute stiffness also
     if(err != 0 )
       break;
 
     Tensor<2, 3, double*> S(elasticity->S);
 
     // compute taus
-    err += compute_tau_alphas(F1[taus].m_pdata,F2[C].data, S.data, slip);    
+    err += compute_tau_alphas(taus,C.data, S.data, slip);    
     // taus -> gamma_dots
-    err += compute_gamma_dots(F1[gamma_dots].m_pdata, F1[taus].m_pdata, g_np1_k, mat->mat_p);
+    err += compute_gamma_dots(gamma_dots, taus, g_np1_k, mat->mat_p);
     // gamma_dots,taus -> dgamma_dtaus
-    err += compute_d_gamma_d_tau(F1[dgamma_dtaus].m_pdata, g_np1_k, F1[taus].m_pdata, mat->mat_p);    
+    err += compute_d_gamma_d_tau(dgamma_dtaus, g_np1_k, taus, mat->mat_p);    
 
     // compute R (risidual)
-    err += compute_residual_M(R.data,M.data,F2[MI].data,pFn_in,pFnI_in,
-                              N_in, A_in, F1[gamma_dots].m_pdata, *lambda, dt, slip);
+    err += compute_residual_M(R.data,M.data,MI.data,pFn_in,pFnI_in,
+                              N_in, A_in, gamma_dots, *lambda, dt, slip);
     *d_gamma = 0.0;
     
     for(int s = 0; s<slip->N_SYS; s++)
-      (*d_gamma) += dt*fabs(F1[gamma_dots].m_pdata[s]);
+      (*d_gamma) += dt*fabs(gamma_dots[s]);
                                           
     norm_R = R(i) * R(i);   // norm_R equals the dot product of R and R
     norm_R = sqrt(norm_R);
@@ -361,8 +284,8 @@ double Newton_Rapson4M(double *M_out, double *lambda,
       break;    
                                       
     // compute dR/dM                                      
-    err += construct_tangent_M(K.data, M_out, F2[MI].data,pFn_in,F2[eFnp1].data,Fa_in,F2[C].data,
-                               N_in, A_in, F1[dgamma_dtaus].m_pdata,*lambda, dt,elasticity,slip);
+    err += construct_tangent_M(K.data, M_out, MI.data,pFn_in,eFnp1.data,Fa_in,C.data,
+                               N_in, A_in, dgamma_dtaus,*lambda, dt,elasticity,slip);
     
     // solve system of equation
 
@@ -418,13 +341,13 @@ double Newton_Rapson4M(double *M_out, double *lambda,
     printf("residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", norm_R, *norm_R_0, norm_R/(*norm_R_0));    
   }
   
-  if((norm_R/(*norm_R_0) < solver_info->tol_M) && err==0 || is_it_cnvg_on_eng_norm)
+  if(((norm_R/(*norm_R_0) < solver_info->tol_M) && (err==0)) || is_it_cnvg_on_eng_norm)
     *is_it_cnvg = 1;  
-  
-  for(int a = 0; a < F1end; a++)
-    Matrix_cleanup(F1[a]);
-  free(F1);  
 
+  delete taus;
+  delete gamma_dots;
+  delete dgamma_dtaus;
+  
   return err;
 }
 
@@ -439,42 +362,34 @@ int Newton_Rapson_hardening(double *g_np1, double *eFnp1_in,
   SLIP_SYSTEM *slip = mat->mat_p->slip;
   
   // this will use pointers, no need Matrix_cleanup -->
-  Matrix(double) eFnp1; 
-  eFnp1.m_row = eFnp1.m_col = DIM_3; eFnp1.m_pdata = eFnp1_in;
+  TensorA<2> eFnp1(eFnp1_in); 
   // <-- this will use pointers, no need Matrix_cleanup
   
-  Matrix(double) C;
-  Matrix_construct_redim(double,C,DIM_3,DIM_3);
-
-  enum {taus,gamma_dots,F1end};
-  Matrix(double) *F1 = malloc(F1end*sizeof(Matrix(double)));
-  for (int a = 0; a < F1end; a++) {
-    Matrix_construct_redim(double, F1[a],slip->N_SYS, 1);
-  } 
+  Tensor<2> C;
+  C = eFnp1(k, i)*eFnp1(k,j);
+  
+  double *taus         = new double[slip->N_SYS];
+  double *gamma_dots   = new double[slip->N_SYS]; 
+ 
   
   // compute stress -->            
-  Matrix_ATxB_3by3(&C,&eFnp1,&eFnp1); // <= Matrix_AxB(C, 1.0, 0.0, eFnp1,1,eFnp1,0);    
-  elasticity->update_elasticity(elasticity,eFnp1.m_pdata, 0);
+  elasticity->update_elasticity(elasticity,eFnp1.data, 0);
   // <-- compute stress
   
   // compute taus
-  err += compute_tau_alphas(F1[taus].m_pdata,C.m_pdata, elasticity->S, slip);
+  err += compute_tau_alphas(taus,C.data, elasticity->S, slip);
   // taus -> gamma_dots
-  err += compute_gamma_dots(F1[gamma_dots].m_pdata, F1[taus].m_pdata, g_np1_k, mat->mat_p);
+  err += compute_gamma_dots(gamma_dots, taus, g_np1_k, mat->mat_p);
   // gamma_dots -> gamma_dot_np1
-  double gamma_dot_np1 =  compute_gamma_dot(F1[gamma_dots].m_pdata, slip->N_SYS);
+  double gamma_dot_np1 =  compute_gamma_dot(gamma_dots, slip->N_SYS);
   // compute 
   double gs_np1 = compute_gs_np1(gamma_dot_np1, mat->mat_p);
   // compute g_np1
   *g_np1  = compute_g_np1(gs_np1, g_n, dt, gamma_dot_np1, mat->mat_p);
 
-  
-  Matrix_cleanup(C);   
-     
-  for(int a = 0; a < F1end; a++)
-    Matrix_cleanup(F1[a]);
-  free(F1);
-              
+  delete taus;
+  delete gamma_dots;
+                
   return err;
 }    
    
@@ -492,56 +407,32 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   double g_np1_k   = g_n;
   double g_np1_kp1 = g_n;
   
-  double g_0, err_g, err_g_n;
+  double g_0, err_g = 0.0, err_g_n = 0.0;
   g_0 = (mat->mat_p)->g0;
 
-  // this will use pointers, no need Matrix_cleanup -->
-  Matrix(double) pFnp1, M, pFn, Fn, Fnp1, hFn, hFnp1;
-  pFnp1.m_row = pFnp1.m_col = DIM_3; pFnp1.m_pdata = pFnp1_out;   
-      M.m_row =     M.m_col = DIM_3;     M.m_pdata = M_out;
-    pFn.m_row =   pFn.m_col = DIM_3;   pFn.m_pdata = pFn_in;
-     Fn.m_row =    Fn.m_col = DIM_3;    Fn.m_pdata = Fn_in;  
-   Fnp1.m_row =  Fnp1.m_col = DIM_3;  Fnp1.m_pdata = Fnp1_in;
-    hFn.m_row =   hFn.m_col = DIM_3;   hFn.m_pdata = hFn_in;
-  hFnp1.m_row = hFnp1.m_col = DIM_3; hFnp1.m_pdata = hFnp1_in;        
-  // <-- this will use pointers, no need Matrix_cleanup
-  
-  enum {eFn,eFnI,pFnI,FnI,Fr,FrI,Fa,MI,hFnI,eFnp1,hFnp1I,A,N,NI,F2end};
-  Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
-  for (int a = 0; a < F2end; a++) {
-    Matrix_construct_redim(double, F2[a],DIM_3,DIM_3);
-  } 
+  TensorA<2> pFnp1(pFnp1_out), M(M_out), pFn(pFn_in), Fn(Fn_in), Fnp1(Fnp1_in), hFn(hFn_in), hFnp1(hFnp1_in);  
+  Tensor<2> eFn,eFnI,pFnI,FnI,Fr,FrI,Fa,MI,hFnI,eFnp1,hFnp1I,A,N,NI;
     
-  // compute eFn
-  int info = 0;
-  Matrix_inv_check_err(pFn, F2[pFnI], info);
-  err += info;
-  Matrix_inv_check_err(hFn, F2[hFnI], info);
-  err += info;  
-  Matrix_init(F2[eFn], 0.0);
-  Matrix_Tns2_AxBxC(F2[eFn],1.0,0.0,Fn,F2[hFnI],F2[pFnI]);
-  // compute Fr
-  Matrix_inv_check_err(Fn, F2[FnI], info);
-  err += info;
-  Matrix_AxB_3by3(F2+Fr,&Fnp1,F2+FnI); // <= Matrix_AxB(F2[Fr],1.0,0.0,Fnp1,0,F2[FnI],0);
-  Matrix_inv_check_err(F2[Fr], F2[FrI], info);
-  err += info;
+  err += inv(pFn,pFnI);
+  err += inv(hFn,hFnI);
+  err += inv(Fn, FnI);
+
+  // compute eFn  
+  eFn = Fn(i,k)*hFnI(k,l)*pFnI(l,j);
+  Fr = Fnp1(i,k)*FnI(k,j);
+
+  err += inv(Fr, FrI);
   // guess initial M
-  Matrix_inv_check_err(F2[eFn], F2[eFnI], info);
-  err += info;  
-  Matrix_init(M, 0.0);
-  Matrix_Tns2_AxBxC(M,1.0,0.0,F2[eFnI],F2[FrI],F2[eFn]);
-  // compute Fa  
-  Matrix_AxB_3by3(F2+Fa,F2+Fr,F2+eFn); // <= Matrix_AxB(F2[Fa],1.0,0.0,F2[Fr],0,F2[eFn],0);
-  // compute N : N = hFn*hFnp1_I
-  Matrix_inv_check_err(hFnp1, F2[hFnp1I], info);
-  err += info;
-  Matrix_AxB_3by3(F2+N,&hFn,F2+hFnp1I); // <= Matrix_AxB(F2[N],1.0,0.0,hFn,0,F2[hFnp1I],0);   
-  // compute A : A = pFn*N_I*pFn_I   
-  Matrix_inv_check_err(F2[N], F2[NI], info);
-  err += info;
-  Matrix_init(F2[A], 0.0);
-  Matrix_Tns2_AxBxC(F2[A],1.0,0.0,pFn,F2[NI],F2[pFnI]);    
+  err += inv(eFn, eFnI);
+  M = eFnI(i,k)*FrI(k,l)*eFn(l,j);
+  // compute Fa
+  Fa = Fr(i,k)*eFn(k,j);
+  // compute N : N = hFn*hFnp1I
+  err += inv(hFnp1, hFnp1I);  
+  N = hFn(i,k)*hFnp1I(k,j);  
+  // compute A : A = pFn*N_I*pFn_I    
+  err += inv(N, NI);
+  A = pFn(i,k)*NI(k,l)*pFnI(l,j);
 
   int is_it_cnvg_M = 0;
   double norm_R_0 = 0.0;
@@ -560,23 +451,23 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
     {
       // initial guess M is computed based on assumption that eFnp1 = eFn
       // so that initial hardening is computed using eFn
-      err += Newton_Rapson_hardening(&g_np1_kp1, F2[eFn].m_pdata,
+      err += Newton_Rapson_hardening(&g_np1_kp1, eFn.data,
                             g_n, g_np1_k, dt, mat, elasticity, solver_info);
 
       err_g = sqrt((g_np1_kp1 - g_np1_k)*(g_np1_kp1 - g_np1_k));
       g_np1_k = g_np1_kp1;      
     }
-    err += Newton_Rapson4M(M.m_pdata, lambda, 
-                           pFn.m_pdata, F2[pFnI].m_pdata, F2[Fa].m_pdata,F2[N].m_pdata,F2[A].m_pdata, 
+    err += Newton_Rapson4M(M.data, lambda, 
+                           pFn.data, pFnI.data, Fa.data,N.data,A.data, 
                            g_np1_k, dt, mat, elasticity, solver_info,&is_it_cnvg_M,
                            &norm_R_0,d_gamma,k);                           
 
     if(err>0)
       break;
     
-    // compute eFnp1 = Fr*M
-    Matrix_AxB_3by3(F2+eFnp1,F2+Fa,&M); // <= Matrix_AxB(F2[eFnp1], 1.0,0.0,F2[Fa],0,M,0);
-    err += Newton_Rapson_hardening(&g_np1_kp1, F2[eFnp1].m_pdata, 
+    // compute eFnp1 = Fa*M
+    eFnp1 = Fa(i,r)*M(r,j);
+    err += Newton_Rapson_hardening(&g_np1_kp1, eFnp1.data, 
                             g_n, g_np1_k, dt, mat, elasticity, solver_info);
     
     err_g = sqrt((g_np1_kp1 - g_np1_k)*(g_np1_kp1 - g_np1_k));
@@ -613,19 +504,14 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
 
   if((err_g/g_0)<solver_info->tol_hardening && is_it_cnvg_M)
   {
-    Matrix_inv(M,F2[MI]);
-    Matrix_init(pFnp1, 0.0);
-    Matrix_Tns2_AxBxC(pFnp1,1.0,0.0,F2[MI],pFn,F2[N]);  
+    err += inv(M,MI);
+    pFnp1 = MI(i,k)*pFn(k,l)*N(l,j);    
     *g_out = g_np1_kp1;      
     *is_it_cnvg = 1;
   }
   else
     err += 1;
-  
-  for(int a = 0; a < F2end; a++)
-    Matrix_cleanup(F2[a]);  
-  free(F2); 
-       
+         
   return err;
 }
 
@@ -641,20 +527,15 @@ int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double
 {
   int err = 0;
 
-  enum {dF,F_s,Fn_s,pFn_s,F2end};
-  Matrix(double) *F2 = malloc(F2end*sizeof(Matrix(double)));
-  for (int a = 0; a < F2end; a++) {
-    Matrix_construct_init(double, F2[a],DIM_3,DIM_3,0.0);
-    Matrix_eye(F2[a],DIM_3);
-  }    
+  Tensor<2> dF,F_s,Fn_s,pFn_s;
       
   double dt_s = dt/stepno;
 
   for(int b=0; b<DIM_3x3; b++)
   {
-    F2[   dF].m_pdata[b] = (Fnp1_in[b] - Fn_in[b])/stepno;
-    F2[ Fn_s].m_pdata[b] =  Fn_in[b];      
-    F2[pFn_s].m_pdata[b] = pFn_in[b];
+       dF.data[b] = (Fnp1_in[b] - Fn_in[b])/stepno;
+     Fn_s.data[b] =  Fn_in[b];      
+    pFn_s.data[b] = pFn_in[b];
   }
   
   double g_n_s = g_n;
@@ -667,12 +548,12 @@ int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double
       printf("-----------------------\n sub step: (%d/%d) \n-----------------------\n", a+1, stepno);
     
     is_sub_cnvg = 0;
-    Matrix_AplusB(F2[F_s],1.0,F2[Fn_s],1.0,F2[dF]);
+    F_s = Fn_s(i,j) + dF(i,j);
 
     err += staggered_Newton_Rapson_compute(pFnp1_out, M_out, g_out,lambda, 
-                                         F2[pFn_s].m_pdata,
-                                         F2[ Fn_s].m_pdata,
-                                         F2[  F_s].m_pdata,
+                                         pFn_s.data,
+                                          Fn_s.data,
+                                           F_s.data,
                                          hFn_in, hFnp1_in,
                                          g_n_s,dt_s,mat,
                                          elasticity,solver_info,d_gamma,&is_sub_cnvg);
@@ -684,17 +565,13 @@ int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double
                                               
     for(int b=0; b<DIM_3x3; b++)
     {
-      F2[pFn_s].m_pdata[b] = pFnp1_out[b];
-      F2[ Fn_s].m_pdata[b] = F2[F_s].m_pdata[b];      
+      pFn_s.data[b] = pFnp1_out[b];
+       Fn_s.data[b] = F_s.data[b];      
     }
     g_n_s = *g_out;
   }
-  for(int a = 0; a < F2end; a++)
-    Matrix_cleanup(F2[a]);  
 
   *is_it_cnvg = is_sub_cnvg;
-
-  free(F2);
     
   return err;
 }                            
@@ -800,16 +677,11 @@ int Fnp1_Implicit(double *Fnp1_out, double *Fn_in, double *L_in, double dt)
   for(int a=0; a<DIM_3x3; a++)
     I[a] -= dt*L_in[a]; 
   
-  Matrix(double) AI, A, Fnp1, Fn;
-  A.m_row    = A.m_col    = DIM_3;    A.m_pdata = I;
-  Fnp1.m_row = Fnp1.m_col = DIM_3; Fnp1.m_pdata = Fnp1_out;
-  Fn.m_row   = Fn.m_col   = DIM_3;   Fn.m_pdata = Fn_in;      
-
-  Matrix_construct_redim(double,AI,DIM_3,DIM_3);
-  Matrix_inv(A,AI);
-  Matrix_AxB_3by3(&Fnp1,&AI,&Fn); // <= Matrix_AxB(Fnp1,1.0,0.0,AI,0,Fn,0);
-
-  Matrix_cleanup(AI);  
+  TensorA<2> A(I), Fnp1(Fnp1_out), Fn(Fn_in);
+  Tensor<2> AI;
+  
+  err += inv(A, AI);
+  Fnp1 = AI(i,k)*Fn(k,j);
   return err;
 }
 
