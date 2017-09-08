@@ -72,6 +72,9 @@ AC_CONFIG_FILES(
   test/elasticity/Makefile
   test/slip_system/Makefile])
 
+AC_CONFIG_FILES([test/run.sh], [chmod +x test/run.sh])
+AC_CONFIG_FILES([test/crystal_plasticity_with_thermal/test_crystal_plasticity_with_thermal.sh], [chmod +x test/crystal_plasticity_with_thermal/test_crystal_plasticity_with_thermal.sh])
+
 AM_CONDITIONAL([HAVE_MPI], [test "x$have_mpi" == xyes])
 
 AC_OUTPUT

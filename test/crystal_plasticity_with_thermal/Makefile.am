@@ -8,3 +8,5 @@ test_crystal_plasticity_with_thermal_CPPFLAGS = \
   -I$(top_srcdir)/elasticity/include \
   -I$(top_srcdir)/utils/include \
   -I$(top_srcdir)/material/include 
+
+TESTS = test_crystal_plasticity_with_thermal.sh

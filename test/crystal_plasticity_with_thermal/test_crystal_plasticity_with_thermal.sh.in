@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# cleanup on failure.
+function cleanup {
+    echo "Removing without_thermal.txt with_thermal.txt"
+    rm -f without_thermal.txt with_thermal.txt
+}
+trap cleanup EXIT
+
+for cmd in "./test_crystal_plasticity_with_thermal" "numdiff --absolute-tolerance=1.0e-14 --relative-tolerance=1.0e-14 without_thermal.txt with_thermal.txt"
+do
+    echo $cmd
+    $cmd
+done

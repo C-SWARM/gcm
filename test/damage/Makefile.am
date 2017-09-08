@@ -8,3 +8,10 @@ test_damage_model_CPPFLAGS = \
   -I$(top_srcdir)/elasticity/include \
   -I$(top_srcdir)/utils/include \
   -I$(top_srcdir)/material/include 
+
+TESTS = test_damage_model.sh
+
+test_damage_model.sh:
+	echo "#!/usr/bin/env bash" > $@
+	echo "../run.sh test_damage_model damage stress" >> $@
+	chmod +x $@

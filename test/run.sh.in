@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+exe=@builddir@/$1
+ref=@abs_srcdir@/$2/$3.ref
+out=$3.txt
+compare="numdiff --absolute-tolerance=1.0e-14 --relative-tolerance=1.0e-14 $ref $out"
+
+# cleanup on failure.
+function cleanup {
+    echo "Removing $out"
+    rm -f $out
+}
+trap cleanup EXIT
+
+echo $exe
+$exe
+echo $compare
+$compare
