@@ -14,14 +14,14 @@ AC_CONFIG_SRCDIR([utils/include/math_help.h])
 AC_CONFIG_AUX_DIR([m4])
 AC_CONFIG_MACRO_DIR([m4])
 
-AX_PROG_CXX_MPI([test x == x], [have_mpi=yes])
+AX_PROG_CXX_MPI([test "x" == x], [have_mpi=yes])
 AX_CXX_COMPILE_STDCXX_14([ext], [mandatory])
 
 AM_INIT_AUTOMAKE([1.11 nostdinc dist-bzip2 subdir-objects foreign tar-ustar -Wall
                   -Werror parallel-tests color-tests])
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
-LT_PREREQ([2.4.6])
+LT_PREREQ([2.4.2])
 LT_INIT([disable-shared])
 
 AC_ARG_WITH(ttl,
