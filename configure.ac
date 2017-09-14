@@ -53,6 +53,7 @@ AC_CONFIG_FILES(
   lib/Makefile
   material/Makefile
   utils/Makefile
+  poro_viscoplasticity/Makefile
   J2_plasticity/src/Makefile
   constitutive_model_handle/src/Makefile
   crystal_plasticity/src/Makefile
@@ -61,6 +62,7 @@ AC_CONFIG_FILES(
   elasticity/src/Makefile
   material/src/Makefile
   utils/src/Makefile
+  poro_viscoplasticity/src/Makefile
   test/Makefile
   test/J2_plasticity/Makefile
   test/crystal_plasticity_grains/Makefile
@@ -70,7 +72,8 @@ AC_CONFIG_FILES(
   test/damage_split/Makefile
   test/data_structure/Makefile
   test/elasticity/Makefile
-  test/slip_system/Makefile])
+  test/slip_system/Makefile
+  test/poro_viscoplasticity/Makefile])
 
 AC_CONFIG_FILES([test/run.sh], [chmod +x test/run.sh])
 AC_CONFIG_FILES([test/crystal_plasticity_with_thermal/test_crystal_plasticity_with_thermal.sh], [chmod +x test/crystal_plasticity_with_thermal/test_crystal_plasticity_with_thermal.sh])
