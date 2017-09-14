@@ -9,4 +9,5 @@ libConstitutiveModel_la_LIBADD = \
   $(top_builddir)/data_structure/src/libdata_structure.la \
   $(top_builddir)/elasticity/src/libelasticity.la \
   $(top_builddir)/material/src/libmaterial.la \
-  $(top_builddir)/utils/src/libutils.la 
+  $(top_builddir)/utils/src/libutils.la \
+  $(top_builddir)/poro_viscoplasticity/src/libporo_viscoplasticity.la
