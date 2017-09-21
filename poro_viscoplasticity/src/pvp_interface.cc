@@ -36,7 +36,7 @@ int pvp_intf_perform_integration_algorithm(double *Fnp1,
   std::string pcstr = pathstr + ".implicit.cst.smb.pc.txt";
   std::string matstr = pathstr + ".implicit.cst.smb.mat.txt";
     
-  KMS_IJSS2017_IO IO(logstr, Fstr, pFstr, Sstr, KSstr, sigmastr, pcstr, matstr, PrintEveryNSteps);
+//  KMS_IJSS2017_IO IO(logstr, Fstr, pFstr, Sstr, KSstr, sigmastr, pcstr, matstr, PrintEveryNSteps);
     
   
   // Time integrator
@@ -53,7 +53,7 @@ int pvp_intf_perform_integration_algorithm(double *Fnp1,
   bool usingSmoothMacauleyBrackets = true;
   bool Verbose = false;
      
-  KMS_IJSS2017_Implicit_BE_Staggered<DIM_3> ImplicitModelInstance(mat_pvp, &IO, &Time_intg );
+  KMS_IJSS2017_Implicit_BE_Staggered<DIM_3> ImplicitModelInstance(mat_pvp, NULL, &Time_intg );
     
   ImplicitModelInstance.set_data_from_PDE(Fnp1, Fn, pFnp1, pFn, *pc_np1, pc_n);
 

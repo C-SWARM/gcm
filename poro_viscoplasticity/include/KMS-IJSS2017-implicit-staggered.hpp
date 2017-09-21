@@ -179,8 +179,8 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
     
     if ( it == maxIt )
     {
-      this->IO->log() << " WARNING: KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( ) - Convergence was not achieved in the bisection scheme after " << maxIt << " iterations." << std::flush;
-      this->IO->log() << " Code did not abort but outcomes might be wrong. \n" << std::flush;
+      //this->IO->log() << " WARNING: KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( ) - Convergence was not achieved in the bisection scheme after " << maxIt << " iterations." << std::flush;
+      //this->IO->log() << " Code did not abort but outcomes might be wrong. \n" << std::flush;
     }
   }
   
@@ -211,8 +211,8 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double log
     
     if ( it == maxIt )
     {
-      this->IO->log() << " WARNING: KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( ) - Convergence was not achieved in the Newton-Raphson scheme after " << maxIt << " iterations." << std::flush;
-      this->IO->log() << " Code did not abort but outcomes might be wrong. \n" << std::flush;
+      //this->IO->log() << " WARNING: KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( ) - Convergence was not achieved in the Newton-Raphson scheme after " << maxIt << " iterations." << std::flush;
+      //this->IO->log() << " Code did not abort but outcomes might be wrong. \n" << std::flush;
     }
   }
     
@@ -362,8 +362,8 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& up
   
   if ( it == MAX_N_OF_STAGGERED_ITERATIONS )
   {
-    this->IO->log() << " WARNING: KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& updF, const double dt, bool Verbose ) - Convergence was not achieved for it in the staggered scheme after " << MAX_N_OF_STAGGERED_ITERATIONS << " iterations.";
-    this->IO->log() << " Code did not abort but outcomes might be wrong. \n";
+    //this->IO->log() << " WARNING: KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& updF, const double dt, bool Verbose ) - Convergence was not achieved for it in the staggered scheme after " << MAX_N_OF_STAGGERED_ITERATIONS << " iterations.";
+    //this->IO->log() << " Code did not abort but outcomes might be wrong. \n";
   }
   
   
@@ -378,7 +378,7 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& up
 
 //      this->IO->log() << "\n  Time = " << std::fixed << std::setprecision(3) << this->TimeIntegrationData->CurrentTime() << ", step = " << this->TimeIntegrationData->TimeStep() ;
 //      this->IO->log() << ", pcr set equal to pc_inf \n\n" << std::flush;
-      this->IO->log() << " / pcr set equal to pc_inf" << std::flush;
+//      this->IO->log() << " / pcr set equal to pc_inf" << std::flush;
     }
   
   // if pc overcomes pcb, print it out.
@@ -391,8 +391,8 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& up
 //    this->IO->log() << "\n  Time = " << std::fixed << std::setprecision(3) << this->TimeIntegrationData->CurrentTime() << ", step = " << this->TimeIntegrationData->TimeStep() ;
 //    this->IO->log() << ", pcr (" << std::setw(20) << std::setprecision(15) << pcr
 //                    << ")overcomes pcb (" << std::setw(20) << std::setprecision(15) << this->Parameters->d_pcb << ")\n\n" << std::flush;
-    this->IO->log() << " / pcr (" << std::setw(20) << std::setprecision(15) << pcr
-    << ") overcomes pcb (" << std::setw(20) << std::setprecision(15) << this->Parameters->d_pcb << ")" << std::flush;
+//    this->IO->log() << " / pcr (" << std::setw(20) << std::setprecision(15) << pcr
+//    << ") overcomes pcb (" << std::setw(20) << std::setprecision(15) << this->Parameters->d_pcb << ")" << std::flush;
   }
 
   // The algorithm converged for M and for pc.
@@ -799,14 +799,14 @@ void KMS_IJSS2017_Implicit_BE_Staggered<dim>::ttlsolveExceptionHandling( const t
 //!
 {
   
-  this->IO->log() << "\n\n  ----------------------------- \n";
-  this->IO->log() << "  ttl::solve Exception Handling \n";
-  this->IO->log() << "  the code is aborting at \n\n  ";
-  this->IO->log() << "  timestep = " <<  this->TimeIntegrationData->TimeStep()  << ", time = " <<  this->TimeIntegrationData->CurrentTime() ;
-  this->IO->log() << "\n\n  because lapack cannot solve the linear system \n";
-  this->IO->log() << "  within the step update in the Newton-Raphson scheme of the  \n";
-  this->IO->log() << "  KMS_IJSS2017_Implicit_BE_Staggered integrator. Here are the system matrix \n";
-  this->IO->log() << "  and the right hand side before quitting. \n";
+  //this->IO->log() << "\n\n  ----------------------------- \n";
+  //this->IO->log() << "  ttl::solve Exception Handling \n";
+  //this->IO->log() << "  the code is aborting at \n\n  ";
+  //this->IO->log() << "  timestep = " <<  this->TimeIntegrationData->TimeStep()  << ", time = " <<  this->TimeIntegrationData->CurrentTime() ;
+  //this->IO->log() << "\n\n  because lapack cannot solve the linear system \n";
+  //this->IO->log() << "  within the step update in the Newton-Raphson scheme of the  \n";
+  //this->IO->log() << "  KMS_IJSS2017_Implicit_BE_Staggered integrator. Here are the system matrix \n";
+  //this->IO->log() << "  and the right hand side before quitting. \n";
   
 //  typedef mtl::mat::dense2D<double> Matrix;
 //  typedef mtl::dense_vector<double> Vector;
@@ -1023,13 +1023,13 @@ void KMS_IJSS2017_Implicit_BE_Staggered<dim>::ttlinverseExceptionHandling( const
 //!
 {
   
-  this->IO->log() << "\n\n  ----------------------------- \n";
-  this->IO->log() << "  ttl::inverse Exception Handling \n";
-  this->IO->log() << "  the code is NOT aborting at \n\n  ";
-  this->IO->log() << "  timestep = " <<  this->TimeIntegrationData->TimeStep() << ", time = " << this->TimeIntegrationData->CurrentTime() ;
-  this->IO->log() << "\n\n  but lapack cannot invert the fourth order tensor during the evaluation of DMDF \n";
-  this->IO->log() << "  within the Consistent Tangent Stiffness Matrix for the  \n";
-  this->IO->log() << "  KMS_IJSS2017_Implicit_BE_Staggered integrator. Here is the tensor in a matrix form\n";
+  //this->IO->log() << "\n\n  ----------------------------- \n";
+  //this->IO->log() << "  ttl::inverse Exception Handling \n";
+  //this->IO->log() << "  the code is NOT aborting at \n\n  ";
+  //this->IO->log() << "  timestep = " <<  this->TimeIntegrationData->TimeStep() << ", time = " << this->TimeIntegrationData->CurrentTime() ;
+  //this->IO->log() << "\n\n  but lapack cannot invert the fourth order tensor during the evaluation of DMDF \n";
+  //this->IO->log() << "  within the Consistent Tangent Stiffness Matrix for the  \n";
+  //this->IO->log() << "  KMS_IJSS2017_Implicit_BE_Staggered integrator. Here is the tensor in a matrix form\n";
   
 //  typedef mtl::mat::dense2D<double> Matrix;
 //  // typedef mtl::dense_vector<double> Vector;
@@ -1051,7 +1051,7 @@ void KMS_IJSS2017_Implicit_BE_Staggered<dim>::ttlinverseExceptionHandling( const
 //  E1.calc();
 //  this->IO->log() << " eigenvalues: " << E1.get_eigenvalues() << "\n";
   
-  this->IO->log() << "\n\n  ----------------------------- \n\n\n ";
+  //this->IO->log() << "\n\n  ----------------------------- \n\n\n ";
 }
 
 
@@ -1534,29 +1534,29 @@ void KMS_IJSS2017_Implicit_BE_Staggered<dim>::DMDFandDSDF(
   else if ( ( FrNormdmdf < 1e-16 ) || ( dHpcdpc <  1e-16 ) )
   {
     
-    this->IO->log() << "\n\n  ----------------------------- \n";
-    this->IO->log() << "  dsdf Exception Handling \n";
-    this->IO->log() << "  the code is NOT aborting at \n\n  ";
-    this->IO->log() << "  timestep = " <<  this->TimeIntegrationData->TimeStep() << ", time = " << this->TimeIntegrationData->CurrentTime() ;
-    this->IO->log() << "\n\n  but outcomes might be severely wrong because ";
-    this->IO->log() << "  ( FrNormdmdf < 1e-16 ) || ( dHpcdpc <  1e-16 ) during the evaluation of dsdf \n";
-    this->IO->log() << "  within the Consistent Tangent Stiffness Matrix for the  \n";
-    this->IO->log() << "  KMS_IJSS2017_Implicit_BE_Staggered integrator.\n";
+    //this->IO->log() << "\n\n  ----------------------------- \n";
+    //this->IO->log() << "  dsdf Exception Handling \n";
+    //this->IO->log() << "  the code is NOT aborting at \n\n  ";
+    //this->IO->log() << "  timestep = " <<  this->TimeIntegrationData->TimeStep() << ", time = " << this->TimeIntegrationData->CurrentTime() ;
+    //this->IO->log() << "\n\n  but outcomes might be severely wrong because ";
+    //this->IO->log() << "  ( FrNormdmdf < 1e-16 ) || ( dHpcdpc <  1e-16 ) during the evaluation of dsdf \n";
+    //this->IO->log() << "  within the Consistent Tangent Stiffness Matrix for the  \n";
+    //this->IO->log() << "  KMS_IJSS2017_Implicit_BE_Staggered integrator.\n";
     
     if ( ( FrNormdmdf < 1e-16 ) && ( this->pcnp1 < this->Parameters->d_pcb ) )
     {
       dsdf( z,y,k,l ) = Vzykl( z,y,k,l );
 
-      this->IO->log() << "  Since pc < pcb and FrNormdmdf < 1e-16, it has been arbitrarily taken   \n";
-      this->IO->log() << "  that the change in the second Piola-Kirchoff stress is elastic in nature, i.e.\n";
-      this->IO->log() << "  dsdf( z,y,k,l ) = Vzykl( z,y,k,l )   \n";
+      //this->IO->log() << "  Since pc < pcb and FrNormdmdf < 1e-16, it has been arbitrarily taken   \n";
+      //this->IO->log() << "  that the change in the second Piola-Kirchoff stress is elastic in nature, i.e.\n";
+      //this->IO->log() << "  dsdf( z,y,k,l ) = Vzykl( z,y,k,l )   \n";
 
     }
     else
     {
       dsdf( z,y,k,l ) = oneoverdHpcdpc * HattedLambdazywx( z,y,w,x ) * dmdf( w,x,k,l ) + Vzykl( z,y,k,l );
     }
-    this->IO->log() << "\n\n  ----------------------------- \n\n\n ";
+    //this->IO->log() << "\n\n  ----------------------------- \n\n\n ";
     
   }
   else
