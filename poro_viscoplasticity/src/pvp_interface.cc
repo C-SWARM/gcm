@@ -14,6 +14,20 @@ double pvp_intf_hardening_law(double pc,
   return ImplicitModelInstance.HardeningLaw(pc);
 }
 
+/// compute conforming pressure for given plastic deformation 
+/// \param[in] pJ        determinant of pF
+/// \param[in] mat_pvp   poro_viscoplaticity material object
+/// \return    computed pc value  
+double pvp_intf_compute_pc(double pJ, double pc,
+                           KMS_IJSS2017_Parameters *mat_pvp)
+{
+  KMS_IJSS2017_Implicit_BE_Staggered<DIM_3> ImplicitModelInstance(mat_pvp, NULL,NULL);
+  double logJp = log(pJ);
+  ImplicitModelInstance.FindpcFromJp(logJp, pc, 1.0e-12, false );
+        
+  return pc;
+}
+
 int pvp_intf_perform_integration_algorithm(double *Fnp1,
                                            double *Fn,
                                            double *pFnp1,

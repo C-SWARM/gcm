@@ -25,8 +25,12 @@ int pvp_intf_perform_integration_algorithm(double *Fnp1,
                                            double dt);
 
 double pvp_intf_hardening_law(double pc,
-                              KMS_IJSS2017_Parameters *mat_pvp);                                           
-                                           
+                              KMS_IJSS2017_Parameters *mat_pvp);
+
+/// compute compaction pressure for given plastic deformation 
+double pvp_intf_compute_pc(double pJ, double pc,
+                           KMS_IJSS2017_Parameters *mat_pvp);
+                           
 int pvp_intf_update_elasticity(double *eF,
                                double pc,
                                double *S_in,
