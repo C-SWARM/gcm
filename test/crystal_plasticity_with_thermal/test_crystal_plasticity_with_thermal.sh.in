@@ -7,7 +7,7 @@ function cleanup {
 }
 trap cleanup EXIT
 
-for cmd in "./test_crystal_plasticity_with_thermal" "numdiff --absolute-tolerance=1.0e-14 --relative-tolerance=1.0e-14 without_thermal.txt with_thermal.txt"
+for cmd in "./test_crystal_plasticity_with_thermal" "/cswarm/tools/bin/numdiff --absolute-tolerance=1.0e-14 --relative-tolerance=1.0e-14 without_thermal.txt with_thermal.txt"
 do
     echo $cmd
     $cmd
