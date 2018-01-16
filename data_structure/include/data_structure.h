@@ -255,7 +255,7 @@ public:
   double ox(Matrix<T> &A, Matrix<T> &B); // this = A /otimes B 
   void input_from_str(char *str);
   void print(void);
-  void print(const char *name);
+  void print(const char *name, const char *format = "%e");
   int inv(void);
   int inv(const Matrix<T> &A);
 };  
@@ -842,18 +842,38 @@ template <class T> void Matrix<T>::trans(void)
   this->initialization(A);
 };
 
+/// perform matrix double contraction
+///
+/// \param[in] B input matrix to be contracted
+/// \return a contracted value of (this:B)
+template <class T> double Matrix<T>::ddot(Matrix<T> &B)
+{
+  if(this->m_row==0 || this->m_col==0)
+    return 0.0;
+  
+  double AB = 0.0;
+  if(check_matrix_size_A_B(*this, B, __func__, __LINE__))      
+  {
+    for(int ia=0; ia<this->m_row*this->m_col; ia++)
+      AB += this->m_pdata[ia]*B.m_pdata[ia];
+  }
+  return AB;
+};
+
 /// print Matrix components with input name
 ///
 /// \param[in] name name of matrix
-template <class T> void Matrix<T>::print(const char *name)
+template <class T> void Matrix<T>::print(const char *name, const char *format)
 {
   cout << name << " = [\n";
 
   for(int i=0; i<this->m_row; i++)
   {
     for(int j=0; j<this->m_col; j++)
-      cout << this->get_a_value(i+1, j+1) << " ";
-
+    {
+      printf(format, this->get_a_value(i+1, j+1));
+      printf(" ");
+    }
     cout << "\n";
   }
   cout << "];\n";
