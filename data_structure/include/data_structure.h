@@ -66,7 +66,7 @@ bool check_matrix_size_AxB(const T &A, const T &B, const char *func_name, const 
     is_it_same = false;
   }
   return is_it_same;
-};
+}
 
 /// check Matrix size A, B and C for operatations: multiplication A*B*C
 ///
@@ -91,7 +91,7 @@ bool check_matrix_size_AxBxC(const T &A, const T &B, const T &C, const char *fun
     is_it_same = false;
   }
   return is_it_same;
-};
+}
 
 /// check Matrix size A and B for operatations: =, +, -
 ///
@@ -174,7 +174,7 @@ public:
     m_row = m_size;
     m_col = n_size;
     m_pdata = p;
-  };
+  }
 
   // deallocate memory of member array  
   void cleanup(void);
@@ -201,7 +201,7 @@ public:
   constexpr T& operator () (const int a, const int b)
   {
     return *(m_pdata+(a-1)*m_col+(b-1));
-  };
+  }
   
 
   /// indexing data through bracket
@@ -213,7 +213,7 @@ public:
   constexpr T& operator () (const int a)
   {
     return *(m_pdata+a-1);
-  };
+  }
   
   /// operator overriding for Matrix  
   ///
@@ -223,7 +223,7 @@ public:
   {
     initialization(obj);
     return *this;
-  };
+  }
 
   // add  
   void add(const Matrix<T> &B);						          // this += B
@@ -258,13 +258,13 @@ public:
   void print(const char *name, const char *format = "%e");
   int inv(void);
   int inv(const Matrix<T> &A);
-};  
+ };
 
 /// default constructor
 template <class T> Matrix<T>:: Matrix()
 {
   set_nulls();  
-};
+}
 
 /// constructor with a already exist object
 ///
@@ -274,7 +274,7 @@ template <class T> Matrix<T>:: Matrix(const Matrix<T> &A)
 {
   set_nulls();
   this->initialization(A);
-};
+}
 
 /// constructor with initialization of m by n matrix
 ///
@@ -286,7 +286,7 @@ template <class T> Matrix<T>:: Matrix(const int m_size,
 {
   set_nulls();
   this->initialization(m_size, n_size);
-};
+}
 
 /// constructor with initialization of m by n Matrix and fill data with a (type T) value
 ///
@@ -300,7 +300,7 @@ template <class T> Matrix<T>:: Matrix(const int m_size,
 {
   set_nulls();
   this->initialization(m_size, n_size, value);
-};
+}
 
 /// constructor with initialization of m by n Matrix and fill data with a (type T) data array
 ///
@@ -314,13 +314,13 @@ template <class T> Matrix<T>:: Matrix(const int m_size,
 {
   set_nulls();
   this->initialization(m_size, n_size, value);
-};
+}
 
 /// default destructor
 template <class T> Matrix<T>:: ~Matrix()
 {
   cleanup();
-};
+}
 
 /// set all members to NULL
 ///
@@ -333,7 +333,7 @@ template <class T> void Matrix<T>::set_nulls(void)
   is_matrix_created = false;
   if(DEBUG_PRINT_GCM_DATA_STRUCTURE)
     cout << "Debug mode >> set NULL ...\n";
-};
+}
 
 /// initialize Matrix to have m by n data array and fill the data array with (type T) value
 ///
@@ -354,7 +354,7 @@ template <class T> void Matrix<T>::initialization(const int m_size,
       set_a_value(i, j, value);
     }
   }
-};
+}
 
 /// initialize Matrix to have m by n data array
 ///
@@ -401,7 +401,7 @@ template <class T> void Matrix<T>::initialization(const int m_size,
     cout << "Memory is not allocated. " << __func__ << ":" << __FILE__ << ":" << __LINE__ << "\n";
   else if(DEBUG_PRINT_GCM_DATA_STRUCTURE)
     cout << "Debug mode >> [" << m_row << "x" << m_col << "] data cell is constructed.done.\n";    
-};
+}
 
 /// initialize Matrix with a already exist object
 ///
@@ -415,7 +415,7 @@ template <class T> void Matrix<T>::initialization(const Matrix<T> &A)
   this->initialization(A.m_row, A.m_col);
   for(int ia=0; ia<A.m_row*A.m_col; ia++)
     m_pdata[ia] = A.m_pdata[ia];     
-};
+}
 
 /// initialize Matrix with a data array
 ///
@@ -437,7 +437,7 @@ template <class T> void Matrix<T>::initialization(const int m_size,
     for(int j=1; j<=m_col; j++)
       set_a_value(i, j, p[(i-1)*m_size + j-1]);
   }
-};
+}
 
 /// deallocate memory and set size to zeros 
 ///
@@ -458,7 +458,7 @@ template <class T> void Matrix<T>::cleanup(void)
   
   m_row = 0;
   m_col = 0;
-};
+}
 
 /// check input indices are bounded by the number of row and column
 ///
@@ -491,7 +491,7 @@ template <class T> void Matrix<T>::set_a_value(const int m,
                                                const T &value)
 {
   *(m_pdata+(m-1)*m_col+(n-1)) = value;
-};
+}
 
 /// set all components by a data array
 ///
@@ -507,7 +507,7 @@ template <class T> void Matrix<T>::set_values(const int m_size,
                                               const T *p)
 {
   initialization(m_size, n_size, p);
-};
+}
 
 /// set all components by a data
 ///
@@ -519,7 +519,7 @@ template <class T> void Matrix<T>::set_values(const int m_size,
 template <class T> void Matrix<T>::set_values(const T &d)
 {
   this->initialization(m_row, m_col, d);
-};
+}
 
 /// get a component(m, n) value
 ///
@@ -530,7 +530,7 @@ template <class T> T Matrix<T>::get_a_value(const int m,
                                             const int n)
 {
   return *(m_pdata+(m-1)*m_col+(n-1));
-};
+}
 
 /// get pointer of a component(m, n)
 ///
@@ -544,7 +544,7 @@ template <class T> T* Matrix<T>::get_a_value_pointer(const int m,
                                                      const int n)
 {
   return m_pdata+((m-1)*m_col+(n-1));
-};
+}
 
 /// matrix addition to self
 ///
@@ -568,7 +568,7 @@ template <class T> void Matrix<T>::add(const Matrix<T> &B)
       this->m_pdata[i] += B.m_pdata[i];
 
   }
-};
+}
 
 /// matrix addition
 ///
@@ -588,7 +588,7 @@ template <class T> void Matrix<T>::add(const Matrix<T> &A, const Matrix<T> &B)
     for(int i=0; i<(this->m_row)*(this->m_col); i++)
       this->m_pdata[i] = A.m_pdata[i] + B.m_pdata[i];
   }
-};
+}
 
 /// matrix addition
 ///
@@ -600,7 +600,7 @@ template <class T> void Matrix<T>::add(const double b)
 {
   for(int i=0; i<(this->m_row)*(this->m_col); i++)
       this->m_pdata[i] += b;
-};
+}
 
 /// matrix addition
 ///
@@ -617,7 +617,7 @@ template <class T> void Matrix<T>::add(const Matrix<T> &A, const double b)
   this->initialization(A.m_row, A.m_col);  
   for(int i=0; i<(this->m_row)*(this->m_col); i++)
       this->m_pdata[i] = A.m_pdata[i] + b;
-};
+}
 
 /// matrix subtract to self
 ///
@@ -640,7 +640,7 @@ template <class T> void Matrix<T>::sub(const Matrix<T> &B)
       this->m_pdata[i] -= B.m_pdata[i];
 
   }
-};
+}
 
 /// matrix subtraction
 ///
@@ -660,7 +660,7 @@ template <class T> void Matrix<T>::sub(const Matrix<T> &A, const Matrix<T> &B)
     for(int i=0; i<(this->m_row)*(this->m_col); i++)
       this->m_pdata[i] = A.m_pdata[i] - B.m_pdata[i];
   }
-};
+}
 
 /// matrix subtraction
 ///
@@ -672,7 +672,7 @@ template <class T> void Matrix<T>::sub(const double b)
 {
   for(int i=0; i<(this->m_row)*(this->m_col); i++)
     this->m_pdata[i] = b - this->m_pdata[i];
-};
+}
 
 /// matrix subtraction
 ///
@@ -689,7 +689,7 @@ template <class T> void Matrix<T>::sub(const double a, const Matrix<T> &B)
   this->initialization(B.m_row, B.m_col);
   for(int i=0; i<(this->m_row)*(this->m_col); i++)
     this->m_pdata[i] = a - B.m_pdata[i];
-};
+}
 
 /// perform matrix product to itself
 ///
@@ -705,7 +705,7 @@ template <class T> void Matrix<T>::prod(const Matrix<T> &B)
     this->initialization(A.m_row, B.m_col);
     Matrix_AxB_large(*this,1.0,0.0,A,0,B,0);    
   }  
-};               
+}        
 
 /// perform two matrices product to itself 
 ///
@@ -722,7 +722,7 @@ template <class T> void Matrix<T>::prod(const Matrix<T> &A, const Matrix<T> &B)
   }
   else
     abort(); 
-};
+}
 
 /// perform three matrices product to itself 
 ///
@@ -746,7 +746,7 @@ template <class T> void Matrix<T>::prod(const Matrix<T> &A, const Matrix<T> &B, 
   }
   else
     abort();
-};
+}
 
 /// perform matrices product with a scalar and aply to this 
 ///
@@ -759,7 +759,7 @@ template <class T> void Matrix<T>::prod(const Matrix<T> &A, const double b)
   this->initialization(A.m_row, A.m_col);
   for(int ia=0; ia<(this->m_row)*(this->m_col); ia++)
     this->m_pdata[ia] = A.m_pdata[ia]*b;
-};
+}
 
 /// perform multiply a scalar to itself 
 ///
@@ -770,7 +770,7 @@ template <class T> void Matrix<T>::prod(const double value)
 {
   for(int ia=0; ia<(this->m_row*this->m_col); ia++)
     this->m_pdata[ia] *= value;    
-};
+}
 
 /// perform two matrices product to itself 
 ///
@@ -790,7 +790,7 @@ template <class T> void Matrix<T>::prod(const Matrix<T> &A,
     this->initialization(A.m_row, B.m_col);
     Matrix_AxB_large(*this,1.0,0.0,A,AT,B,BT);
   }  
-};
+}
 
 /// perform matrix transpose
 ///
@@ -814,7 +814,7 @@ template <class T> void Matrix<T>::trans(Matrix<T> &A)
     for(int ib=1; ib<=A.m_col; ib++)
       this->set_a_value(ib,ia,A(ia,ib));
   }
-};
+}
 
 
 /// perform matrix transpose
@@ -840,7 +840,7 @@ template <class T> void Matrix<T>::trans(void)
       A(ib,ia) = this->get_a_value(ia,ib);
   }
   this->initialization(A);
-};
+}
 
 /// perform matrix double contraction
 ///
@@ -858,7 +858,7 @@ template <class T> double Matrix<T>::ddot(Matrix<T> &B)
       AB += this->m_pdata[ia]*B.m_pdata[ia];
   }
   return AB;
-};
+}
 
 /// print Matrix components with input name
 ///
@@ -877,7 +877,7 @@ template <class T> void Matrix<T>::print(const char *name, const char *format)
     cout << "\n";
   }
   cout << "];\n";
-};
+}
 
 /// print Matrix components without name input
 ///
@@ -886,7 +886,7 @@ template <class T> void Matrix<T>::print(void)
 {
   char A[2] = "A";
   this->print(A);
-};
+}
 
 /// compute inverse of Matrix
 ///
@@ -902,7 +902,7 @@ template <class T> int Matrix<T>::inv(void)
   }
   else
     return 1;
-};
+}
 
 /// compute inverse of Matrix
 ///
@@ -916,7 +916,7 @@ template <class T> int Matrix<T>::inv(const Matrix<T> &A)
   }
   else
     return 1;
-};
+}
 
 } // namespace gcm
 
