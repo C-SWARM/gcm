@@ -357,6 +357,17 @@ public:
                         double *L_in,
                         const int compute_elasticity);
 
+  int update_elasticity_dev(double *eF_in,
+                            double pc,
+                            double *eS_in,
+                            double *L_in,
+                            const int compute_elasticity);
+  double compute_dudj(double eJ,
+                      double pc);
+                      
+  double compute_d2udj2(double eJ,
+                        double pc);
+
 };
 
 

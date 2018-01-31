@@ -37,7 +37,22 @@ int pvp_intf_update_elasticity(double *eF,
                                double *L_in,
                                KMS_IJSS2017_Parameters *mat_pvp,
                                int compute_stiffness);
+                               
+int pvp_intf_update_elasticity_dev(double *eF,
+                                   double pc,
+                                   double *S_in,
+                                   double *L_in,
+                                   KMS_IJSS2017_Parameters *mat_pvp,
+                                   int compute_stiffness);
 
+double pvp_intf_compute_dudj(double eJ,
+                             double pc,
+                             KMS_IJSS2017_Parameters *mat_pvp);
+
+double pvp_intf_compute_d2udj2(double eJ,
+                               double pc,
+                               KMS_IJSS2017_Parameters *mat_pvp);
+                               
 int pvp_intf_compute_dMdF(double *dMdF_in,
                           double *Fnp1,
                           double *Fn,

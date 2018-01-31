@@ -93,6 +93,41 @@ int pvp_intf_update_elasticity(double *eF,
   return err;
 }
 
+int pvp_intf_update_elasticity_dev(double *eF,
+                                   double pc,
+                                   double *S_in,
+                                   double *L_in,
+                                   KMS_IJSS2017_Parameters *mat_pvp,
+                                   int compute_stiffness)
+{
+  int err = 0;
+  KMS_IJSS2017_Implicit_BE_Staggered<DIM_3> ImplicitModelInstance(mat_pvp, NULL,NULL);  
+    
+  ImplicitModelInstance.update_elasticity_dev(eF, pc, S_in, L_in, compute_stiffness);  
+
+  return err;
+}
+
+double pvp_intf_compute_dudj(double eJ,
+                             double pc,
+                             KMS_IJSS2017_Parameters *mat_pvp)
+{
+  int err = 0;
+  KMS_IJSS2017_Implicit_BE_Staggered<DIM_3> ImplicitModelInstance(mat_pvp, NULL,NULL);  
+    
+  return ImplicitModelInstance.compute_dudj(eJ, pc);  
+}
+
+double pvp_intf_compute_d2udj2(double eJ,
+                               double pc,
+                               KMS_IJSS2017_Parameters *mat_pvp)
+{
+  int err = 0;
+  KMS_IJSS2017_Implicit_BE_Staggered<DIM_3> ImplicitModelInstance(mat_pvp, NULL,NULL);  
+    
+  return ImplicitModelInstance.compute_d2udj2(eJ, pc);  
+}
+
 int pvp_intf_compute_dMdF(double *dMdF_in,
                           double *Fnp1,
                           double *Fn,

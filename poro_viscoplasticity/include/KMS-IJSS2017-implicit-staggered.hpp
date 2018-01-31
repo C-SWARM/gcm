@@ -1861,17 +1861,103 @@ int KMS_IJSS2017_Implicit_BE_Staggered<dim>::update_elasticity(double *eF_in,
   return err;
 }                                                               
 
+template <int dim>
+int KMS_IJSS2017_Implicit_BE_Staggered<dim>::update_elasticity_dev(double *eF_in,
+                                                                   double pc,
+                                                                   double *eS_in,
+                                                                   double *L_in,
+                                                                   const int compute_elasticity)
+{  
+  int err = 0;
 
+  static constexpr ttl::Index<'i'> i;
+  static constexpr ttl::Index<'j'> j;
+  static constexpr ttl::Index<'k'> k;
+  static constexpr ttl::Index<'l'> l;
+  static constexpr ttl::Index<'m'> m;
+  static constexpr ttl::Index<'n'> n;
+  static constexpr ttl::Index<'o'> o;
 
+  // compute PK2 stress
+  ttl::Tensor<2, dim, double*> eF(eF_in);
+  this->eFnp1 = eF;
+  this->pcnp1 = pc;
+      
+  ttl::Tensor<2, dim, double*> eS(eS_in);
 
+  FTensors I = ttl::identity(i,j);
 
+  // Je at step n+1
+  double eJ = det(eF);
+  
+  // Left Cauchy-Green tensor and its inverse
+  FTensors Ce;
+  Ce(i,j) = eF(k,i)*eF(k,j);
+  
+  FTensors InvCe;
+  try{
+    InvCe = ttl::inverse(Ce);
+  }
+  catch(int inv_err)
+  {
+    err++;
+    return err;
+  }
+  
+  KMS_IJSS2017_Parameters *P = this->Parameters;
+  double mu    = this->shearmodulus(pc);
+  double kappa = this->bulkmodulus(pc);
+  double trCe  = Trace(Ce);
+  double c_of_pc = this->c(pc);   
+  
+  // Isochoric contribution
+  eS(i,j) = mu*pow(eJ, -2.0/3.0)*(I(i,j) - trCe/3.0*InvCe(i,j));
+  
+  if(compute_elasticity == 0)
+    return err;
+    
+  ttl::Tensor<4, dim, double*> dSdC(L_in); 
+               
+  double onethird = 1.0/3.0;
+  double powJe = pow(eJ, -2.0*onethird);
+  
+  dSdC(i,j,k,l) = mu*(-onethird*powJe*InvCe(k,l))*(I(i,j) - trCe*onethird*InvCe(i,j)) +
+                  mu*powJe*onethird*(-I(k,l)*InvCe(i,j) + trCe*InvCe(i,k)*InvCe(l,j));
+            
+  return err;
+} 
 
+template <int dim>
+double KMS_IJSS2017_Implicit_BE_Staggered<dim>::compute_dudj(double eJ,
+                                                             double pc)
+{  
+  int err = 0;
 
+  KMS_IJSS2017_Parameters *P = this->Parameters;
+  double mu    = this->shearmodulus(pc);
+  double kappa = this->bulkmodulus(pc);
+  double c_of_pc = this->c(pc); 
 
+  double exponent = - pow((1.0-this->c(pc)/P->c_inf), P->pl_n)/P->K_kappa;  
+  double dudj = (0.5*kappa*(eJ*log(eJ)+eJ - 1.0 ) + (c_of_pc-(P->K_p0 + c_of_pc)*pow(eJ,exponent)))/eJ;
+  
+  return dudj;
+}
 
+template <int dim>
+double KMS_IJSS2017_Implicit_BE_Staggered<dim>::compute_d2udj2(double eJ,
+                                                               double pc)
+{  
+  int err = 0;
 
-
-
-
-
+  KMS_IJSS2017_Parameters *P = this->Parameters;
+  double mu    = this->shearmodulus(pc);
+  double kappa = this->bulkmodulus(pc);
+  double c_of_pc = this->c(pc); 
+               
+  double alpha = pow(1.0 - c_of_pc/P->c_inf, P->pl_n)/P->K_kappa;  
+  double Upp = 0.5*kappa/eJ*(1.0+1.0/eJ) - 1.0/eJ/eJ*(c_of_pc-(P->K_p0 + c_of_pc)*(1.0+alpha)*pow(eJ, -alpha));
+  
+  return Upp;
+}
 #endif /* KMS_IJSS2017_implicit_staggered_h */
