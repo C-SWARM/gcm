@@ -72,7 +72,14 @@ int pvp_intf_perform_integration_algorithm(double *Fnp1,
   ImplicitModelInstance.set_data_from_PDE(Fnp1, Fn, pFnp1, pFn, *pc_np1, pc_n);
 
   ttl::Tensor<2, DIM_3, double*>  ttl_Fnp1(Fnp1);
-  ImplicitModelInstance.StepUpdate(ttl_Fnp1,dt, Verbose);
+  
+  try{
+    ImplicitModelInstance.StepUpdate(ttl_Fnp1,dt, Verbose);    
+  }
+  catch(const int itgAlerr)
+  {
+    ++err;
+  }
   ImplicitModelInstance.set_data_to_PDE(pFnp1, pc_np1);
   
   return err;

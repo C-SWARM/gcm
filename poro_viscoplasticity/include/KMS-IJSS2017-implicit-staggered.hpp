@@ -326,9 +326,14 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& up
       // 3-5 : pF, eF, Sr shall be updated:
       
       // 3 - Compute pFr
-      
-      InvMr = ttl::inverse( Mr );
 
+      try{
+        InvMr = ttl::inverse( Mr );
+      }
+      catch(const int ttlerr){
+        throw 1;
+      }      
+      
       pFr( i,k ) = InvMr( i,j ) * this->pFn( j,k );
       
       // 4 - Compute eFr
