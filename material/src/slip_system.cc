@@ -39,6 +39,7 @@ int construct_slip_system(SLIP_SYSTEM *slip, int type)
       break;
   }
   slip->ort_option[0] = -1;
+  slip->ort_option[2] = EULER_ANGLE_XYZ;
   return err;
 }
 
@@ -51,7 +52,7 @@ int destruct_slip_system(SLIP_SYSTEM *slip)
   return err;
 }
 
-/// compute rotation matrix using Euler angles
+/// compute rotation matrix using Euler angles (Roe rotation)
 /// R = Az(psi)*Ay(theta)*Ax(phi)
 ///
 /// \param[out] R_in computed rotation matrxi
@@ -61,16 +62,14 @@ int destruct_slip_system(SLIP_SYSTEM *slip)
 /// \param[in] phi 1st Euler angle
 /// \param[in] theta 2nd Euler angle
 /// \param[in] psi 3rd Euler angle
-/// \return non-zero on interal error
-int rotation_matrix_of_Euler_angles(double *R_in, 
-                                    double *Ax_in,
-                                    double *Ay_in,
-                                    double *Az_in,
-                                    double phi, 
-                                    double theta, 
-                                    double psi)
+void rotation_matrix_of_Euler_angles_Roe(double *R_in, 
+                                         double *Ax_in,
+                                         double *Ay_in,
+                                         double *Az_in,
+                                         const double phi, 
+                                         const double theta, 
+                                         const double psi)
 {
-  int err = 0;
   // handle for matrix objecs based on [3x3] matrix stencil 
   TensorA<2> R(R_in), Ax(Ax_in), Ay(Ay_in), Az(Az_in);
   
@@ -92,11 +91,88 @@ int rotation_matrix_of_Euler_angles(double *R_in,
   Az[0][0] =  cos(psi); Az[0][1] = -sin(psi);
   Az[1][0] =  sin(psi); Az[1][1] =  cos(psi);
   
-  R = Az(i,j)*Ay(j,k)*Ax(k,l);          
-   
-  return err;
+  R = Az(i,j)*Ay(j,k)*Ax(k,l);
 }
 
+/// compute rotation matrix using Euler angles (Bunge)
+/// R = Az(psi2)*Ax(phi)*Az(psi1)
+///
+/// \param[out] R_in computed rotation matrxi
+/// \param[out] Az1_in rotation matrix of psi1
+/// \param[out] Ax_in  rotation matrix of phi
+/// \param[out] Az2_in rotation matrix of psi2
+/// \param[in] psi1 1st Euler angle
+/// \param[in] phi  2nd Euler angle
+/// \param[in] psi2 3rd Euler angle
+/// \return non-zero on interal error
+void rotation_matrix_of_Euler_angles_Bunge(double *R_in, 
+                                           double *Az1_in,
+                                           double *Ax_in,
+                                           double *Az2_in,
+                                           const double psi1, 
+                                           const double phi, 
+                                           const double psi2)
+{
+  // handle for matrix objecs based on [3x3] matrix stencil 
+  TensorA<2> R(R_in), Az1(Az1_in), Ax(Ax_in), Az2(Az2_in);
+
+  // compute rotation matrix of the 1st Euler angle psi_1
+  Az1[2][2] = 1.0;
+  Az1[2][0] = Az1[2][1] = Az1[0][2] = Az1[1][2] = 0.0;
+  Az1[0][0] =  cos(psi1);  Az1[0][1] = sin(psi1);
+  Az1[1][0] = -sin(psi1);  Az1[1][1] = cos(psi1);
+
+  // compute rotation matrix of the 2nd Euler angle phi
+  Ax[0][0] = 1.0;
+  Ax[0][1] = Ax[0][2] = Ax[1][0] = Ax[2][0] = 0.0;
+  Ax[1][1] =  cos(phi);  Ax[1][2] = sin(phi);
+  Ax[2][1] = -sin(phi);  Ax[2][2] = cos(phi);    
+
+  // compute rotation matrix of the 3rd Euler angle psi_2
+  Az2[2][2] = 1.0;
+  Az2[2][0] = Az2[2][1] = Az2[0][2] = Az2[1][2] = 0.0;
+  Az2[0][0] =  cos(psi2);  Az2[0][1] = sin(psi2);
+  Az2[1][0] = -sin(psi2);  Az2[1][1] = cos(psi2);
+  
+  R = Az2(i,j)*Ax(j,k)*Az1(k,l);
+}
+
+/// compute rotation matrix using Euler angles
+///
+/// \param[out] R computed rotation matrxi
+/// \param[out] A1 rotation matrix of angle1
+/// \param[out] A2 rotation matrix of angle2
+/// \param[out] A3 rotation matrix of angle3
+/// \param[in] angle1 1st Euler angle
+/// \param[in] angle2 2nd Euler angle
+/// \param[in] angle3 3rd Euler angle
+/// \param[in] type Euler angle type, 0 (default): R = Az*Ay*Az
+///                                   1          : Bunge R = Az*Ax*Az 
+/// \return non-zero on interal error
+int rotation_matrix_of_Euler_angles(double *R, 
+                                    double *A1,
+                                    double *A2,
+                                    double *A3,
+                                    const double angle1, 
+                                    const double angle2, 
+                                    const double angle3,
+                                    const int type)
+{
+  switch(type)
+  {
+    case EULER_ANGLE_XYZ:
+      rotation_matrix_of_Euler_angles_Roe(R, A1, A2, A3, angle1, angle2, angle3);
+      break;
+    case EULER_ANGLE_BUNGE:
+      rotation_matrix_of_Euler_angles_Bunge(R, A1, A2, A3, angle1, angle2, angle3);
+      break;
+    default:
+      rotation_matrix_of_Euler_angles_Roe(R, A1, A2, A3, angle1, angle2, angle3);
+  }
+  return 0;
+}
+      
+                                          
 /// compute rotation matrices using array of Euler angles
 ///
 /// \param[out] R_out computed rotation matrices

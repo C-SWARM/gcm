@@ -6,6 +6,7 @@ extern "C" {
 #endif /* #ifdef __cplusplus */
 
 enum{SLIP_SYSTEM_FCC,SLIP_SYSTEM_BCC,SLIP_SYSTEM_HCP};
+enum{EULER_ANGLE_XYZ,EULER_ANGLE_BUNGE};
 
 struct SLIP_SYSTEM
 {
@@ -13,7 +14,7 @@ struct SLIP_SYSTEM
   int N_SYS;
   int unit_cell;
   char name[1024];
-  int    ort_option[2];
+  int    ort_option[3];
   char   ort_file_in[2048];
   double ort_angles[3];
 };
@@ -26,26 +27,29 @@ int destruct_slip_system(SLIP_SYSTEM *slip);
 /// compute rotation matrix using Euler angles
 ///
 /// \param[out] R_in computed rotation matrxi
-/// \param[out] Ax_in rotation matrix of phi
-/// \param[out] Ay_in rotation matrix of theta
-/// \param[out] Az_in rotation matrix of psi
-/// \param[in] phi 1st Euler angle
-/// \param[in] theta 2nd Euler angle
-/// \param[in] psi 3rd Euler angle
+/// \param[out] A1_in rotation matrix of angle1
+/// \param[out] A2_in rotation matrix of angle2
+/// \param[out] A3_in rotation matrix of angle3
+/// \param[in] angle1 1st Euler angle
+/// \param[in] angle2 2nd Euler angle
+/// \param[in] angle3 3rd Euler angle
+/// \param[in] type Euler angle type, 0 (default): R = Az*Ay*Az
+///                                   1          : Bunge R = Az*Ax*Az 
 /// \return non-zero on interal error
 int rotation_matrix_of_Euler_angles(double *R_in, 
-                                    double *Ax_in,
-                                    double *Ay_in,
-                                    double *Az_in,
-                                    double phi, 
-                                    double theta, 
-                                    double psi);
-
+                                    double *A1_in,
+                                    double *A2_in,
+                                    double *A3_in,
+                                    const double angle1, 
+                                    const double angle2, 
+                                    const double angle3,
+                                    const int type = EULER_ANGLE_XYZ);
+                                        
 /// compute rotation matrices using array of Euler angles
 ///
 /// \param[out] R_out computed rotation matrices
 /// \param[in] angles array of Euler angles angles = [phi_0, theta_0, psi_0
-///                                                    phi_1, theta_1, psi_1
+///                                                   phi_1, theta_1, psi_1
 ///                                                              :
 ///                                                                   ]
 /// \param[in] ortno number of orientation angles
