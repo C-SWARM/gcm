@@ -1926,8 +1926,8 @@ int KMS_IJSS2017_Implicit_BE_Staggered<dim>::update_elasticity_dev(double *eF_in
   double onethird = 1.0/3.0;
   double powJe = pow(eJ, -2.0*onethird);
   
-  dSdC(i,j,k,l) = mu*(-onethird*powJe*InvCe(k,l))*(I(i,j) - trCe*onethird*InvCe(i,j)) +
-                  mu*powJe*onethird*(-I(k,l)*InvCe(i,j) + trCe*InvCe(i,k)*InvCe(l,j));
+  dSdC(i,j,k,l) = 2.0*mu*(-onethird*powJe*InvCe(k,l))*(I(i,j) - trCe*onethird*InvCe(i,j)) +
+                  2.0*mu*powJe*onethird*(-I(k,l)*InvCe(i,j) + trCe*InvCe(i,k)*InvCe(l,j));
             
   return err;
 } 
