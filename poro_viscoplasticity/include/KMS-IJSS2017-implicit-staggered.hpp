@@ -1768,29 +1768,20 @@ int KMS_IJSS2017_Implicit_BE_Staggered<dim>::update_elasticity(double *eF_in,
   static constexpr ttl::Index<'j'> j;
   static constexpr ttl::Index<'k'> k;
   static constexpr ttl::Index<'l'> l;
-  static constexpr ttl::Index<'m'> m;
-  static constexpr ttl::Index<'n'> n;
-  static constexpr ttl::Index<'o'> o;
 
   // compute PK2 stress
   ttl::Tensor<2, dim, double*> eF(eF_in);
-  this->eFnp1 = eF;
-  this->pcnp1 = pc;
-      
   ttl::Tensor<2, dim, double*> eS(eS_in);
-
-  FTensors I = ttl::identity(i,j);
 
   // Je at step n+1
   double eJ = det(eF);
   
   // Left Cauchy-Green tensor and its inverse
-  FTensors Ce;
-  Ce(i,j) = eF(k,i)*eF(k,j);
+  ttl::Tensor<2, dim, double> C, CI;
+  C(i,j) = eF(k,i)*eF(k,j);
   
-  FTensors InvCe;
   try{
-    InvCe = ttl::inverse(Ce);
+    CI = ttl::inverse(C);
   }
   catch(int inv_err)
   {
@@ -1798,71 +1789,23 @@ int KMS_IJSS2017_Implicit_BE_Staggered<dim>::update_elasticity(double *eF_in,
     return err;
   }
   
-  KMS_IJSS2017_Parameters *P = this->Parameters;
-  double mu    = this->shearmodulus(pc);
-  double kappa = this->bulkmodulus(pc);
-  double trCe  = Trace(Ce);
-  double c_of_pc = this->c(pc);
-  
-  
-  
-  // Isochoric contribution
-  eS(i,j) = mu*pow(eJ, -2.0/3.0)*(I(i,j) - trCe/3.0*InvCe(i,j));
-  
-  // Volumetric contribution
-  double exponent = - pow((1.0-this->c(pc)/P->c_inf), P->pl_n)/P->K_kappa ;
-  eS(i,j) += (0.5*kappa*(eJ*log(eJ)+eJ - 1.0 ) 
-          + (c_of_pc-(P->K_p0 + c_of_pc)*pow(eJ,exponent)))* InvCe(i,j) ;
-
+  update_elasticity_dev(eF.data, pc, eS_in, L_in, compute_elasticity);
+  double du  = compute_dudj(eJ, pc);
+  double ddu = compute_d2udj2(eJ, pc);
+    
+  eS(i,j) += du*eJ*CI(i,j) ;
   
   if(compute_elasticity == 0)
     return err;
+
+  ttl::Tensor<4, dim, double*> L(L_in);  
+  ttl::Tensor<4, dim, double> CIoxCI, CICI;
     
- 
-  ttl::Tensor<4, dim, double*> dSdC(L_in); 
-               
-  double onethird = 1.0/3.0;
-  double powJe = pow(eJ, -2.0*onethird);
+  CIoxCI(i,j,k,l) = CI(i,j)*CI(k,l);
+  CICI(i,j,k,l)   = CI(i,k)*CI(l,j); 
   
-  double coh = this->c(pc);
-  double alpha = pow(1.0 - coh/P->c_inf, P->pl_n)/P->K_kappa;
-  
-  // derivatives of the Second Piola-Kirchoff stress wrt Ce
-  ttl::Tensor<4, dim, double> DSisoDCe;
-  DSisoDCe(i,j,k,l) = mu*(-onethird*powJe*InvCe(k,l))*(I(i,j) - trCe*onethird*InvCe(i,j)) +
-                      mu*powJe*onethird*(-I(k,l)*InvCe(i,j) + trCe*InvCe(i,k)*InvCe(l,j));
-
-  ttl::Tensor<4, dim, double> DSvolDCe;
-  DSvolDCe(i,j,k,l) = (kappa+alpha*pow(eJ,-alpha-1.0)*(coh+P->K_p0) + 0.5*kappa*log(eJ))*0.5*eJ*InvCe(k,l)*InvCe(i,j)
-                     -(coh + 0.5*kappa*(eJ - 1.0) - pow(eJ, -alpha)*(coh + P->K_p0) + 0.5*kappa*eJ*log(eJ))*InvCe(i,k)*InvCe(l,j);
-
-  ttl::Tensor<2, dim, double> dSdpc = this->DSDpc();
-
-  double a1 = P->hr_a1;
-  double a2 = P->hr_a2;
-  double l1 = P->hr_Lambda1;
-  double l2 = P->hr_Lambda2;
-
-  double Hpc = this->HardeningLaw(pc);
-  double pJ = exp(Hpc);
-  
-  ttl::Tensor<4, dim, double> dSdpcDCe = {};
-  if(fabs(pJ-1.0)>1.0e-6)
-  {
-    double dHpcdpc = a1*l1*exp(-l1/pc) + a2*l2*exp( -l2/pc);  
-//    dSdpcDCe(i,j,k,l) = 0.5*pJ/dHpcdpc*dSdpc(i,j)*InvCe(k,l);
-  }
-
-  ttl::Tensor<4, dim, double> DSDCe;
-  dSdC(i,j,k,l) = 2.0*(DSisoDCe(i,j,k,l) + DSvolDCe(i,j,k,l) + dSdpcDCe(i,j,k,l));
-  
-        
-//       
-//    ttl::Tensor<4, dim, double> dmdf;
-//    ttl::Tensor<4, dim, double> dsdf;
-//    DMDFandDSDF(dmdf, dsdf, dt, false);
-    
-  
+  L(i,j,k,l) += (eJ*du + eJ*eJ*ddu)*CIoxCI(i,j,k,l)
+                - 2.0*eJ*du*CICI(i,j,k,l);         
   return err;
 }                                                               
 
