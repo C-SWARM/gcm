@@ -45,14 +45,13 @@ int print_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_
 /// \param[in] mat material parameters
 /// \param[in] elasticity object to compute elasticity (stress)
 /// \param[in] solver_info defines numerical parameters 
-/// \param[out] EXA_metric, exascale metric counter for total number of integration iterations
 /// \return non-zero on interal error
 int staggered_Newton_Rapson_generalized(double *pFnp1_out, double *M_out, double *g_out, double *lambda, 
                                         double *pFn_in, double *Fn_in, double *Fnp1_in, double *hFn_in, double *hFnp1_in,  
                                         double g_n, double dt, 
                                         MATERIAL_CONSTITUTIVE_MODEL *mat,
                                         ELASTICITY *elasticity, 
-                                        CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info, int &EXA_metric);
+                                        CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info);
 
 /// integrate crystal plasticity from pFn to pFnp1
 ///
@@ -68,14 +67,13 @@ int staggered_Newton_Rapson_generalized(double *pFnp1_out, double *M_out, double
 /// \param[in] mat material parameters
 /// \param[in] elasticity object to compute elasticity (stress)
 /// \param[in] solver_info defines numerical parameters 
-/// \param[out] EXA_metric, exascale metric counter for total number of integration iterations
 /// \return non-zero on interal error 
 int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, double *lambda, 
                             double *pFn_in, double *Fn_in, double *Fnp1_in, 
                             double g_n, double dt, 
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
                             ELASTICITY *elasticity, 
-                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info, int &EXA_metric); 
+                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info); 
                             
 int Fnp1_Implicit(double *Fnp1_out, double *Fn_in, double *L_in, double dt);
 

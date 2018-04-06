@@ -170,7 +170,6 @@ int test_crystal_plasticity_single_crystal(const MAT_PROP *mat_in,
   double g_n,g_np1;
   g_n = g_np1 = mat_p.g0;  
   
-  int EXA_metric = 0;
   for(int a = 1; a<=sim->stepno; a++)
   {
     double lambda = 0.0;
@@ -181,7 +180,7 @@ int test_crystal_plasticity_single_crystal(const MAT_PROP *mat_in,
     
     err += staggered_Newton_Rapson(pFnp1.data,M.data, &g_np1, &lambda, 
                                    pFn.data, Fn.data,Fnp1.data, 
-                                   g_n, sim->dt, &mat, &elast, &solver_info, EXA_metric);
+                                   g_n, sim->dt, &mat, &elast, &solver_info);
    
     pFn = pFnp1(i,j);
     Fn  = Fnp1(i,j);

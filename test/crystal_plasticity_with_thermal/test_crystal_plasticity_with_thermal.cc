@@ -71,11 +71,10 @@ void test_crystal_plasticity_single_crystal(T1 &Fnp1, T2 &hFnp1, const char *fil
   double g_np1 = mat_p.g0;
   double dt     = 0.1;
   double lambda = 0.0;
-  int EXA_metric = 0;
-  
+
   staggered_Newton_Rapson_generalized(pFnp1.data,M.data, &g_np1, &lambda, 
                                       xFn.data, xFn.data,Fnp1.data, xFn.data, hFnp1.data,
-                                      g_n, dt, &mat, &elast, &solver_info, EXA_metric);
+                                      g_n, dt, &mat, &elast, &solver_info);
 
   printf("pFnp1 = [\n%e %e %e \n%e %e %e\n%e %e %e]\n",
           pFnp1[0][0], pFnp1[0][1], pFnp1[0][2],
