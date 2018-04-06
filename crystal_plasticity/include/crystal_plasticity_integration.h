@@ -8,6 +8,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* #ifdef __cplusplus */
+  
+extern long EXA_metric;
 
 struct CRYSTAL_PLASTICITY_SOLVER_INFO
 {
