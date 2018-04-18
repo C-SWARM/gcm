@@ -9,7 +9,9 @@
 extern "C" {
 #endif /* #ifdef __cplusplus */
   
-extern long EXA_metric;
+extern long ODE_ops_EXA_metric;
+extern long solverIter_EXA_metric;
+extern long totalDegreesOfFreedom_Exa_metric;
 
 struct CRYSTAL_PLASTICITY_SOLVER_INFO
 {
