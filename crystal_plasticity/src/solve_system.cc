@@ -16,7 +16,7 @@
 
 #include <math.h>
 
-long ODE_ops_EXA_metric = 0;
+long perIter_ODE_EXA_metric = 0;
 
 int set_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info,
                                        int max_itr_stag, int max_itr_hardening, int max_itr_M,
@@ -406,7 +406,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
 {
   int err = 0;
 
-  ++ODE_ops_EXA_metric;
+  perIter_ODE_EXA_metric += 10;
   
   double g_np1_k   = g_n;
   double g_np1_kp1 = g_n;

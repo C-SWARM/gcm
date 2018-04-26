@@ -9,9 +9,10 @@
 extern "C" {
 #endif /* #ifdef __cplusplus */
   
-extern long ODE_ops_EXA_metric;
-extern long solverIter_EXA_metric;
-extern long totalDegreesOfFreedom_Exa_metric;
+extern long perIter_ODE_EXA_metric; //ODE operations accumulated over the current Iter
+extern long perTimestep_EXA_metric; //Exa metric accumulated over the current timestep
+extern long total_EXA_metric;       //Total Exa metric accumulated over each NR iteration
+extern long dof_EXA_metric;         //Exa metric for accumulated Ndof over each NR iteration
 
 struct CRYSTAL_PLASTICITY_SOLVER_INFO
 {
