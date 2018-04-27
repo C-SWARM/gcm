@@ -187,14 +187,18 @@ public:
                          double *pFn_in,
                          double pcnp1_in,
                          double pcn_in);
-                         
-  void set_data_to_PDE(double *pFnp1_in,
-                       double *pcnp1_in);                       
 
+  void set_data_to_PDE(double *pFnp1_in,
+                       double *pcnp1_in);
+                                              
+  void compute_gammas(double &g_d,
+                      double &g_v);
+                      
   unsigned FindpcFromJpAtStepnP1( bool = false);                 //!< Estimate pc at step (n+1) from Jp at the same step, (n+1)
   unsigned SecondPKTensorAtStepnP1( bool = false );              //!< Estimate the second Piola-Kirchoff stress at step (n+1) from data at the same time step, (n+1)
 
   // Integrator methods
+  virtual unsigned explicit_integrator( const FTensors& updF, const double dt, bool Verbose ){return 0;}
   virtual unsigned StepUpdate( const FTensors&, const double, bool ){ return 0; }             //!< Updates stresses and internal variables from a given FnP1 and dt
   virtual unsigned VerboseStepUpdate( const FTensors&, const double, bool ){ return 0; }      //!< Updates stresses and internal variables from a given FnP1 and dt
  
@@ -340,6 +344,7 @@ public:
   void AsAString( std::string&, bool );
   
   // Integrator methods
+  unsigned explicit_integrator( const FTensors&, const double, bool );
   unsigned StepUpdate( const FTensors&, const double, bool );      //!< Updates stresses and internal variables from a given FnP1 and dt
   unsigned VerboseStepUpdate( const FTensors&, const double, bool );      //!< Updates stresses and internal variables from a given FnP1 and dt
   unsigned FindpcFromJp( const double, double&, double, bool = false);               //!< Estimate pc at iteration r of the staggered algorithm from Jp at the same step

@@ -63,5 +63,14 @@ int pvp_intf_compute_dMdF(double *dMdF_in,
                           KMS_IJSS2017_Parameters *mat_pvp,
                           double dt);
 
+void pvp_intf_compute_gammas(double &gamma_d,
+                             double &gamma_v,
+                             double *Fnp1,
+                             double *Fn,
+                             double *pFnp1,
+                             double *pFn,
+                             double pc_np1,
+                             double pc_n,
+                             KMS_IJSS2017_Parameters *mat_pvp);
 #endif
 

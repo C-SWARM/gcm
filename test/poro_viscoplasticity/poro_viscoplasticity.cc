@@ -390,22 +390,34 @@ int main(int argc,char *argv[])
     double HardLawJp0Coeff = pow(exp(h), 1.0/3.0);
     
     // deformation gradients
-    double Fnp1[DIM_3x3], Fn[DIM_3x3], pFnp1[DIM_3x3], pFn[DIM_3x3], L[DIM_3x3];
+    //double L[DIM_3x3];
     // stress
     double PKII[DIM_3x3], sigma[DIM_3x3]; 
     double  F0[DIM_3x3] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
-    double   I[DIM_3x3] = {1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0};                  
+    //double   I[DIM_3x3] = {1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0};                  
 
     F0[0] = F0[4] = F0[8] =  HardLawJp0Coeff;
                  
     double pc_n, pc_np1;
     pc_n = pc_np1 = p0;
-  
-    memcpy(pFn,   F0, sizeof(double)*DIM_3x3);
-    memcpy(pFnp1, F0, sizeof(double)*DIM_3x3);
-    memcpy( Fn,    I, sizeof(double)*DIM_3x3);
-    memcpy( Fnp1,  I, sizeof(double)*DIM_3x3);
-    
+
+
+
+double dt = 1.666667e-10;
+pc_n = 6.454024e+0;
+double Fnp1[DIM_3x3] = {1.01683031257434564e+00,1.22170066969445532e-03,7.16606936255713856e-03,9.98743992990401563e-04,1.00897793558907489e+00,8.80184670223167331e-04,-2.12552201971938359e-03,8.66326795157812413e-03,6.41702793772817914e-01};
+double Fn[DIM_3x3] = {1.01683031213029884e+00,1.22170069481151999e-03,7.16606977226791862e-03,9.98743948766325773e-04,1.00897793587215689e+00,8.80184645444615941e-04,-2.15893815462742111e-03,8.70965779481824853e-03,6.41729621578168485e-01};
+double pFnp1[DIM_3x3] = {2.17018427086157129e+00,7.80158597775989365e-02,8.73913759600668527e-02,7.99005570420286554e-02,1.39707416846036181e+00,6.58599687252051091e-02,1.19813588812333047e-01,9.76534909234337001e-02,3.75631034347642390e-01};
+double pFn[DIM_3x3] = {9.99358697027337595e-01,-4.06813610025157893e-04,3.13044484217239218e-03,1.06843278872218849e-03,1.00150237906777306e+00,7.37428680410462281e-04,-3.17738984603657985e-03,9.19446648932062470e-05,6.62367297566719193e-01};
+
+
+
+//double dt = 5.709247e-15;
+//pc_n = 6.454024e+01;
+//double Fnp1[DIM_3x3] = {1.01679482240293151e+00,1.22703867437358102e-03,7.24793264027288626e-03,1.03924000226460200e-03,1.00902010024838673e+00,9.18399776197452097e-04,-2.17844258198152119e-03,8.71286857042430363e-03,6.41722886484102806e-01};
+//double Fn[DIM_3x3] = {1.01679482240293151e+00,1.22703867437358102e-03,7.24793264027288626e-03,1.03924000226460200e-03,1.00902010024838673e+00,9.18399776197452097e-04,-2.17844372710107592e-03,8.71287016012045612e-03,6.41722887403513020e-01};
+//double pFnp1[DIM_3x3] = {2.17014948370544181e+00,7.80344115859264165e-02,8.75707762513473764e-02,7.99550616215682075e-02,1.39714247676462522e+00,6.59197761424780010e-02,1.19803929731099129e-01,9.76631848603330965e-02,3.75639024227740981e-01};
+//double pFn[DIM_3x3] = {9.99323873994986900e-01,-4.01651947110411576e-04,3.21088233952578853e-03,1.10863035910188038e-03,1.00154423083781485e+00,7.75368344947294924e-04,-3.19784741297175030e-03,9.48836812957112863e-05,6.62359934012867413e-01};    
     char fname[1024];
     sprintf(fname, "%s.txt", sim.file_out); 
     FILE *fp = fopen(fname, "w");
@@ -418,22 +430,26 @@ int main(int argc,char *argv[])
     }
     
     Tensor<2,3,double *> pF(pFnp1);
+
+
+
+
     
-    for(int iA=1; iA<=sim.stepno; iA++)
+    for(int iA=1; iA<=1; iA++)
     {
       double t = iA*(sim.dt);
-                     
-      // compute total deformation gradient using velocity gradient
-      F_of_t(Fn,Fnp1,L,t,sim);    
   
-      err += pvp_intf_perform_integration_algorithm(Fnp1,Fn,pFnp1,pFn,&pc_np1,pc_n,&mat_pvp,sim.dt);
+      err += pvp_intf_perform_integration_algorithm(Fnp1,Fn,pFnp1,pFn,&pc_np1,pc_n,&mat_pvp,dt);
       double pJ = ttl::det(pF);
 
       err += compute_stess(sigma,Fnp1,pFnp1,PKII,pc_np1,mat_pvp);
                   
 
-      if(print_option==1)
-        printf("%.17e, %.17e %.17e %.17e\n", t, pc_np1, pJ, sigma[0]);
+      if(print_option==1)        
+        printf("%.17e, %.17e %.17e %.17e\n", dt, pc_np1, pJ, sigma[0]);
+        
+      //print_T2(pFnp1, "pFnp1");
+      //print_T2(pFn,   "pFn");  
 
       fprintf(fp, "%.17e, %.17e %.17e %.17e\n", t, pc_np1, pJ, sigma[0]); 
       memcpy(pFn,pFnp1,sizeof(double)*DIM_3x3);

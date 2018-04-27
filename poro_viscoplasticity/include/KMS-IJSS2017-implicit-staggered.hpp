@@ -79,6 +79,100 @@ void KMS_IJSS2017_Implicit_BE_Staggered<dim>::AsAString( std::string& str, bool 
 
 
 template <int dim>
+unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::explicit_integrator( const FTensors& updF, const double dt, bool Verbose )
+//! Updates stresses and internal variables, given Fnp1
+/*!
+ // Explicit integration algorithm
+ // 1 - Assign DeltaF
+ // 2 - Compute strain rates
+ // 3 - Compute plasting stretching Dp
+ // 4 - Compute pFnp1
+ // 5 - Compute pcnp1
+ // 6 - Compute eFnp1
+ // 7 - Compute Snp1
+ // 8 - Compute KSnp1
+ // 9 - Compute sigmanp1
+ 
+ */
+{
+  
+  static constexpr ttl::Index<'i'> i;
+  static constexpr ttl::Index<'j'> j;
+  static constexpr ttl::Index<'k'> k;
+  static constexpr ttl::Index<'l'> l;
+  
+  // Kirchoff stress definition
+  ttl::Tensor<2, dim, double> Id2 = ttl::identity( i,j ); // ttl::Delta<2,dim,double>(1);
+  
+  FTensors Kirchoffn;
+  FTensors DevKirchoffn;
+  
+  // Kirchoff stress construction
+  double Jn = det( this->Fn ), eJn = det( this->eFn );
+  Kirchoffn(i,j) = Jn/eJn * this->eFn(i,k) * this->Sn(k,l) * this->eFn(j,l);
+  
+  // spherical part -
+  // note that p is taken as positive in compression, whence the sign - before the Trace operator
+  double pi = - Trace( Kirchoffn ) / 3.0 ;
+  //deviatoric part
+  DevKirchoffn = dev( Kirchoffn );
+  //Dev( Kirchoffn, DevKirchoffn );
+  // Frobenius norm
+  double FrobNormDevKirchoffn = FrobeniusNorm( DevKirchoffn );
+  
+  // 1
+  this->Fnp1 = updF;
+    
+  // 2
+  double gmdv = this->gammadot_v(pi, this->pcn);
+  double gmdd = this->gammadot_d(FrobNormDevKirchoffn, this->pcn);
+  
+  if ( std::fpclassify(gmdv) == FP_ZERO && std::fpclassify(gmdd) == FP_ZERO)
+  // if ( fabs(gmdv) < this->ZERO && fabs(gmdd) < this->ZERO )
+  {    
+    this->Dpn = Id2(i,j) * 0 ; // ttl::Delta<2,dim,double>(0);
+    this->pFnp1(i,j) =  this->pFn(i,j);
+    this->pcnp1 = this->pcn;
+    
+  }
+  else
+  {    
+    // 3
+    FTensors Nn = dev( this->Sn );
+    double NnNorm= FrobeniusNorm( Nn );
+    
+    if ( NnNorm > this->INTEGRATOR_TOL )
+      this->Dpn(i,j) = gmdd / NnNorm * Nn(i,j) + 1.0/3.0 * ( this->betaD( this->pcn ) * gmdd - this->betaC( this->pcn ) * gmdv ) * Id2(i,j);
+    else
+      this->Dpn(i,j) = 1.0/3.0 * ( this->betaD( this->pcn ) * gmdd - this->betaC( this->pcn ) * gmdv ) * Id2(i,j);
+        
+    // 4
+    this->pFnp1(i,j) =  this->pFn(i,j) + this->Dpn(i,l) * this->pFn(l,j) * this->TimeIntegrationData->Deltat();
+    
+    // 5
+    this->FindpcFromJpAtStepnP1( Verbose );
+  }
+
+  // 6
+  FTensors buffer = ttl::inverse( this->pFnp1 );
+  // Inv( this->pFnp1, buffer );
+  this->eFnp1(i,j) =  this->Fnp1(i,l) * buffer(l,j);
+  
+  // 7
+  this->SecondPKTensorAtStepnP1( Verbose );
+  
+  // 8
+  this->KSnp1 = this->KirchoffStressTensor( this->pFnp1, this->eFnp1, this->Snp1 );
+  
+  // 9
+  this->sigmanp1 = this->CauchyStressTensor( this->eFnp1, this->Snp1 );
+  
+  return 0;
+  
+}
+
+
+template <int dim>
 unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::FindpcFromJp( const double logJp, double& pcr, double PCTOL, bool Verbose )
 //! NR scheme to estimate pc at step (n+1) from Jp at the same step
 //! Returns the number of iterations required to convergence, whereas the new outcome is stored in pcr and returned as such
@@ -241,8 +335,13 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& up
 //! All prints to std::cout have been removed, the function VerboseStepUpdate( const FTensors& updF, const double dt, bool Verbose )
 //! shall be used in debug mode
 {
-  
-  using namespace ttlindexes;
+  using namespace ttlindexes;  
+  FTensors dF = this->Fnp1(i,j) - this->Fnp1(i,j);
+    
+  if(FrobeniusNorm(dF)<1.0e-12 || dt<1.0e-12)
+  {
+    return this->explicit_integrator(updF, dt, false);
+  }  
   
   // 1: r = 0
   
@@ -262,6 +361,8 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& up
   //     i.e. pFr = inverse(eFr) * Fnp1
   // Sr  is initialized with the amount at the end of step n, since eF and pc are initialized in the same way
   
+  double tol = 1.0e-12;
+  
   FTensors eFr = this->eFn;
   this->CleanFTensors( eFr );
 
@@ -269,6 +370,7 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& up
   
   FTensors Sr = this->Sn;
   FTensors Mr;
+  
   Mr( i,j ) = this->pFn( i,k ) * InvFnp1( k,l ) * eFr( l,j );
   
   double pcr = this->pcn;
@@ -297,7 +399,7 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& up
       
       // Convergence check on the residual for M
       
-      if ( FrobeniusNorm( rm ) / FrobeniusNorm( Mr )  < STAGGEREDTOL  )
+      if ( FrobeniusNorm( rm ) / FrobeniusNorm( Mr )  < tol  )
         break;
       
       // if convergence is not achieved, iterate
@@ -353,14 +455,14 @@ unsigned KMS_IJSS2017_Implicit_BE_Staggered<dim>::StepUpdate( const FTensors& up
     // scheme when the problem is well conditioned, and of the bisection method when the problem is ill conditioned
     
     double logJpr = log( det( pFr ) );
-      FindpcFromJp( logJpr, pcr, STAGGEREDTOL, false ); // Verbose );
+      FindpcFromJp( logJpr, pcr, tol, false ); // Verbose );
     
     // convergence check for the residual of the flow rule,
     // to exit the whole staggered algorithm
     
     ttl::Tensor<2, dim, double> rm = this->RM( dt, this->pFn, this->Fnp1, eFr, Sr, Mr, pcr );
     
-    if ( FrobeniusNorm( rm ) / FrobeniusNorm( Mr )  < STAGGEREDTOL  )
+    if ( FrobeniusNorm( rm ) / FrobeniusNorm( Mr )  < tol  )
       break;
     
   }
@@ -1852,11 +1954,8 @@ int KMS_IJSS2017_Implicit_BE_Staggered<dim>::update_elasticity_dev(double *eF_in
     return err;
   }
   
-  KMS_IJSS2017_Parameters *P = this->Parameters;
   double mu    = this->shearmodulus(pc);
-  double kappa = this->bulkmodulus(pc);
   double trCe  = Trace(Ce);
-  double c_of_pc = this->c(pc);   
   
   // Isochoric contribution
   eS(i,j) = mu*pow(eJ, -2.0/3.0)*(I(i,j) - trCe/3.0*InvCe(i,j));
@@ -1879,10 +1978,7 @@ template <int dim>
 double KMS_IJSS2017_Implicit_BE_Staggered<dim>::compute_dudj(double eJ,
                                                              double pc)
 {  
-  int err = 0;
-
   KMS_IJSS2017_Parameters *P = this->Parameters;
-  double mu    = this->shearmodulus(pc);
   double kappa = this->bulkmodulus(pc);
   double c_of_pc = this->c(pc); 
 
@@ -1896,10 +1992,7 @@ template <int dim>
 double KMS_IJSS2017_Implicit_BE_Staggered<dim>::compute_d2udj2(double eJ,
                                                                double pc)
 {  
-  int err = 0;
-
   KMS_IJSS2017_Parameters *P = this->Parameters;
-  double mu    = this->shearmodulus(pc);
   double kappa = this->bulkmodulus(pc);
   double c_of_pc = this->c(pc); 
                

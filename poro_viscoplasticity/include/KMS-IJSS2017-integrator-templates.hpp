@@ -389,6 +389,21 @@ void KMS_IJSS2017_Integration_Algorithms<dim>::set_data_to_PDE(double *pFnp1_in,
 }
 
 template <int dim>
+void KMS_IJSS2017_Integration_Algorithms<dim>::compute_gammas(double &g_d,
+                                                              double &g_v)
+{
+  FTensors tau = dev( this->KSnp1 );
+  double taubar = FrobeniusNorm( tau );
+  g_d = this->betaD(this->pcnp1)*this->gammadot_d(taubar, this->pcnp1);
+
+
+  double pi = - Trace(this->KSnp1)/3.0;  
+  g_v = 0.0;  
+  if(pi > this->pi_m(this->pcnp1))
+    g_v = this->betaC(this->pcnp1)*this->gammadot_v( pi, this->pcnp1);
+}  
+
+template <int dim>
 unsigned KMS_IJSS2017_Integration_Algorithms<dim>::FindpcFromJpAtStepnP1( bool Verbose )
 //! NR scheme to estimate pc at step (n+1) from Jp at the same step
 //! Returns the number of iterations required to convergence, whereas the new outcome is stored in pcnp1
