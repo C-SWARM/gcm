@@ -182,29 +182,29 @@ int set_J2_plasticity_parameters(MATERIAL_J2_PLASTICITY *J2P, const double hp,
   return err;
 }
 
-void set_properties_crystal_poro_visco_plasticity(MaterialPoroViscoPlasticity *mat,
-                                                  const double yf_M_in,
-                                                  const double yf_alpha_in,
-                                                  const double flr_m_in,
-                                                  const double flr_gamma_dot_0_in,
-                                                  const double hr_a1_in,
-                                                  const double hr_a2_in,
-                                                  const double hr_Lambda1_in,
-                                                  const double hr_Lambda2_in,
-                                                  const double c_inf_in,
-                                                  const double c_Gamma_in,
-                                                  const double d_B_in,
-                                                  const double d_pcb_in,
-                                                  const double mu_0_in,
-                                                  const double mu_1_in,
-                                                  const double K_p0_in,
-                                                  const double K_kappa_in,
-                                                  const double pl_n_in,
-                                                  const double cf_g0_in,
-                                                  const double cf_pcinf_in,
-                                                  const double pc_0_in,
-                                                  const double pJ_in)
-{
+void set_properties_poro_visco_plasticity(MaterialPoroViscoPlasticity *mat,
+                                          const double yf_M_in,
+                                          const double yf_alpha_in,
+                                          const double flr_m_in,
+                                          const double flr_gamma_dot_0_in,
+                                          const double hr_a1_in,
+                                          const double hr_a2_in,
+                                          const double hr_Lambda1_in,
+                                          const double hr_Lambda2_in,
+                                          const double c_inf_in,
+                                          const double c_Gamma_in,
+                                          const double d_B_in,
+                                          const double d_pcb_in,
+                                          const double mu_0_in,
+                                          const double mu_1_in,
+                                          const double K_p0_in,
+                                          const double K_kappa_in,
+                                          const double pl_n_in,
+                                          const double cf_g0_in,
+                                          const double cf_pcinf_in,
+                                          const double pc_0_in,
+                                          const double pJ_in)
+{                       
 
   mat->yf_M            = yf_M_in;
   mat->yf_alpha        = yf_alpha_in;
@@ -229,7 +229,7 @@ void set_properties_crystal_poro_visco_plasticity(MaterialPoroViscoPlasticity *m
   mat->pJ              = pJ_in;
 }
 
-void print_material_property_poro_visco_plasticity(MaterialPoroViscoPlasticity *mat)
+void print_material_property_poro_visco_plasticity(const MaterialPoroViscoPlasticity *mat)
 {
   printf("-----------------------------------------------------------\n");
   printf("Poro-visco-plasticity material properties\n");
