@@ -1,11 +1,16 @@
-bin_PROGRAMS = poro_viscoplasticity
+noinst_PROGRAMS = poro_viscoplasticity \
+                  single_test
 
 poro_viscoplasticity_SOURCES = poro_viscoplasticity.cc F_of_t.cc
-poro_viscoplasticity_LDADD = $(top_builddir)/lib/libConstitutiveModel.la
-poro_viscoplasticity_CPPFLAGS = -I$(top_srcdir)/material/include \
-                                -I$(top_srcdir)/utils/include \
-                                -I$(top_srcdir)/elasticity/include \
-                                -I$(top_srcdir)/crystal_plasticity/include \
-                                -I$(top_srcdir)/local_include/include \
-                                -I$(top_srcdir)/poro_viscoplasticity/include
+single_test_SOURCES          = single_test.cc
+ 
+LDADD = $(top_builddir)/lib/libConstitutiveModel.la
+
+AM_CPPFLAGS = -I$(top_srcdir)/material/include \
+              -I$(top_srcdir)/utils/include \
+              -I$(top_srcdir)/elasticity/include \
+              -I$(top_srcdir)/crystal_plasticity/include \
+              -I$(top_srcdir)/local_include/include \
+              -I$(top_srcdir)/constitutive_model_handle/include \
+              -I$(top_srcdir)/poro_viscoplasticity/include
 

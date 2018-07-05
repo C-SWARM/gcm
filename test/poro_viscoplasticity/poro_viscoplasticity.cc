@@ -11,7 +11,7 @@
 #include <iostream>
 #include <iomanip>
 #include <math.h>
-#include <time.h> // clock_t, clock, CLOCKS_PER_SEC
+#include <sys/time.h> // clock_t, clock, CLOCKS_PER_SEC
 
 #include <ttl/ttl.h>
 
@@ -21,6 +21,7 @@
 #include "hyperelasticity.h"
 #include "crystal_plasticity_integration.h"
 #include "pvp_interface.h"
+#include "GcmSolverInfo.h"
 
 #include"poro_visco_plasticity.h"
 
@@ -47,6 +48,7 @@ public:
   int    dim; 
   double *t_end;
   double *L;
+  bool   implicit;
   SIM_PARAMS()
   {
     dt        = 0.0;
@@ -94,25 +96,40 @@ enum param_names {
   PARAM_NO
 };
 
-int compute_stess(double *sigma_in,
+int print_results(FILE *fp,
                   double *F_in,
                   double *pF_in,
-                  double *S_in,
-                  double pc,
-                  KMS_IJSS2017_Parameters &mat_pvp)
-{
+                  const double pc,
+                  const double t,
+                  const MaterialPoroViscoPlasticity *mat_pvp,
+                  const int print_option){
   int err = 0;
-  Tensor<2,3,double*> S(S_in), F(F_in), pF(pF_in),sigma(sigma_in);
+  
+  Tensor<2,3,double*> F(F_in), pF(pF_in);
   Tensor<2,3,double> eF, pF_I;
   pF_I = ttl::inverse(pF);
   eF = F(i,k)*pF_I(k,j);
   double eJ = ttl::det(eF);
-  
-  err += pvp_intf_update_elasticity(eF.data,pc,S_in,NULL,&mat_pvp,0);
+  double pJ = ttl::det(pF);
+  double  J = ttl::det(F);
 
-  sigma(i,l) = eF(i,j)*S(j,k)*eF(l,k)/eJ;                                        
+  Tensor<2,3,double> S, sigma;
+  poro_visco_plasticity_update_elasticity(S.data, NULL, mat_pvp, eF.data, pc, false);
+  sigma(i,l) = eF(i,j)*S(j,k)*eF(l,k)/eJ;
+
+  if(print_option==1)        
+    printf("%.17e %.17e %.17e\n", t, pc, pJ);
+
+  fprintf(fp, "%.17e %.17e %.17e %.17e %.17e ", t, pc, J, eJ, pJ);
+
+  for(int ia=0; ia<DIM_3x3; ia++)
+    fprintf(fp, "%.17e ", sigma.get(ia));
+    
+  fprintf(fp, "\n");
+  
   return err;
 }
+                  
 /// compute total deformation gradient by integrating velocity gradient
 ///
 /// \param[out] *F   deformation gradient at t
@@ -177,6 +194,8 @@ int F_of_t(double *Fn,
 ///
 /// Input file is formated as:
 /// # is comments
+/// 1 # if 1: implicit 
+/// #      0: explicit
 /// #-------------------------------------------------------------------------
 /// #  yf_M  yf_alpha  flr_m flr_gamma0  hr_a1 hr_a2 hr_Lambda1 hr_Lambda2  c_inf c_Gamma d_B d_pcb mu_0 mu_1 K_p0  K_kappa pl_n cf_g0 cf_pcinf
 /// #-------------------------------------------------------------------------
@@ -193,10 +212,10 @@ int F_of_t(double *Fn,
 ///   0.01 13200
 /// #-------------------------------------------------------------------------
 /// # integration type (method of computing deformation gradient)
-/// # 0: F_of_t(L1,L2,L3, ...) : L = n number of velocity gradient with t(end) to be transient when t reach t_end
-/// # 1: F_of_t(v,dim)         : v = velocity (displacement), dim = 1: uniaxial displacement
-/// #                                                               2: biaxial displacement
-/// #                                                               3: triaxial displacement
+/// # 0: F_of_t(L1,L2,L3, ...) : L = n number of velocity gradient with t(end) to be transient when t reaches t_end
+/// # 1: F_of_t(v,dim)         : v = velocity (F = 1 + v*t), dim = 1: uniaxial displacement
+/// #                                                              2: biaxial displacement
+/// #                                                              3: triaxial displacement
 /// # 2: user define F_of_t    : requres compile
 /// #-------------------------------------------------------------------------
 /// # [integration type] if type==0: number of Ls and list of Ls are followed]
@@ -241,6 +260,15 @@ int read_input_file(const char *input_file,
 
   err += goto_valid_line(fp_sim);
   
+  int implicit;
+  fscanf(fp_sim, "%d", &implicit);
+  
+  sim.implicit = true;
+  if(implicit==0)
+    sim.implicit = false;
+    
+  err += goto_valid_line(fp_sim);
+      
   // read material parameters 
   double param[PARAM_NO];
   for(int ia=0; ia<PARAM_NO; ia++)
@@ -329,6 +357,11 @@ int print_inputs(MaterialPoroViscoPlasticity &mat_pvp,
   cout << "--------------------------------------------" << endl;
   cout << "Numerical parameters" << endl;  
   cout << "--------------------------------------------" << endl;
+  if(sim.implicit)
+    cout << "integration scheme\t: implicit" << endl;
+  else
+    cout << "integration scheme\t: explicit" << endl;
+            
   cout << "output file name\t: "     << sim.file_out  << endl;
   cout << "dt\t\t\t: "               << sim.dt        << endl;
   cout << "number of time steps\t: " << sim.stepno    << endl;
@@ -382,21 +415,23 @@ int main(int argc,char *argv[])
     SIM_PARAMS sim;
 
     err += read_input_file(fn_sim, mat_pvp, sim);
+    
+    GcmSolverInfo solver_info;
+    set_gcm_solver_info(&solver_info, 10, 10, 100, 1.0e-6, 1.0e-6, 1.0e-15, sim.dt);
+
 
     if(print_option>=0)
       err += print_inputs(mat_pvp, sim);
     
     // perform simulations
     double p0 = mat_pvp.K_p0;
-    double h  = 1.0;//pvp_intf_hardening_law(p0, &mat_pvp);
-    double HardLawJp0Coeff = 1.0;//pow(exp(h), 1.0/3.0);
+    double h  = poro_visco_plasticity_hardening(p0, &mat_pvp);
+    double HardLawJp0Coeff = pow(exp(h), 1.0/3.0);
     
     // deformation gradients
     double Fnp1[DIM_3x3], Fn[DIM_3x3], pFnp1[DIM_3x3], pFn[DIM_3x3], L[DIM_3x3];
-    // stress
-    double PKII[DIM_3x3], sigma[DIM_3x3]; 
     double  F0[DIM_3x3] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
-    double   I[DIM_3x3] = {1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0};                   
+    double   I[DIM_3x3] = {1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0};
 
     F0[0] = F0[4] = F0[8] =  HardLawJp0Coeff;
                  
@@ -415,11 +450,14 @@ int main(int argc,char *argv[])
     if(print_option==1)
     {  
       cout << "--------------------------------------------" << endl;
-      cout << "Simulation results ([time] [pC] [pJ] sigma(11))" << endl;  
+      cout << "Simulation results ([time] [pC] [J] [eJ] [pJ] sigma(11~33))" << endl;  
       cout << "--------------------------------------------" << endl;      
     }
-    
+        
     Tensor<2,3,double *> pF(pFnp1);
+    
+    struct timeval start, end;
+    gettimeofday(&start, NULL);    
     
     for(int iA=1; iA<=sim.stepno; iA++)
     {
@@ -428,22 +466,19 @@ int main(int argc,char *argv[])
       // compute total deformation gradient using velocity gradient
       F_of_t(Fn,Fnp1,L,t,sim);
       
-      err += poro_visco_plasticity_integration_algorithm(&mat_pvp, Fnp1, Fn, pFnp1, pFn, &pc_np1, pc_n, sim.dt);      
-      double pJ = ttl::det(pF);
-        
-      //err += compute_stess(sigma,Fnp1,pFnp1,PKII,pc_np1,mat_pvp);        
-
-      if(print_option==1)        
-        printf("%.17e, %.17e %.17e %.17e\n", t, pc_np1, pJ, sigma[0]);
-
-      fprintf(fp, "%.17e, %.17e %.17e %.17e\n", t, pc_np1, pJ, sigma[0]); 
+      err += poro_visco_plasticity_integration_algorithm(&mat_pvp, &solver_info, Fnp1, Fn, pFnp1, pFn, &pc_np1, pc_n, sim.implicit);
+      err += print_results(fp, Fnp1, pFnp1, pc_np1, t, &mat_pvp, print_option); 
+                                               
       memcpy(pFn,pFnp1,sizeof(double)*DIM_3x3);
       memcpy( Fn, Fnp1,sizeof(double)*DIM_3x3);
       pc_n = pc_np1;
-      if(iA==10)
-        break;
     }
     fclose(fp);
+    
+    gettimeofday(&end, NULL);
+    double diff = (double)(end.tv_usec - start.tv_usec)/1000000.0 
+    + (double)(end.tv_sec - start.tv_sec);
+    printf ("Total time: %.4lf s\n", diff);
     
   }
   return err;

@@ -6,6 +6,7 @@
 
 #include"constitutive_model.h"
 #include"poro_visco_plasticity.h"
+#include"GcmSolverInfo.h"
 
 constexpr const int Err = 1;
 
@@ -365,10 +366,7 @@ class PvpIntegrator
   
     double pc_np1;
     double pc_n;
-    double dt;
-    int max_itr;    
-    double tol;
-    double computer_zero;    
+    const GcmSolverInfo *solver_info;   
             
     PvpIntegrator(){
     }
@@ -424,12 +422,8 @@ class PvpIntegrator
     /// \param[in] max_itr_in       maximum number of NR iterations
     /// \param[in] tol_in           NR tolerance
     /// \param[in] computer_zero_in computer zero
-    void set_numerical_parameters(const int max_itr_in = 6,
-                                  const double tol_in = 1.0e-6,
-                                  const double computer_zero_in = 1.0e-15){                                  
-      computer_zero = computer_zero_in;
-      max_itr = max_itr_in;
-      tol     = tol_in;
+    void set_solver_info(const GcmSolverInfo *solver_info_in){
+      solver_info = solver_info_in;
     }
     
     /// compute initial tensors such as eFn, Fr, Fa, N, Fa, A, and M
@@ -477,13 +471,10 @@ class PvpIntegrator
     ///
     /// \param[in] pc_np1_in pc at t(n+1)
     /// \param[in] pc_n_in   pc at t(n)
-    /// \param[in] dt_in     time step size
     void set_scalars(double pc_np1_in,
-                     double pc_n_in,
-                     double dt_in){
+                     double pc_n_in){
       pc_np1 = pc_np1_in;
       pc_n   = pc_n_in;
-      dt     = dt_in;
     }
     
     /// After new values(pFnp1, and pc) are computed, internal state variables can be updated 
@@ -546,7 +537,7 @@ class PvpIntegrator
       double m_hat_eS = sqrt(sv.hat_eS(i,j)*sv.hat_eS(i,j));
       double beta_D = mat.compute_beta_D();
       
-      if(m_hat_eS<computer_zero)
+      if(m_hat_eS<solver_info->max_itr_M)
         psi_d(i,j) = 1.0/3.0*beta_D*I(i,j);
       else
         psi_d(i,j) = sv.hat_eS(i,j)/m_hat_eS + 1.0/3.0*beta_D*I(i,j);
@@ -562,7 +553,7 @@ class PvpIntegrator
                                       const double pc){
       Tensor<2> pD;
       compute_pD(pD, pc);      
-      RM(i,j) = dt*pD(i,j) - I(i,j) + A(i,k)*sv.M(k,j);
+      RM(i,j) = solver_info->dt*pD(i,j) - I(i,j) + A(i,k)*sv.M(k,j);
     }
     
     /// compute residual Rpc
@@ -582,7 +573,7 @@ class PvpIntegrator
     
     template<class T> void compute_d_bar_tau_d_tau(T &d_bar_tau){
 
-      if(sv.bar_tau<computer_zero)
+      if(sv.bar_tau<solver_info->max_itr_M)
         d_bar_tau = {};
       else
         d_bar_tau(i,j) = sv.hat_tau(i,j)/sv.bar_tau;      
@@ -631,7 +622,7 @@ class PvpIntegrator
                                                         const T2 &dSdM){
       double m_hat_eS = sqrt(sv.hat_eS(i,j)*sv.hat_eS(i,j));
       
-      if(m_hat_eS<computer_zero)
+      if(m_hat_eS<solver_info->max_itr_M)
         dpsi_d_dM = {};
       else
         dpsi_d_dM(i,j,k,l) = 1.0/m_hat_eS*(dSdM(i,j,k,l) - I(i,j)*I(m, r)*dSdM(m,r,k,l)/3.0)
@@ -655,7 +646,7 @@ class PvpIntegrator
       // compute dpsi_d_dM
       compute_dpsi_d_dM(dpsi_d_dM, dSdM);
       
-      dRMdM(i,j,k,l) = A(i,k)*I(j,l) + dt*(sv.psi_d(i,j)*dgamma_dot_d_dM(k,l) + gamma_dot_d*dpsi_d_dM(i,j,k,l) 
+      dRMdM(i,j,k,l) = A(i,k)*I(j,l) + solver_info->dt*(sv.psi_d(i,j)*dgamma_dot_d_dM(k,l) + gamma_dot_d*dpsi_d_dM(i,j,k,l) 
                                             + sv.psi_v(i,j)*dgamma_dot_v_dM(k,l));
     }
    
@@ -668,7 +659,7 @@ class PvpIntegrator
     }
     
     double compute_dadpc(const double pc){
-      return 1.0/(1.0+mat.param->yf_alpha)*(1.0 + mat.param->c_inf*mat.param->c_Gamma*exp(-mat.param->c_Gamma*Macaulay(pc, mat.param->d_pcb)));
+      return 1.0/(1.0+mat.param->yf_alpha)*(1.0 + compute_dcdp(pc));
     }
     
     double compute_dg_tau_dp(const double pc){
@@ -688,7 +679,7 @@ class PvpIntegrator
       double pow_of_c = pow(mat.param->c_inf/(mat.param->c_inf - c), mat.param->pl_n);
 
       double coeff_U_alpha1 = dcdp*pow_of_c*mat.param->K_kappa*(1.0 + mat.param->pl_n*(mat.param->K_p0 + c)/(mat.param->c_inf - c));
-      double coeff_U_alpha2 = dcdp*(mat.param->K_p0 + c)/pow_of_c/(mat.param->c_inf - c)*mat.param->pl_n;
+      double coeff_U_alpha2 = dcdp*(mat.param->K_p0 + c)/(mat.param->c_inf - c)*mat.param->pl_n;
             
       double coeff_U_beta  = mat.compute_coeff_U_beta(c);
 
@@ -699,8 +690,10 @@ class PvpIntegrator
     template<class T1, class T2> void compute_d_tau_dp(T1 &d_tau_dp,
                                                        const T2 &dSdp,
                                                        const double pc){
-      double dpJdp = sv.pJ*compute_dHdp(pc);          
-      d_tau_dp(i,j) = sv.eFnp1(i,k)*(dpJdp*sv.eS(k,l) + sv.pJ*dSdp(k,l))*sv.eFnp1(j,l);
+      double dHdp = compute_dHdp(pc);                                 
+//      double dpJdp = sv.pJ*dHdp(pc);          
+//      d_tau_dp(i,j) = sv.eFnp1(i,k)*(dpJdp*sv.eS(k,l) + sv.pJ*dSdp(k,l))*sv.eFnp1(j,l);
+      d_tau_dp(i,j) = sv.eFnp1(i,k)*sv.pJ*dSdp(k,l)*sv.eFnp1(j,l) - dHdp*sv.tau(i,j);
     }
     
     template<class T> double compute_d_bar_tau_dp(T &d_tau_dp){
@@ -723,7 +716,7 @@ class PvpIntegrator
       // compute dSdp d_tau_dp
       double d = mat.compute_d(pc);
       
-      Tensor<2> dSdp, d_tau_dp;;
+      Tensor<2> dSdp, d_tau_dp;
       compute_dSdp(dSdp, pc);
       compute_d_tau_dp(d_tau_dp, dSdp, pc);
       
@@ -737,7 +730,7 @@ class PvpIntegrator
       double d_bar_tau_g_tau_dp = compute_d_bar_tau_g_tau_dp(d_tau_dp,pc);
 
       double dgamma_dot_d_pc = factor1*dddp;      
-      if(sv.bar_tau>computer_zero)        
+      if(sv.bar_tau>solver_info->max_itr_M)        
       {
         double factor2 = mat.param->flr_gamma_dot_0*(1.0-1.0/d)/mat.param->flr_m*pow_bar_tau_g_tau/bar_tau_g_tau;
         dgamma_dot_d_pc += factor2*d_bar_tau_g_tau_dp;
@@ -750,7 +743,7 @@ class PvpIntegrator
       Tensor<2> d_psi_d_dp = {};
       double m_hat_eS = sqrt(sv.hat_eS(i,j)*sv.hat_eS(i,j));
 
-      if(m_hat_eS>computer_zero){        
+      if(m_hat_eS>solver_info->max_itr_M){        
         double tr_dSdp = dSdp(i,i);      
         double hat_eS_dSdp = 1.0/m_hat_eS/m_hat_eS/m_hat_eS*sv.hat_eS(i,j)*dSdp(i,j);
         d_psi_d_dp(i,j) = 1.0/m_hat_eS*(dSdp(i,j) - tr_dSdp*I(i,j)/3.0) - hat_eS_dSdp*sv.hat_eS(i,j);
@@ -763,7 +756,7 @@ class PvpIntegrator
 
       double dadpc = compute_dadpc(pc);
       double dcdp = compute_dcdp(pc);
-      double dpidp = -I(i,j)*d_tau_dp(i,j)/3.0;
+      double dpidp = -d_tau_dp(i,i)/3.0;
       double dpi_mdp = dadpc - dcdp;
       double dg_pidp = mat.compute_b(sv.pi, sv.pi_m)*dadpc;
       double dgamma_dot_v_pc = factor3*(dpidp*0.0 - dpi_mdp - (sv.pi-sv.pi_m)/sv.g_pi*dg_pidp);
@@ -774,7 +767,7 @@ class PvpIntegrator
       // compute d_psi_v_dp
       Tensor<2> d_psi_v_dp = mat.param->cf_g0/(3.0*mat.param->cf_pcinf)*I(i,j);
 
-      dRMdp(i,j) = dt*(dgamma_dot_d_pc*sv.psi_d(i,j) + gamma_dot_d*d_psi_d_dp(i,j) + dgamma_dot_v_pc*sv.psi_v(i,j) + gamma_dot_v*d_psi_v_dp(i,j));      
+      dRMdp(i,j) = solver_info->dt*(dgamma_dot_d_pc*sv.psi_d(i,j) + gamma_dot_d*d_psi_d_dp(i,j) + dgamma_dot_v_pc*sv.psi_v(i,j) + gamma_dot_v*d_psi_v_dp(i,j));      
     }
     
     template<class T> void compute_pD(T &pD,
@@ -993,7 +986,7 @@ class PvpIntegrator
       Tensor<4> U3;      
       double m_eSd = sqrt(sv.hat_eS(i,j)*sv.hat_eS(i,j));
       double one_over_m_eSd = 0.0;
-      if(m_eSd>computer_zero)
+      if(m_eSd>solver_info->max_itr_M)
       U3(i,j,k,l) = one_over_m_eSd*chi(i,j,k,l) + (IoxI(i,j,r,s) + eSdoxeSd(i,j,r,s))*chi(r,s,k,l);
       
       // compute D(gamma_dot_v) part
@@ -1012,10 +1005,10 @@ class PvpIntegrator
       // compute D(psi_v) part
       double factor4 = mat.param->cf_g0/3.0/mat.param->cf_pcinf*one_over_dH;
             
-      U(i,j,k,l) = A(i,k)*I(j,l) + dt*sv.psi_d(i,j)*(U1(k,l) + U2(k,l))
-                                 + dt*gamma_dot_d*U3(i,j,k,l)
-                                 + dt*factor3*sv.psi_v(i,j)*(U4(k,l) + U5(k,l) + U6(k,l))
-                                 - dt*gamma_dot_v*factor4*I(i,j)*sv.MI(l,k);
+      U(i,j,k,l) = A(i,k)*I(j,l) + solver_info->dt*sv.psi_d(i,j)*(U1(k,l) + U2(k,l))
+                                 + solver_info->dt*gamma_dot_d*U3(i,j,k,l)
+                                 + solver_info->dt*factor3*sv.psi_v(i,j)*(U4(k,l) + U5(k,l) + U6(k,l))
+                                 - solver_info->dt*gamma_dot_v*factor4*I(i,j)*sv.MI(l,k);
                                       
       // start computing B(right side);
       
@@ -1036,8 +1029,8 @@ class PvpIntegrator
           U7(i,j,k,l) = one_over_m_eSd*sv.L(i,j,k,l) + (IoxI(i,j,r,s)+ eSdoxeSd(i,j,r,s))*sv.L(r,s,k,l);
           double factor5 = d_bar_tau_d_tau(i,j)*GradeFnMeSeF_sym(i,j) + eFTdtaueF(i,j)*sv.L(i,j,k,l)*eFGradeFnM_sym(k,l);
           double factor6 = I(i,j)*GradeFnMeSeF_sym(i,j) + eC(i,j)*sv.L(i,j,k,l)*eFGradeFnM_sym(k,l);
-          B(i,j) = -dt*factor2*factor5*sv.psi_d(i,j) - dt*gamma_dot_v*U7(i,j,k,l)*eFGradeFnM_sym(k,l)
-                   -dt*sv.pJ/3.0*factor3*factor6*sv.psi_v(i,j);
+          B(i,j) = -solver_info->dt*factor2*factor5*sv.psi_d(i,j) - solver_info->dt*gamma_dot_v*U7(i,j,k,l)*eFGradeFnM_sym(k,l)
+                   -solver_info->dt*sv.pJ/3.0*factor3*factor6*sv.psi_v(i,j);
           
           try{
             dMdu = ttl::solve( U, B);
@@ -1056,36 +1049,33 @@ class PvpIntegrator
 };
 
 int poro_visco_plasticity_integration_algorithm_staggered(const MaterialPoroViscoPlasticity *mat,
-                                                           double *Fnp1_in,
-                                                           double *Fn_in,
-                                                           double *pFnp1_in,
-                                                           double *pFn_in,
-                                                           double *pc_np1,
-                                                           const double pc_n,
-                                                           const double dt){
+                                                          const GcmSolverInfo *solver_info,
+                                                          double *Fnp1_in,
+                                                          double *Fn_in,
+                                                          double *pFnp1_in,
+                                                          double *pFn_in,
+                                                          double *pc_np1,
+                                                          const double pc_n){
   int err = 0;
   PvpIntegrator pvp;
   pvp.set_pvp_material_parameters(mat);       
   pvp.set_tenosrs(Fnp1_in, Fn_in, pFnp1_in, pFn_in); 
 
-  pvp.set_scalars(*pc_np1, pc_n, dt);         
-  pvp.set_numerical_parameters(100, 1.0e-7);  
+  pvp.set_scalars(*pc_np1, pc_n);
+  pvp.set_solver_info(solver_info);
                                                             
-  unsigned MAX_N_OF_STAGGERED_ITERATIONS = 10;
   TensorA<2> pFnp1(pFnp1_in);
   
-  pvp.update_StateVariables(pc_n);
-    
-  double tol = 1.0e-12;  
+  pvp.update_StateVariables(pc_n);    
   double pcr = pc_n;
       
-  unsigned it=0;
+  int it=0;
   
   // staggered solution for M      
-  while (it < MAX_N_OF_STAGGERED_ITERATIONS){
+  while (it < solver_info->max_itr_stag){
     it++;
-    unsigned itMr=0;
-    while(itMr < MAX_N_OF_STAGGERED_ITERATIONS){
+    int itMr=0;
+    while(itMr < solver_info->max_itr_stag){
       
      Tensor<2> rm;
      pvp.compute_RM(rm, pcr);
@@ -1093,7 +1083,7 @@ int poro_visco_plasticity_integration_algorithm_staggered(const MaterialPoroVisc
      double norm_rm = sqrt(rm(i,j)*rm(i,j));
      double norm_Mr = sqrt(pvp.sv.M(i,j)*pvp.sv.M(i,j));
       
-      if ( norm_rm / norm_Mr < tol  )
+      if ( norm_rm / norm_Mr < solver_info->tol_M  )
         break;
       
       // if convergence is not achieved, iterate
@@ -1134,28 +1124,28 @@ int poro_visco_plasticity_integration_algorithm_staggered(const MaterialPoroVisc
     double norm_rm = sqrt(rm(i,j)*rm(i,j));
     double norm_Mr = sqrt(pvp.sv.M(i,j)*pvp.sv.M(i,j));    
     
-    if (norm_rm/norm_Mr < tol  )
+    if (norm_rm/norm_Mr < solver_info->tol_M  )
       break;    
   }
   return err;
 }
 
 int poro_visco_plasticity_integration_algorithm_implicit_00(const MaterialPoroViscoPlasticity *mat,
-                                                         double *Fnp1,
-                                                         double *Fn,
-                                                         double *pFnp1,
-                                                         double *pFn,
-                                                         double *pc_np1,
-                                                         const double pc_n,
-                                                         const double dt)
+                                                            const GcmSolverInfo *solver_info,
+                                                            double *Fnp1,
+                                                            double *Fn,
+                                                            double *pFnp1,
+                                                            double *pFn,
+                                                            double *pc_np1,
+                                                            const double pc_n)
 {
   int err = 0;
   
   PvpIntegrator pvp;
   pvp.set_pvp_material_parameters(mat);
   pvp.set_tenosrs(Fnp1, Fn, pFnp1, pFn);
-  pvp.set_scalars(*pc_np1, pc_n, dt);
-  pvp.set_numerical_parameters(100, 1.0e-7);
+  pvp.set_scalars(*pc_np1, pc_n);
+  pvp.set_solver_info(solver_info);
   
   Matrix_10x10<1> R, du;
   Matrix_10x10<2> K = {}, KI = {};
@@ -1165,11 +1155,11 @@ int poro_visco_plasticity_integration_algorithm_implicit_00(const MaterialPoroVi
   double pc = pc_n;
   double dpc = 0.0;
   
-  double norm_R_0 = pvp.computer_zero;
-  double norm_R   = pvp.computer_zero;
-  double eng_norm_0 = pvp.computer_zero;
+  double norm_R_0 = pvp.solver_info->max_itr_M;
+  double norm_R   = pvp.solver_info->max_itr_M;
+  double eng_norm_0 = pvp.solver_info->max_itr_M;
         
-  for(int iA = 0; iA<pvp.max_itr; iA++){
+  for(int iA = 0; iA<pvp.solver_info->max_itr_M; iA++){
     
     if(iA==0){
       pvp.update_StateVariables(pc);  
@@ -1234,12 +1224,12 @@ int poro_visco_plasticity_integration_algorithm_implicit_00(const MaterialPoroVi
       }
     }  
   
- //   if(iA==pvp.max_itr-1)
-    //printf("(%d/%d)residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", iA, pvp.max_itr, norm_R, norm_R_0, norm_R/norm_R_0);
+ //   if(iA==pvp.solver_info->max_itr_M-1)
+    //printf("(%d/%d)residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", iA, pvp.solver_info->max_itr_M, norm_R, norm_R_0, norm_R/norm_R_0);
 
-    if(norm_R/norm_R_0<pvp.tol)
+    if(norm_R/norm_R_0<pvp.solver_info->tol_M)
     {
-      printf("(%d/%d)residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", iA, pvp.max_itr, norm_R, norm_R_0, norm_R/norm_R_0);  
+      printf("(%d/%d)residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", iA, pvp.solver_info->max_itr_M, norm_R, norm_R_0, norm_R/norm_R_0);  
       break;
     }
     
@@ -1253,10 +1243,10 @@ int poro_visco_plasticity_integration_algorithm_implicit_00(const MaterialPoroVi
     if(iA==0)
       eng_norm_0 = eng_norm;
 
-    if(eng_norm_0<pvp.computer_zero)
-      eng_norm_0 = pvp.computer_zero;
+    if(eng_norm_0<pvp.solver_info->max_itr_M)
+      eng_norm_0 = pvp.solver_info->max_itr_M;
       
-    if(eng_norm/eng_norm_0 < pvp.tol*pvp.tol)
+    if(eng_norm/eng_norm_0 < (pvp.solver_info->tol_M)*(pvp.solver_info->tol_M))
     {
       if(1)
         printf("converge on energe norm %e\n", eng_norm/eng_norm_0);
@@ -1271,13 +1261,13 @@ int poro_visco_plasticity_integration_algorithm_implicit_00(const MaterialPoroVi
 }
 
 int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroViscoPlasticity *mat,
+                                                         const GcmSolverInfo *solver_info,
                                                          double *Fnp1,
                                                          double *Fn,
                                                          double *pFnp1,
                                                          double *pFn,
                                                          double *pc_np1,
-                                                         const double pc_n,
-                                                         const double dt)
+                                                         const double pc_n)
 {
   int err = 0;
   
@@ -1288,25 +1278,25 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
   if(fabs(dHdp)<1.0e-6)
   {
     //printf("dHdp = %.17e\n", dHdp);  
-    return poro_visco_plasticity_integration_algorithm_staggered(mat, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n, dt);
+    return poro_visco_plasticity_integration_algorithm_staggered(mat, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n);
   }
   pvp.set_tenosrs(Fnp1, Fn, pFnp1, pFn);
-  pvp.set_scalars(*pc_np1, pc_n, dt);
-  pvp.set_numerical_parameters(100, 1.0e-7);
+  pvp.set_scalars(*pc_np1, pc_n);
+  pvp.set_solver_info(solver_info);
   
   Matrix_10x10<1> R, du;
-  Matrix_10x10<2> K = {}, KI = {};
+  Matrix_10x10<2> K = {};
   
   Tensor<2> dM;
   
   double pc = pc_n;
   double dpc = 0.0;
   
-  double norm_R_0 = pvp.computer_zero;
-  double norm_R   = pvp.computer_zero;
-  double eng_norm_0 = pvp.computer_zero;
+  double norm_R_0 = pvp.solver_info->max_itr_M;
+  double norm_R   = pvp.solver_info->max_itr_M;
+  double eng_norm_0 = pvp.solver_info->max_itr_M;
         
-  for(int iA = 0; iA<pvp.max_itr; iA++){
+  for(int iA = 0; iA<pvp.solver_info->max_itr_M; iA++){
     
     if(iA==0){
       pvp.update_StateVariables(pc);  
@@ -1316,12 +1306,10 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
   
     pvp.compute_left_matrix(K, pc);
   
-    try
-    {
-      KI(i,j) = ttl::inverse(K)(i,j);  // attempt to take the inverse
+    try{
+      du = ttl::solve(K,R);
     }
-    catch(const int inverseException)  // no inverse exists
-    {
+    catch(const int solve_err){  // no solution
       if(1)
         printf( "Matrix is singular. The solution (Poro-visco-plasticity) could not be computed.\n");
 
@@ -1329,63 +1317,28 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
       break;
     } 
   
-    du(i) = -KI(i,j)*R(j);
-  
     for(int ia=0; ia<DIM_3x3; ++ia)
-      dM.data[ia] = du.get(ia);
+      dM.data[ia] = -du.get(ia);
 
-    dpc = du.get(DIM_3x3);      
-
-    Tensor<2> temp_M = pvp.sv.M(i,j);
-    double temp_pc   = pc;  
+    dpc = -du.get(DIM_3x3);      
     
-    if(0){
-      printf("(0):pc_np1(%e) = pc_n(%e) + dpc(%e) \n", pc + dpc, pc, dpc);      
-      Tensor<2> pFnp1, MI, M;
-      M = pvp.sv.M(i,j) + dM(i,j);
-      err += inv(M, MI);
-      TensorA<2> pFn(pvp.Fs.pFn);            
-      pFnp1(i,j) = MI(i,k)*pFn(k,l)*pvp.N(l,j);      
-      double pJ = ttl::det(pFnp1);
-      double temp_pc_np1 = pvp.compute_pc(pc, pJ);
-      dpc = temp_pc_np1 - pc;
-      du.get(DIM_3x3) = dpc;
-      printf("(0):pc_np1(%e) = pc_n(%e) + dpc(%e) \n", pc + dpc, pc, dpc);
-    }    
-          
-    double weight = 1.0;
+    pvp.sv.M(i,j) += dM(i,j);
+    pc += dpc;
+    pvp.update_StateVariables(pc);
+    pvp.compute_right_vector(R, pc);
 
-//    for(int iB=0; iB<64; iB++){
-      pvp.sv.M(i,j) = temp_M(i,j) + weight*dM(i,j);
-      pc = temp_pc + weight*dpc;
-//      pc = 5.96484303156484756e+01;
-      
-      pvp.update_StateVariables(pc);
-      pvp.compute_right_vector(R, pc);
+    double temp_norm_R = sqrt(R(i)*R(i));
+    norm_R = temp_norm_R;
 
-      double temp_norm_R = sqrt(R(i)*R(i));
-//      if(temp_norm_R<norm_R){        
-        norm_R = temp_norm_R;
-//        break;
-//      } else {
-//        weight = weight/2.0;
-        //printf("reduced weight (%e) is applied |R(try)| = %e, |R| = %e\n", weight, temp_norm_R, norm_R);
-//      }
-//    }  
-  
- //   if(iA==pvp.max_itr-1)
-    //printf("pc_np1(%e) = pc_n(%e) + dpc(%e) \n", temp_pc + weight*dpc, temp_pc, weight*dpc);
-    //printf("(%d/%d)residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", iA, pvp.max_itr, norm_R, norm_R_0, norm_R/norm_R_0);
+    if(solver_info->debug)
+      printf("(%d/%d)residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", iA, pvp.solver_info->max_itr_M, norm_R, norm_R_0, norm_R/norm_R_0);
 
-    if(norm_R/norm_R_0<pvp.tol)
-    {
-     // printf("(%d/%d)residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", iA, pvp.max_itr, norm_R, norm_R_0, norm_R/norm_R_0); 
+    if(norm_R/norm_R_0<pvp.solver_info->tol_M)
       break;
-    }
     
     double eng_norm = 0.0;
     for(int ia=0; ia<=DIM_3x3; ia++)
-      eng_norm += weight*R.data[ia]*du.data[ia];
+      eng_norm += R.data[ia]*du.data[ia];
     
     eng_norm = fabs(eng_norm);
 
@@ -1393,10 +1346,10 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
     if(iA==0)
       eng_norm_0 = eng_norm;
 
-    if(eng_norm_0<pvp.computer_zero)
-      eng_norm_0 = pvp.computer_zero;
+    if(eng_norm_0<pvp.solver_info->max_itr_M)
+      eng_norm_0 = pvp.solver_info->max_itr_M;
       
-    if(eng_norm/eng_norm_0 < pvp.tol*pvp.tol)
+    if(eng_norm/eng_norm_0 < (pvp.solver_info->tol_M)*(pvp.solver_info->tol_M))
     {
       if(0)
         printf("converge on energe norm %e\n", eng_norm/eng_norm_0);
@@ -1411,21 +1364,20 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
 }
 
 int poro_visco_plasticity_integration_algorithm_implicit_yy(const MaterialPoroViscoPlasticity *mat,
-                                                         double *Fnp1,
-                                                         double *Fn,
-                                                         double *pFnp1,
-                                                         double *pFn,
-                                                         double *pc_np1,
-                                                         const double pc_n,
-                                                         const double dt)
+                                                            const GcmSolverInfo *solver_info,
+                                                            double *Fnp1,
+                                                            double *Fn,
+                                                            double *pFnp1,
+                                                            double *pFn,
+                                                            double *pc_np1,
+                                                            const double pc_n)
 {
   int err = 0;
   
   PvpIntegrator pvp;
   pvp.set_pvp_material_parameters(mat);
   pvp.set_tenosrs(Fnp1, Fn, pFnp1, pFn);
-  pvp.set_scalars(*pc_np1, pc_n, dt);
-  pvp.set_numerical_parameters(100, 1.0e-12);
+  pvp.set_scalars(*pc_np1, pc_n);
   
   Matrix_10x10<1> R, du;
   Matrix_10x10<2> K = {}, KI = {};
@@ -1442,10 +1394,10 @@ int poro_visco_plasticity_integration_algorithm_implicit_yy(const MaterialPoroVi
   double pc = pc_n;//pvp.compute_pc(pc_n, pJ);        
   double dpc = 0.0;
   
-  double norm_R_0 = pvp.computer_zero;
-  double norm_R   = pvp.computer_zero;
+  double norm_R_0 = pvp.solver_info->max_itr_M;
+  double norm_R   = pvp.solver_info->max_itr_M;
         
-  for(int iA = 0; iA<pvp.max_itr; iA++){
+  for(int iA = 0; iA<pvp.solver_info->max_itr_M; iA++){
     
     if(iA==0){
       pvp.update_StateVariables(pc);  
@@ -1483,9 +1435,9 @@ int poro_visco_plasticity_integration_algorithm_implicit_yy(const MaterialPoroVi
 
     double norm_R = sqrt(R(i)*R(i));
   
-    printf("(%d/%d)residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", iA, pvp.max_itr, norm_R, norm_R_0, norm_R/norm_R_0);
+    printf("(%d/%d)residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", iA, pvp.solver_info->max_itr_M, norm_R, norm_R_0, norm_R/norm_R_0);
 
-    if(norm_R/norm_R_0<pvp.tol)
+    if(norm_R/norm_R_0<pvp.solver_info->tol_M)
       break;
   } 
   *pc_np1 = pc;
@@ -1494,27 +1446,27 @@ int poro_visco_plasticity_integration_algorithm_implicit_yy(const MaterialPoroVi
 }
 
 int poro_visco_plasticity_integration_algorithm_explicit(const MaterialPoroViscoPlasticity *mat,
+                                                         const GcmSolverInfo *solver_info,
                                                          double *Fnp1,
                                                          double *Fn,
                                                          double *pFnp1,
                                                          double *pFn,
                                                          double *pc_np1,
-                                                         const double pc_n,
-                                                         const double dt)
+                                                         const double pc_n)
                                                          
 {  
   PvpIntegrator pvp;
   pvp.set_pvp_material_parameters(mat);
   pvp.set_tenosrs(Fnp1, Fn, pFnp1, pFn);
-  pvp.set_scalars(*pc_np1, pc_n, dt);
-  pvp.set_numerical_parameters(100, 1.0e-12);
+  pvp.set_scalars(*pc_np1, pc_n);
+  pvp.set_solver_info(solver_info);
   
   pvp.update_StateVariables(pc_n);
   Tensor<2> pD;
   TensorA<2> pF(pFnp1), pF_n(pFn);
   
   pvp.compute_pD(pD, pc_n);
-  pF(i,j) = pF_n(i,j) + dt*pD(i,k)*pF_n(k,j);
+  pF(i,j) = pF_n(i,j) + solver_info->dt*pD(i,k)*pF_n(k,j);
   double pJ = ttl::det(pF);
   *pc_np1 = pvp.compute_pc(pc_n, pJ);
   
@@ -1522,19 +1474,19 @@ int poro_visco_plasticity_integration_algorithm_explicit(const MaterialPoroVisco
 }
 
 int poro_visco_plasticity_integration_algorithm(const MaterialPoroViscoPlasticity *mat,
+                                                const GcmSolverInfo *solver_info,
                                                 double *Fnp1,
                                                 double *Fn,
                                                 double *pFnp1,
                                                 double *pFn,
                                                 double *pc_np1,
                                                 const double pc_n,
-                                                const double dt,
                                                 const bool is_implicit)
 {
   if(is_implicit)
-    return poro_visco_plasticity_integration_algorithm_implicit(mat, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n, dt);
+    return poro_visco_plasticity_integration_algorithm_implicit(mat, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n);
   else
-    return poro_visco_plasticity_integration_algorithm_explicit(mat, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n, dt);
+    return poro_visco_plasticity_integration_algorithm_explicit(mat, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n);
 }
 void poro_visco_plasticity_update_elasticity(double *eS_out,
                                              double *L_out,
@@ -1561,4 +1513,30 @@ double poro_visco_plasticity_hardening(const double pc,
                                        const MaterialPoroViscoPlasticity *param){
   PvpMaterial mat(param);
   return mat.compute_H(pc);
+}
+
+void pvp_intf_compute_gammas(double &gamma_dot_d,
+                             double &gamma_dot_v,
+                             double *Fnp1_in,
+                             double *Fn_in,
+                             double *pFnp1_in,
+                             double *pFn_in,
+                             const double pc_np1,
+                             const double pc_n,
+                             const double dt,
+                             const MaterialPoroViscoPlasticity *param,
+                             const GcmSolverInfo *solver_info)
+{
+  
+  PvpIntegrator pvp;
+  pvp.set_pvp_material_parameters(param);       
+  pvp.set_tenosrs(Fnp1_in, Fn_in, pFnp1_in, pFn_in); 
+
+  pvp.set_scalars(pc_np1, pc_n);
+  pvp.set_solver_info(solver_info);
+  pvp.update_StateVariables(pc_np1);
+    
+  double d = pvp.mat.compute_d(pc_np1);
+  gamma_dot_d = pvp.mat.compute_gamma_dot_d(d, pvp.sv.bar_tau, pvp.sv.g_tau);
+  gamma_dot_v = pvp.mat.compute_gamma_dot_v(pvp.sv.pi, pvp.sv.pi_m, pvp.sv.g_pi);  
 }

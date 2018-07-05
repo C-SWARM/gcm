@@ -1,0 +1,53 @@
+Usage: ./poro_viscoplasticity [FILE_SIM] [print_option]
+[FILE_SIM]     : file path with simulation parameters\n";
+[print_option] : if -1: do not print anything\n";
+                 if  0: print input parameters\n";
+                 if  1: print input and outputs\n";
+                 default is 0\n"; 
+
+[FILE_SIM] format is below:
+
+# is comments
+1 # if 1: implicit 
+#      0: explicit
+#-------------------------------------------------------------------------
+#  yf_M  yf_alpha  flr_m flr_gamma0  hr_a1 hr_a2 hr_Lambda1 hr_Lambda2  c_inf c_Gamma d_B d_pcb mu_0 mu_1 K_p0  K_kappa pl_n cf_g0 cf_pcinf
+#-------------------------------------------------------------------------
+   1.0   1.1       0.15  0.0005      0.62  0.37  77.22      13.01       15    0.01    0.2 5.8   30   60   0.063 0.008   2    1     290
+#-------------------------------------------------------------------------
+# Analysis name
+#-------------------------------------------------------------------------
+  iso_compaction
+#
+#-------------------------------------------------------------------------
+# time steps
+# dt     number_of_time_steps
+#-------------------------------------------------------------------------
+  0.01 13200
+#-------------------------------------------------------------------------
+# integration type (method of computing deformation gradient)
+# 0: F_of_t(L1,L2,L3, ...) : L = n number of velocity gradient with t(end) to be transient when t reaches t_end
+# 1: F_of_t(v,dim)         : v = velocity (F = 1 + v*t), dim = 1: uniaxial displacement
+#                                                              2: biaxial displacement
+#                                                              3: triaxial displacement
+# 2: user define F_of_t    : requres compile
+#-------------------------------------------------------------------------
+# [integration type] if type==0: number of Ls and list of Ls are followed]
+#                    if type==1: velocity and dim are followed
+0 3
+# 1 50e-6 1
+#-------------------------------------------------------------------------
+# 1st velocity gradient
+# L11 L12 L13 L21 L22  L23 L31 L32 L33  t_end
+#-------------------------------------------------------------------------
+  -0.005  0.0    0.0
+   0.0   -0.005  0.0
+   0.0    0.0   -0.005 42.6
+
+  -0.005  0.005  0.0
+   0.0   -0.005  0.0
+   0.0    0.0   -0.005 46.0
+
+   0.0    0.005  0.0
+   0.0    0.0    0.0
+   0.0    0.0    0.0 132.0 
