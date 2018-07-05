@@ -537,7 +537,7 @@ class PvpIntegrator
       double m_hat_eS = sqrt(sv.hat_eS(i,j)*sv.hat_eS(i,j));
       double beta_D = mat.compute_beta_D();
       
-      if(m_hat_eS<solver_info->max_itr_M)
+      if(m_hat_eS<solver_info->computer_zero)
         psi_d(i,j) = 1.0/3.0*beta_D*I(i,j);
       else
         psi_d(i,j) = sv.hat_eS(i,j)/m_hat_eS + 1.0/3.0*beta_D*I(i,j);
@@ -573,7 +573,7 @@ class PvpIntegrator
     
     template<class T> void compute_d_bar_tau_d_tau(T &d_bar_tau){
 
-      if(sv.bar_tau<solver_info->max_itr_M)
+      if(sv.bar_tau<solver_info->computer_zero)
         d_bar_tau = {};
       else
         d_bar_tau(i,j) = sv.hat_tau(i,j)/sv.bar_tau;      
@@ -622,7 +622,7 @@ class PvpIntegrator
                                                         const T2 &dSdM){
       double m_hat_eS = sqrt(sv.hat_eS(i,j)*sv.hat_eS(i,j));
       
-      if(m_hat_eS<solver_info->max_itr_M)
+      if(m_hat_eS<solver_info->computer_zero)
         dpsi_d_dM = {};
       else
         dpsi_d_dM(i,j,k,l) = 1.0/m_hat_eS*(dSdM(i,j,k,l) - I(i,j)*I(m, r)*dSdM(m,r,k,l)/3.0)
@@ -730,7 +730,7 @@ class PvpIntegrator
       double d_bar_tau_g_tau_dp = compute_d_bar_tau_g_tau_dp(d_tau_dp,pc);
 
       double dgamma_dot_d_pc = factor1*dddp;      
-      if(sv.bar_tau>solver_info->max_itr_M)        
+      if(sv.bar_tau>solver_info->computer_zero)        
       {
         double factor2 = mat.param->flr_gamma_dot_0*(1.0-1.0/d)/mat.param->flr_m*pow_bar_tau_g_tau/bar_tau_g_tau;
         dgamma_dot_d_pc += factor2*d_bar_tau_g_tau_dp;
@@ -743,7 +743,7 @@ class PvpIntegrator
       Tensor<2> d_psi_d_dp = {};
       double m_hat_eS = sqrt(sv.hat_eS(i,j)*sv.hat_eS(i,j));
 
-      if(m_hat_eS>solver_info->max_itr_M){        
+      if(m_hat_eS>solver_info->computer_zero){        
         double tr_dSdp = dSdp(i,i);      
         double hat_eS_dSdp = 1.0/m_hat_eS/m_hat_eS/m_hat_eS*sv.hat_eS(i,j)*dSdp(i,j);
         d_psi_d_dp(i,j) = 1.0/m_hat_eS*(dSdp(i,j) - tr_dSdp*I(i,j)/3.0) - hat_eS_dSdp*sv.hat_eS(i,j);
@@ -986,7 +986,7 @@ class PvpIntegrator
       Tensor<4> U3;      
       double m_eSd = sqrt(sv.hat_eS(i,j)*sv.hat_eS(i,j));
       double one_over_m_eSd = 0.0;
-      if(m_eSd>solver_info->max_itr_M)
+      if(m_eSd>solver_info->computer_zero)
       U3(i,j,k,l) = one_over_m_eSd*chi(i,j,k,l) + (IoxI(i,j,r,s) + eSdoxeSd(i,j,r,s))*chi(r,s,k,l);
       
       // compute D(gamma_dot_v) part
@@ -1155,9 +1155,9 @@ int poro_visco_plasticity_integration_algorithm_implicit_00(const MaterialPoroVi
   double pc = pc_n;
   double dpc = 0.0;
   
-  double norm_R_0 = pvp.solver_info->max_itr_M;
-  double norm_R   = pvp.solver_info->max_itr_M;
-  double eng_norm_0 = pvp.solver_info->max_itr_M;
+  double norm_R_0 = pvp.solver_info->computer_zero;
+  double norm_R   = pvp.solver_info->computer_zero;
+  double eng_norm_0 = pvp.solver_info->computer_zero;
         
   for(int iA = 0; iA<pvp.solver_info->max_itr_M; iA++){
     
@@ -1243,8 +1243,8 @@ int poro_visco_plasticity_integration_algorithm_implicit_00(const MaterialPoroVi
     if(iA==0)
       eng_norm_0 = eng_norm;
 
-    if(eng_norm_0<pvp.solver_info->max_itr_M)
-      eng_norm_0 = pvp.solver_info->max_itr_M;
+    if(eng_norm_0<pvp.solver_info->computer_zero)
+      eng_norm_0 = pvp.solver_info->computer_zero;
       
     if(eng_norm/eng_norm_0 < (pvp.solver_info->tol_M)*(pvp.solver_info->tol_M))
     {
@@ -1292,9 +1292,9 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
   double pc = pc_n;
   double dpc = 0.0;
   
-  double norm_R_0 = pvp.solver_info->max_itr_M;
-  double norm_R   = pvp.solver_info->max_itr_M;
-  double eng_norm_0 = pvp.solver_info->max_itr_M;
+  double norm_R_0 = pvp.solver_info->computer_zero;
+  double norm_R   = pvp.solver_info->computer_zero;
+  double eng_norm_0 = pvp.solver_info->computer_zero;
         
   for(int iA = 0; iA<pvp.solver_info->max_itr_M; iA++){
     
@@ -1346,8 +1346,8 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
     if(iA==0)
       eng_norm_0 = eng_norm;
 
-    if(eng_norm_0<pvp.solver_info->max_itr_M)
-      eng_norm_0 = pvp.solver_info->max_itr_M;
+    if(eng_norm_0<pvp.solver_info->computer_zero)
+      eng_norm_0 = pvp.solver_info->computer_zero;
       
     if(eng_norm/eng_norm_0 < (pvp.solver_info->tol_M)*(pvp.solver_info->tol_M))
     {
@@ -1394,8 +1394,8 @@ int poro_visco_plasticity_integration_algorithm_implicit_yy(const MaterialPoroVi
   double pc = pc_n;//pvp.compute_pc(pc_n, pJ);        
   double dpc = 0.0;
   
-  double norm_R_0 = pvp.solver_info->max_itr_M;
-  double norm_R   = pvp.solver_info->max_itr_M;
+  double norm_R_0 = pvp.solver_info->computer_zero;
+  double norm_R   = pvp.solver_info->computer_zero;
         
   for(int iA = 0; iA<pvp.solver_info->max_itr_M; iA++){
     
