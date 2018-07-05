@@ -1,12 +1,7 @@
-//
-//  main.cpp
-//  ttl-learning
-//
-//  Created by alberto salvadori on 12/8/16.
-//  Copyright © 2016 alberto salvadori. All rights reserved.
-//
-
-// include
+/// Authors:
+/// Sangmin Lee, [1], <slee43@nd.edu>
+/// 
+/// [1] University of Notre Dame, Notre Dame, IN
 
 #include <iostream>
 #include <iomanip>
@@ -15,8 +10,6 @@
 
 #include <ttl/ttl.h>
 
-#include "KMS-IJSS2017.h"
-#include "ttl-tools.h"
 #include "crystal_plasticity_integration.h"
 #include"poro_visco_plasticity.h"
 
@@ -37,13 +30,13 @@ int main(int argc,char *argv[])
   MaterialPoroViscoPlasticity mat_pvp;
 
   GcmSolverInfo solver_info;
-  set_gcm_solver_info(&solver_info, 10, 10, 100, 1.0e-6, 1.0e-6, 1.0e-15, dt);  
+  set_gcm_solver_info(&solver_info, 10, 10, 100, 1.0e-6, 1.0e-6, 1.0e-15);  
   solver_info.debug = true;
 
   set_properties_poro_visco_plasticity(&mat_pvp, 1.0,   1.1,   0.15,  0.0005, 0.62, 
                                                  0.37, 77.22, 13.01, 15,      0.01, 
                                                  0.2,   5.8,  30,    60,      0.063, 
-                                                 0.008, 2,     1,   290,      0.063, 1.0);
+                                                 0.008, 2,     1,   290);
                                                  
   double Fnp1[DIM_3x3]  = {9.88552621283890209e-01,0.00000000000000000e+00,0.00000000000000000e+00,
                            0.00000000000000000e+00,9.88552621283890209e-01,0.00000000000000000e+00,
@@ -64,7 +57,7 @@ int main(int argc,char *argv[])
   double pc_n = 2.66406654285421629;
   double pc_np1 = pc_n;
   
-  int err = poro_visco_plasticity_integration_algorithm(&mat_pvp, &solver_info, Fnp1, Fn, pFnp1, pFn, &pc_np1, pc_n);
+  int err = poro_visco_plasticity_integration_algorithm(&mat_pvp, &solver_info, Fnp1, Fn, pFnp1, pFn, &pc_np1, pc_n, dt);
 
 
   double sol_pFnp1[DIM_3x3] = {9.99047716772131000e-01,0.00000000000000000e+00,0.00000000000000000e+00,

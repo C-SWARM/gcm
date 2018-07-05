@@ -201,9 +201,7 @@ void set_properties_poro_visco_plasticity(MaterialPoroViscoPlasticity *mat,
                                           const double K_kappa_in,
                                           const double pl_n_in,
                                           const double cf_g0_in,
-                                          const double cf_pcinf_in,
-                                          const double pc_0_in,
-                                          const double pJ_in)
+                                          const double cf_pcinf_in)
 {                       
 
   mat->yf_M            = yf_M_in;
@@ -225,8 +223,6 @@ void set_properties_poro_visco_plasticity(MaterialPoroViscoPlasticity *mat,
   mat->pl_n            = pl_n_in;
   mat->cf_g0           = cf_g0_in;
   mat->cf_pcinf        = cf_pcinf_in;
-  mat->pc_0            = pc_0_in;
-  mat->pJ              = pJ_in;
 }
 
 void print_material_property_poro_visco_plasticity(const MaterialPoroViscoPlasticity *mat)
@@ -252,116 +248,5 @@ void print_material_property_poro_visco_plasticity(const MaterialPoroViscoPlasti
   printf("  :                            = %e\n", mat->K_kappa);   
   printf("Power law exponent             = %e\n", mat->pl_n);      
   printf("Compaction function parameters = %e\n", mat->cf_g0);     
-  printf("  :                            = %e\n", mat->cf_pcinf);  
-  printf("initial pc                     = %e\n", mat->pc_0);      
-  printf("initial plastic deformation    = %e\n", mat->pJ);        
+  printf("  :                            = %e\n", mat->cf_pcinf);        
 }
-
-// class KMS_IJSS2017_Parameters
-// *****************************
-
-
-// Constructors
-// ------------
-
-//! This constructor reads and assigns the material parameters
-//! It also assigns the smoothMacaulay bool variable, based on which the functions c and d will
-//! use a smoothed Macauley brackets or not.
-KMS_IJSS2017_Parameters::KMS_IJSS2017_Parameters(double M, double alpha, double m, double gamma_0, double a1, double a2, double L1, double L2,
-                                                 double cinf, double Gamma, double B, double pcb, double mu0, double mu1, double p0, double kappa,
-                                                 double n, double g0, double pcinf, bool smM)
-{
-  this->set_parameters(M, alpha, m, gamma_0, a1, a2, L1, L2,
-                       cinf, Gamma, B, pcb, mu0, mu1, p0, kappa,
-                       n, g0, pcinf, smM);
-};
-
-
-//! This constructor reads and assigns the material parameters
-//! It also assigns the smoothMacaulay bool variable, based on which the functions c and d will
-//! use a smoothed Macauley brackets or not.
-void KMS_IJSS2017_Parameters::set_parameters(double M, double alpha, double m, double gamma_0, double a1, double a2, double L1, double L2,
-                                             double cinf, double Gamma, double B, double pcb, double mu0, double mu1, double p0, double kappa,
-                                             double n, double g0, double pcinf, bool smM)
-{
-  
-  // assigning the material parameters
-  yf_M = M;
-  yf_alpha = alpha;
-  flr_m = m;
-  flr_gamma0=gamma_0;
-  hr_a1 = a1;
-  hr_a2 = a2;
-  hr_Lambda1 = L1;
-  hr_Lambda2 = L2;
-  c_inf = cinf;
-  c_Gamma = Gamma;
-  d_B = B;
-  d_pcb = pcb;
-  mu_0 = mu0;
-  mu_1 = mu1;
-  K_p0 = p0;
-  K_kappa = kappa;
-  pl_n = n;
-  cf_g0 = g0;
-  cf_pcinf = pcinf;
-  
-  // smooth Macauley brackets
-  smMbrackets = smM;
-};
-
-
-void KMS_IJSS2017_Parameters::Checks( bool Verbose )
-//! This method performs some checks and prints warnings, foreseeing issues in the
-//! KMS_IJSS2017 model integration
-{
-  if ( Verbose && ( hr_a1 * hr_Lambda1 <=0 || hr_a2 * hr_Lambda2 <=0 ) )
-  {
-    std::cout << " WARNING: KMS_IJSS2017_Explicit<dim>::FindpcFromJp( ) - The sign of the first derivative is not defined.";
-    std::cout << " Code did not abort but outcomes might be wrong. \n";
-  };
-};
-
-
-
-
-// IO - methods
-// ------------
-
-void KMS_IJSS2017_Parameters::AsAString( std::string& str)
-//! This method prints the model features as a string
-{
-  
-  str += "\n";
-  str += "  KMS_IJSS2017 model material parameters:\n";
-  str += "   Yield function parameters:\n";
-  str += "    M = " + std::to_string(yf_M);
-  str += ", alpha = " + std::to_string(yf_alpha);
-  str += "\n   Flow rule parameters:\n";
-  str += "    m = " + std::to_string(flr_m);
-  str += ", gamma0 = " + std::to_string(flr_gamma0);
-  str += "\n   Hardening rule parameters:\n";
-  str += "    a1 = " + std::to_string(hr_a1);
-  str += ", a2 = " + std::to_string(hr_a2);
-  str += ", Lambda1 = " + std::to_string(hr_Lambda1);
-  str += ", Lambda2 = " + std::to_string(hr_Lambda2);
-  str += "\n   Cohesion rule parameters:\n";
-  str += "    c_inf = " + std::to_string(c_inf);
-  str += ", Gamma = " + std::to_string(c_Gamma);
-  str += "\n   Transition rule parameters:\n";
-  str += "    B = " + std::to_string(d_B);
-  str += ", pcb = " + std::to_string(d_pcb);
-  str += "\n   Shear rule parameters:\n";
-  str += "    mu_0 = " + std::to_string(mu_0);
-  str += ", mu_1 = " + std::to_string(mu_1);
-  str += "\n   Bulk rule parameters:\n";
-  str += "    p_0 = " + std::to_string(K_p0);
-  str += ", kappa = " + std::to_string(K_kappa);
-  str += "\n   Power law exponent:\n";
-  str += "    n = " + std::to_string(pl_n);
-  str += "\n   Compaction function parameters:\n";
-  str += "    g0 = " + std::to_string(cf_g0);
-  str += ", pcinf = " + std::to_string(cf_pcinf);
-  
-  str += "\n";
-};                                                              

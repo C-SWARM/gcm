@@ -9,7 +9,6 @@ typedef struct
   double tol_hardening;
   double tol_M;
   double computer_zero;
-  double dt;
   int max_subdivision;
   bool debug;
 } GcmSolverInfo;
@@ -20,6 +19,5 @@ void set_gcm_solver_info(GcmSolverInfo *solver_info,
                         const int max_itr_M,
                         const double tol_hardening, 
                         const double tol_M, 
-                        const double computer_zero,
-                        const double dt);
+                        const double computer_zero);
 #endif

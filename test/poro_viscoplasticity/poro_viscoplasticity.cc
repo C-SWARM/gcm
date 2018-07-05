@@ -1,26 +1,18 @@
-//
-//  main.cpp
-//  ttl-learning
-//
-//  Created by alberto salvadori on 12/8/16.
-//  Copyright © 2016 alberto salvadori. All rights reserved.
-//
-
-// include
+/// Authors:
+/// Sangmin Lee, [1], <slee43@nd.edu>
+/// 
+/// [1] University of Notre Dame, Notre Dame, IN
 
 #include <iostream>
 #include <iomanip>
 #include <math.h>
 #include <sys/time.h> // clock_t, clock, CLOCKS_PER_SEC
-
+#include <string.h>
 #include <ttl/ttl.h>
 
-#include "KMS-IJSS2017.h"
-#include "ttl-tools.h"
 #include "input_file_read_handles.h"
 #include "hyperelasticity.h"
 #include "crystal_plasticity_integration.h"
-#include "pvp_interface.h"
 #include "GcmSolverInfo.h"
 
 #include"poro_visco_plasticity.h"
@@ -293,8 +285,7 @@ int read_input_file(const char *input_file,
                                        param[PARAM_K_kappa],
                                        param[PARAM_pl_n],
                                        param[PARAM_cf_g0],
-                                       param[PARAM_cf_pcinf],
-                                       param[PARAM_K_p0], 1.0);
+                                       param[PARAM_cf_pcinf]);
   
   err += goto_valid_line(fp_sim);
   fscanf(fp_sim, "%s", sim.file_out);
@@ -417,7 +408,7 @@ int main(int argc,char *argv[])
     err += read_input_file(fn_sim, mat_pvp, sim);
     
     GcmSolverInfo solver_info;
-    set_gcm_solver_info(&solver_info, 10, 10, 100, 1.0e-6, 1.0e-6, 1.0e-15, sim.dt);
+    set_gcm_solver_info(&solver_info, 10, 10, 100, 1.0e-6, 1.0e-6, 1.0e-15);
 
 
     if(print_option>=0)
@@ -466,7 +457,7 @@ int main(int argc,char *argv[])
       // compute total deformation gradient using velocity gradient
       F_of_t(Fn,Fnp1,L,t,sim);
       
-      err += poro_visco_plasticity_integration_algorithm(&mat_pvp, &solver_info, Fnp1, Fn, pFnp1, pFn, &pc_np1, pc_n, sim.implicit);
+      err += poro_visco_plasticity_integration_algorithm(&mat_pvp, &solver_info, Fnp1, Fn, pFnp1, pFn, &pc_np1, pc_n, sim.dt, sim.implicit);
       err += print_results(fp, Fnp1, pFnp1, pc_np1, t, &mat_pvp, print_option); 
                                                
       memcpy(pFn,pFnp1,sizeof(double)*DIM_3x3);

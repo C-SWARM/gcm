@@ -1,6 +1,7 @@
 #ifndef H__H__MATERIAL_PROPERTIES__H__H
 #define H__H__MATERIAL_PROPERTIES__H__H
 
+#include<stdio.h>
 #include "slip_system.h"
 
 #ifdef __cplusplus
@@ -164,73 +165,13 @@ void set_properties_poro_visco_plasticity(MaterialPoroViscoPlasticity *mat,
                                           const double K_kappa_in,
                                           const double pl_n_in,
                                           const double cf_g0_in,
-                                          const double cf_pcinf_in,
-                                          const double pc_0_in,
-                                          const double pJ_in);
+                                          const double cf_pcinf_in);
 
 void print_material_property_poro_visco_plasticity(const MaterialPoroViscoPlasticity *mat);                                          
 
 #ifdef __cplusplus
 }
 #endif /* #ifdef __cplusplus */
-
-#include <iostream>
-
-class KMS_IJSS2017_Parameters
-/*!
- \brief This class contains and handles the parameters for the KMS-IJSS2017 model
- */
-{
-  template <int dim> friend class KMS_IJSS2017;
-  template <int dim> friend class KMS_IJSS2017_Integration_Algorithms;
-  template <int dim> friend class KMS_IJSS2017_Explicit_FE;
-  template <int dim> friend class KMS_IJSS2017_Implicit;
-  template <int dim> friend class KMS_IJSS2017_Implicit_BE;
-  template <int dim> friend class KMS_IJSS2017_Implicit_BE_Staggered;
-
-private:
-  
-  // Material parameters
-  double yf_M, yf_alpha;                          //!< 1. Yield function parameters
-  double flr_m, flr_gamma0;                       //!< 2. Flow rule parameters
-  double hr_a1, hr_a2, hr_Lambda1, hr_Lambda2;    //!< 3. Hardening rule parameters
-  double c_inf, c_Gamma;                          //!< 4. Cohesion rule parameters
-  double d_B, d_pcb;                              //!< 5. Transition rule parameters
-  double mu_0, mu_1;                              //!< 6. Shear modulus parameters
-  double K_p0, K_kappa;                           //!< 7. Bulk modulus parameters
-  double pl_n;                                    //!< 8. Power law exponent
-  double cf_g0, cf_pcinf;                         //!< 9. Compaction function parameters
-  
-  bool smMbrackets;                               //!< smooth Mackauley brackets flag
-  
-public:
-  
-  // Constructors
-  
-  KMS_IJSS2017_Parameters(){};                    //!< Constructor with material parameters
-  KMS_IJSS2017_Parameters                         //!< Constructor with material parameters
-          (double, double, double, double, double, double, double, double,
-           double, double, double, double, double, double, double, double,
-           double, double, double, bool);
-  
-  double get_K_p0(void)
-  {
-    return K_p0;
-  };
-  void set_parameters(double, double, double, double, double, double, double, double,
-                      double, double, double, double, double, double, double, double,
-                      double, double, double, bool);
-  
-  // Destructors
-  ~KMS_IJSS2017_Parameters(){};
-  
-  // Methods
-  void Checks( bool );                            //!< This method performs some checks and prints warnings,
-  
-  // IO
-  void AsAString( std::string& );                 //!< This method prints the model features as a string
-  
-};
 
 class MATERIAL_CONSTITUTIVE_MODEL
 {
@@ -239,7 +180,7 @@ class MATERIAL_CONSTITUTIVE_MODEL
     MATERIAL_CRYSTAL_PLASTICITY *mat_p;
     MATERIAL_CONTINUUM_DAMAGE   *mat_d;
     MATERIAL_J2_PLASTICITY      *mat_J2p;
-    KMS_IJSS2017_Parameters     *mat_pvp;
+    MaterialPoroViscoPlasticity *mat_pvp;
 
   MATERIAL_CONSTITUTIVE_MODEL()
   {

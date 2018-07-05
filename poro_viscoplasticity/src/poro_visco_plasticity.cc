@@ -366,7 +366,8 @@ class PvpIntegrator
   
     double pc_np1;
     double pc_n;
-    const GcmSolverInfo *solver_info;   
+    const GcmSolverInfo *solver_info;
+    double dt;  
             
     PvpIntegrator(){
     }
@@ -422,8 +423,10 @@ class PvpIntegrator
     /// \param[in] max_itr_in       maximum number of NR iterations
     /// \param[in] tol_in           NR tolerance
     /// \param[in] computer_zero_in computer zero
-    void set_solver_info(const GcmSolverInfo *solver_info_in){
+    void set_solver_info(const GcmSolverInfo *solver_info_in,
+                         const double dt_in){
       solver_info = solver_info_in;
+      dt          = dt_in;
     }
     
     /// compute initial tensors such as eFn, Fr, Fa, N, Fa, A, and M
@@ -553,7 +556,7 @@ class PvpIntegrator
                                       const double pc){
       Tensor<2> pD;
       compute_pD(pD, pc);      
-      RM(i,j) = solver_info->dt*pD(i,j) - I(i,j) + A(i,k)*sv.M(k,j);
+      RM(i,j) = dt*pD(i,j) - I(i,j) + A(i,k)*sv.M(k,j);
     }
     
     /// compute residual Rpc
@@ -646,7 +649,7 @@ class PvpIntegrator
       // compute dpsi_d_dM
       compute_dpsi_d_dM(dpsi_d_dM, dSdM);
       
-      dRMdM(i,j,k,l) = A(i,k)*I(j,l) + solver_info->dt*(sv.psi_d(i,j)*dgamma_dot_d_dM(k,l) + gamma_dot_d*dpsi_d_dM(i,j,k,l) 
+      dRMdM(i,j,k,l) = A(i,k)*I(j,l) + dt*(sv.psi_d(i,j)*dgamma_dot_d_dM(k,l) + gamma_dot_d*dpsi_d_dM(i,j,k,l) 
                                             + sv.psi_v(i,j)*dgamma_dot_v_dM(k,l));
     }
    
@@ -767,7 +770,7 @@ class PvpIntegrator
       // compute d_psi_v_dp
       Tensor<2> d_psi_v_dp = mat.param->cf_g0/(3.0*mat.param->cf_pcinf)*I(i,j);
 
-      dRMdp(i,j) = solver_info->dt*(dgamma_dot_d_pc*sv.psi_d(i,j) + gamma_dot_d*d_psi_d_dp(i,j) + dgamma_dot_v_pc*sv.psi_v(i,j) + gamma_dot_v*d_psi_v_dp(i,j));      
+      dRMdp(i,j) = dt*(dgamma_dot_d_pc*sv.psi_d(i,j) + gamma_dot_d*d_psi_d_dp(i,j) + dgamma_dot_v_pc*sv.psi_v(i,j) + gamma_dot_v*d_psi_v_dp(i,j));      
     }
     
     template<class T> void compute_pD(T &pD,
@@ -946,10 +949,10 @@ class PvpIntegrator
       // compute D(psi_v) part
       double factor4 = mat.param->cf_g0/3.0/mat.param->cf_pcinf*one_over_dH;
             
-      U(i,j,k,l) = A(i,k)*I(j,l) + solver_info->dt*sv.psi_d(i,j)*(U1(k,l) + U2(k,l))
-                                 + solver_info->dt*gamma_dot_d*U3(i,j,k,l)
-                                 + solver_info->dt*factor3*sv.psi_v(i,j)*(U4(k,l) + U5(k,l) + U6(k,l))
-                                 - solver_info->dt*gamma_dot_v*factor4*I(i,j)*sv.MI(l,k);
+      U(i,j,k,l) = A(i,k)*I(j,l) + dt*sv.psi_d(i,j)*(U1(k,l) + U2(k,l))
+                                 + dt*gamma_dot_d*U3(i,j,k,l)
+                                 + dt*factor3*sv.psi_v(i,j)*(U4(k,l) + U5(k,l) + U6(k,l))
+                                 - dt*gamma_dot_v*factor4*I(i,j)*sv.MI(l,k);
                                       
       // start computing B(right side);
       
@@ -970,8 +973,8 @@ class PvpIntegrator
           U7(i,j,k,l) = one_over_m_eSd*sv.L(i,j,k,l) + (IoxI(i,j,r,s)+ eSdoxeSd(i,j,r,s))*sv.L(r,s,k,l);
           double factor5 = d_bar_tau_d_tau(i,j)*GradeFnMeSeF_sym(i,j) + eFTdtaueF(i,j)*sv.L(i,j,k,l)*eFGradeFnM_sym(k,l);
           double factor6 = I(i,j)*GradeFnMeSeF_sym(i,j) + eC(i,j)*sv.L(i,j,k,l)*eFGradeFnM_sym(k,l);
-          B(i,j) = -solver_info->dt*factor2*factor5*sv.psi_d(i,j) - solver_info->dt*gamma_dot_v*U7(i,j,k,l)*eFGradeFnM_sym(k,l)
-                   -solver_info->dt*sv.pJ/3.0*factor3*factor6*sv.psi_v(i,j);
+          B(i,j) = -dt*factor2*factor5*sv.psi_d(i,j) - dt*gamma_dot_v*U7(i,j,k,l)*eFGradeFnM_sym(k,l)
+                   -dt*sv.pJ/3.0*factor3*factor6*sv.psi_v(i,j);
           
           try{
             dMdu = ttl::solve( U, B);
@@ -996,14 +999,15 @@ int poro_visco_plasticity_integration_algorithm_staggered(const MaterialPoroVisc
                                                           double *pFnp1_in,
                                                           double *pFn_in,
                                                           double *pc_np1,
-                                                          const double pc_n){
+                                                          const double pc_n,
+                                                          const double dt_in){
   int err = 0;
   PvpIntegrator pvp;
   pvp.set_pvp_material_parameters(mat);       
   pvp.set_tenosrs(Fnp1_in, Fn_in, pFnp1_in, pFn_in); 
 
   pvp.set_scalars(*pc_np1, pc_n);
-  pvp.set_solver_info(solver_info);
+  pvp.set_solver_info(solver_info, dt_in);
                                                             
   TensorA<2> pFnp1(pFnp1_in);
   
@@ -1078,7 +1082,8 @@ int poro_visco_plasticity_integration_algorithm_implicit_00(const MaterialPoroVi
                                                             double *pFnp1,
                                                             double *pFn,
                                                             double *pc_np1,
-                                                            const double pc_n)
+                                                            const double pc_n,
+                                                            const double dt_in)
 {
   int err = 0;
   
@@ -1086,7 +1091,7 @@ int poro_visco_plasticity_integration_algorithm_implicit_00(const MaterialPoroVi
   pvp.set_pvp_material_parameters(mat);
   pvp.set_tenosrs(Fnp1, Fn, pFnp1, pFn);
   pvp.set_scalars(*pc_np1, pc_n);
-  pvp.set_solver_info(solver_info);
+  pvp.set_solver_info(solver_info, dt_in);
   
   Matrix_10x10<1> R, du;
   Matrix_10x10<2> K = {}, KI = {};
@@ -1208,7 +1213,8 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
                                                          double *pFnp1,
                                                          double *pFn,
                                                          double *pc_np1,
-                                                         const double pc_n)
+                                                         const double pc_n,
+                                                         const double dt_in)
 {
   int err = 0;
   
@@ -1219,11 +1225,11 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
   if(fabs(dHdp)<1.0e-6)
   {
     //printf("dHdp = %.17e\n", dHdp);  
-    return poro_visco_plasticity_integration_algorithm_staggered(mat, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n);
+    return poro_visco_plasticity_integration_algorithm_staggered(mat, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n, dt_in);
   }
   pvp.set_tenosrs(Fnp1, Fn, pFnp1, pFn);
   pvp.set_scalars(*pc_np1, pc_n);
-  pvp.set_solver_info(solver_info);
+  pvp.set_solver_info(solver_info, dt_in);
   
   Matrix_10x10<1> R, du;
   Matrix_10x10<2> K = {};
@@ -1393,21 +1399,22 @@ int poro_visco_plasticity_integration_algorithm_explicit(const MaterialPoroVisco
                                                          double *pFnp1,
                                                          double *pFn,
                                                          double *pc_np1,
-                                                         const double pc_n)
+                                                         const double pc_n,
+                                                         const double dt_in)
                                                          
 {  
   PvpIntegrator pvp;
   pvp.set_pvp_material_parameters(mat);
   pvp.set_tenosrs(Fnp1, Fn, pFnp1, pFn);
   pvp.set_scalars(*pc_np1, pc_n);
-  pvp.set_solver_info(solver_info);
+  pvp.set_solver_info(solver_info, dt_in);
   
   pvp.update_StateVariables(pc_n);
   Tensor<2> pD;
   TensorA<2> pF(pFnp1), pF_n(pFn);
   
   pvp.compute_pD(pD, pc_n);
-  pF(i,j) = pF_n(i,j) + solver_info->dt*pD(i,k)*pF_n(k,j);
+  pF(i,j) = pF_n(i,j) + pvp.dt*pD(i,k)*pF_n(k,j);
   double pJ = ttl::det(pF);
   *pc_np1 = pvp.compute_pc(pc_n, pJ);
   
@@ -1422,12 +1429,13 @@ int poro_visco_plasticity_integration_algorithm(const MaterialPoroViscoPlasticit
                                                 double *pFn,
                                                 double *pc_np1,
                                                 const double pc_n,
+                                                const double dt_in,
                                                 const bool is_implicit)
 {
   if(is_implicit)
-    return poro_visco_plasticity_integration_algorithm_implicit(mat, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n);
+    return poro_visco_plasticity_integration_algorithm_implicit(mat, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n, dt_in);
   else
-    return poro_visco_plasticity_integration_algorithm_explicit(mat, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n);
+    return poro_visco_plasticity_integration_algorithm_explicit(mat, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n, dt_in);
 }
 
 /// compute conforming pressure for given plastic deformation 
@@ -1441,7 +1449,7 @@ double poro_visco_plasticity_compute_pc(double pJ,
 {
   PvpIntegrator pvp;
   pvp.set_pvp_material_parameters(mat);
-  pvp.set_solver_info(solver_info);
+  pvp.set_solver_info(solver_info, 0.0);
         
   return pvp.compute_pc(pc, pJ);
 }
@@ -1534,7 +1542,7 @@ void poro_visco_plasticity_intf_compute_gammas(double &gamma_dot_d,
                                                double *pFn_in,
                                                const double pc_np1,
                                                const double pc_n,
-                                               const double dt,
+                                               const double dt_in,
                                                const MaterialPoroViscoPlasticity *param,
                                                const GcmSolverInfo *solver_info)
 {
@@ -1543,7 +1551,7 @@ void poro_visco_plasticity_intf_compute_gammas(double &gamma_dot_d,
   pvp.set_tenosrs(Fnp1_in, Fn_in, pFnp1_in, pFn_in); 
 
   pvp.set_scalars(pc_np1, pc_n);
-  pvp.set_solver_info(solver_info);
+  pvp.set_solver_info(solver_info, dt_in);
   pvp.update_StateVariables(pc_np1);
     
   double d = pvp.mat.compute_d(pc_np1);
@@ -1551,4 +1559,29 @@ void poro_visco_plasticity_intf_compute_gammas(double &gamma_dot_d,
   gamma_dot_v = pvp.mat.compute_gamma_dot_v(pvp.sv.pi, pvp.sv.pi_m, pvp.sv.g_pi);  
 }
 
+void poro_visco_plasticity_compute_dMdu(double *dMdUs,
+                                        const double *Grad_us,
+                                        const MaterialPoroViscoPlasticity *mat,
+                                        const GcmSolverInfo *solver_info,
+                                        double *Fnp1_in,
+                                        double *Fn_in,
+                                        double *pFnp1_in,
+                                        double *pFn_in,
+                                        const double pc_np1,
+                                        const double pc_n,
+                                        const double dt,
+                                        const int nne,
+                                        const int ndofn){
+  PvpIntegrator pvp;
+  pvp.set_pvp_material_parameters(mat);       
+  pvp.set_tenosrs(Fnp1_in, Fn_in, pFnp1_in, pFn_in); 
+
+  pvp.set_scalars(pc_np1, pc_n);
+  pvp.set_solver_info(solver_info, dt);
+                                                            
+  TensorA<2> pFnp1(pFnp1_in);
+  
+  pvp.update_StateVariables(pc_n);
+  //pvp.compute_dMdu(dMdUs, pc_np1, Grad_us, nne, ndofn);                                           
+}
 
