@@ -10,9 +10,7 @@
 #include "flowlaw.h"
 #include "hardening.h"
 #include "construct_linearization_parts.h"
-
-#define D_GAMMA_D 0.005
-#define D_GAMMA_TOL 1.25
+#include "constitutive_model_handle.h"
 
 #include <math.h>
 
@@ -395,7 +393,7 @@ int Newton_Rapson_hardening(double *g_np1, double *eFnp1_in,
   return err;
 }
 
-int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_out, double *lambda,
+int staggered_Newton_Rapson_compute(double *pFnp1_out, double *g_out, double *lambda,
                             double *pFn_in, double *Fn_in, double *Fnp1_in, double *hFn_in, double *hFnp1_in,
                             double g_n, double dt,
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
@@ -414,8 +412,8 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   double g_0, err_g = 0.0, err_g_n = 0.0;
   g_0 = (mat->mat_p)->g0;
 
-  TensorA<2> pFnp1(pFnp1_out), M(M_out), pFn(pFn_in), Fn(Fn_in), Fnp1(Fnp1_in), hFn(hFn_in), hFnp1(hFnp1_in);
-  Tensor<2> eFn,eFnI,pFnI,FnI,Fr,FrI,Fa,MI,hFnI,eFnp1,hFnp1I,A,N,NI;
+  TensorA<2> pFnp1(pFnp1_out), pFn(pFn_in), Fn(Fn_in), Fnp1(Fnp1_in), hFn(hFn_in), hFnp1(hFnp1_in);
+  Tensor<2> M, eFn,eFnI,pFnI,FnI,Fr,FrI,Fa,MI,hFnI,eFnp1,hFnp1I,A,N,NI;
 
   err += inv(pFn,pFnI);
   err += inv(hFn,hFnI);
@@ -519,7 +517,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *M_out, double *g_
   return err;
 }
 
-int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double *g_out, double *lambda,
+int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *g_out, double *lambda,
                             double *pFn_in, double *Fn_in, double *Fnp1_in, double *hFn_in, double *hFnp1_in,
                             double g_n, double dt,
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
@@ -554,7 +552,7 @@ int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double
     is_sub_cnvg = 0;
     F_s = Fn_s(i,j) + dF(i,j);
 
-    err += staggered_Newton_Rapson_compute(pFnp1_out, M_out, g_out,lambda,
+    err += staggered_Newton_Rapson_compute(pFnp1_out, g_out,lambda,
                                          pFn_s.data,
                                           Fn_s.data,
                                            F_s.data,
@@ -589,7 +587,6 @@ int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double
 /// time step size used. The subdivision step size increases 2, 4, 8, 18, ... upto solver_infor.max_subdivision.
 ///
 /// \param[out] pFnp1_out deformation gradient (plastic) at time step = n + 1
-/// \param[out] M_out deformation gradient (pFr_I) at time step = n + 1
 /// \param[out] g_out updated hardening at time step =  n + 1
 /// \param[out] lambda updated Lagrange multiplier at time step =  n + 1
 /// \param[in] pFn_in deformation gradient (plastic) at time step = n
@@ -603,7 +600,7 @@ int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *M_out, double
 /// \param[in] elasticity object to compute elasticity (stress)
 /// \param[in] solver_info defines numerical parameters
 /// \return non-zero on interal error
-int staggered_Newton_Rapson_generalized(double *pFnp1_out, double *M_out, double *g_out, double *lambda,
+int staggered_Newton_Rapson_generalized(double *pFnp1_out, double *g_out, double *lambda,
                                         double *pFn_in, double *Fn_in, double *Fnp1_in, double *hFn_in, double *hFnp1_in,
                                         double g_n, double dt,
                                         MATERIAL_CONSTITUTIVE_MODEL *mat,
@@ -614,7 +611,7 @@ int staggered_Newton_Rapson_generalized(double *pFnp1_out, double *M_out, double
   double lambda_in = *lambda;
   int is_it_cnvg = 0;
   double d_gamma;
-  err += staggered_Newton_Rapson_compute(pFnp1_out, M_out, g_out,lambda,
+  err += staggered_Newton_Rapson_compute(pFnp1_out, g_out,lambda,
                                          pFn_in,Fn_in,Fnp1_in,hFn_in,hFnp1_in,g_n,dt,mat,
                                          elasticity,solver_info,&d_gamma,&is_it_cnvg);
 
@@ -643,7 +640,7 @@ int staggered_Newton_Rapson_generalized(double *pFnp1_out, double *M_out, double
       *lambda = lambda_in;
       err = 0;
       is_it_cnvg = 0;
-      err += staggered_Newton_Rapson_subdivision(pFnp1_out, M_out, g_out,lambda,
+      err += staggered_Newton_Rapson_subdivision(pFnp1_out, g_out,lambda,
                                                  pFn_in,Fn_in,Fnp1_in,hFn_in,hFnp1_in,g_n,dt,
                                                  mat,elasticity,solver_info,stepno,&d_gamma,&is_it_cnvg);
       stepno *= 2;
@@ -695,7 +692,6 @@ int Fnp1_Implicit(double *Fnp1_out, double *Fn_in, double *L_in, double dt)
 /// same as staggered_Newton_Rapson_generalized except not includs thermal expansions.
 ///
 /// \param[out] pFnp1_out deformation gradient (plastic) at time step = n + 1
-/// \param[out] M_out deformation gradient (pFr_I) at time step = n + 1
 /// \param[out] g_out updated hardening at time step =  n + 1
 /// \param[out] lambda updated Lagrange multiplier at time step =  n + 1
 /// \param[in] pFn_in deformation gradient (plastic) at time step = n
@@ -707,7 +703,7 @@ int Fnp1_Implicit(double *Fnp1_out, double *Fn_in, double *L_in, double dt)
 /// \param[in] elasticity object to compute elasticity (stress)
 /// \param[in] solver_info defines numerical parameters
 /// \return non-zero on interal error
-int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, double *lambda,
+int staggered_Newton_Rapson(double *pFnp1_out, double *g_out, double *lambda,
                             double *pFn_in, double *Fn_in, double *Fnp1_in,
                             double g_n, double dt,
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
@@ -722,8 +718,9 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *M_out, double *g_out, dou
   hFnp1[1] = hFnp1[2] = hFnp1[3] = hFnp1[5] = hFnp1[6] = hFnp1[7] = 0.0;
   hFnp1[0] = hFnp1[4] = hFnp1[8] = 1.0;
 
-  int err = staggered_Newton_Rapson_generalized(pFnp1_out, M_out, g_out,lambda,
+  int err = staggered_Newton_Rapson_generalized(pFnp1_out, g_out,lambda,
                                                 pFn_in, Fn_in, Fnp1_in, hFn, hFnp1,
                                                 g_n, dt, mat, elasticity, solver_info);
   return err;
 }
+

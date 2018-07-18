@@ -62,8 +62,7 @@ void test_crystal_plasticity_single_crystal(T1 &Fnp1, T2 &hFnp1, const char *fil
   construct_elasticity(&elast, &mat_e, 1);  
 
   // set variables for integration
-  Tensor<2> M,pFnp1,xFn;
-  M     = ttl::identity(i,j);
+  Tensor<2> pFnp1,xFn;
   pFnp1 = ttl::identity(i,j);
   xFn   = ttl::identity(i,j);
       
@@ -72,7 +71,7 @@ void test_crystal_plasticity_single_crystal(T1 &Fnp1, T2 &hFnp1, const char *fil
   double dt     = 0.1;
   double lambda = 0.0;
 
-  staggered_Newton_Rapson_generalized(pFnp1.data,M.data, &g_np1, &lambda, 
+  staggered_Newton_Rapson_generalized(pFnp1.data, &g_np1, &lambda, 
                                       xFn.data, xFn.data,Fnp1.data, xFn.data, hFnp1.data,
                                       g_n, dt, &mat, &elast, &solver_info);
 

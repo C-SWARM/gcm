@@ -7,6 +7,7 @@ test_crystal_plasticity_single_crystal_CPPFLAGS = \
   -I$(top_srcdir)/crystal_plasticity/include \
   -I$(top_srcdir)/elasticity/include \
   -I$(top_srcdir)/utils/include \
+  -I$(top_srcdir)/constitutive_model_handle/include \
   -I$(top_srcdir)/material/include
 
 TESTS = test_crystal_plasticity.sh

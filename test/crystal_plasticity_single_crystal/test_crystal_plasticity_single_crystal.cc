@@ -64,7 +64,7 @@ void test_crystal_plasticity_single_crystal(void)
   construct_elasticity(&elast, &mat_e, 1);  
 
   // set variables for integration
-  Tensor<2> M,MI,pFn,pFnp1,pFnp1_I,eFnp1,Fn,Fnp1,L={},sigma,PK2dev,sigma_dev;
+  Tensor<2> pFn,pFnp1,pFnp1_I,eFnp1,Fn,Fnp1,L={},sigma,PK2dev,sigma_dev;
   
   pFn   = ttl::identity(i,j);
   pFnp1 = ttl::identity(i,j);
@@ -95,7 +95,7 @@ void test_crystal_plasticity_single_crystal(void)
     // compute total deformation gradient using velocity gradient
     Fnp1_Implicit(Fnp1.data, Fn.data, L.data, dt); 
     
-    staggered_Newton_Rapson(pFnp1.data,M.data, &g_np1, &lambda, 
+    staggered_Newton_Rapson(pFnp1.data, &g_np1, &lambda, 
                             pFn.data, Fn.data,Fnp1.data, 
                             g_n, dt, &mat, &elast, &solver_info);
                             

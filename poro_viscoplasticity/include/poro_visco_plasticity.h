@@ -6,6 +6,7 @@
 # ifndef H__H__PORO_VISCOPLASTICITY__H__H
 
 #include "material_properties.h"
+#include "constitutive_model_handle.h"
 #include "GcmSolverInfo.h"
 
 int poro_visco_plasticity_integration_algorithm(const MaterialPoroViscoPlasticity *mat,
@@ -69,7 +70,7 @@ void poro_visco_plasticity_intf_compute_gammas(double &gamma_dot_d,
                                                const GcmSolverInfo *solver_info);
 
 void poro_visco_plasticity_compute_dMdu(double *dMdUs,
-                                        const double *Grad_us,
+                                        double *Grad_us,
                                         const MaterialPoroViscoPlasticity *mat,
                                         const GcmSolverInfo *solver_info,
                                         double *Fnp1_in,
@@ -81,5 +82,41 @@ void poro_visco_plasticity_compute_dMdu(double *dMdUs,
                                         const double dt,
                                         const int nne,
                                         const int ndofn);
+                                        
+class GcmPvpIntegrator : public GcmIntegrator
+{
+  public:
+
+  double pc_n;
+  double *pc_np1;
+  double pc_n_s;
+  
+  MaterialPoroViscoPlasticity *mat;
+  GcmSolverInfo *solver_info;
+
+  GcmPvpIntegrator(){
+    pc_np1 = NULL;
+    pc_n = pc_n_s = {};
+  }  
+  
+  virtual int constitutive_model_integration(const double dt) 
+  {
+    int err = 0;
+    
+    err += poro_visco_plasticity_integration_algorithm(mat, solver_info, 
+                                                       F_s, Fn_s, pFnp1, pFn_s, 
+                                                       pc_np1, pc_n_s, dt);     
+    
+    return err;
+                                               
+  }
+  virtual void set_variable_at_n(void){
+    pc_n_s = pc_n;
+  }
+  virtual void update_variable(void){
+    pc_n_s = *pc_np1;
+  }    
+    
+};                                        
 
 # endif

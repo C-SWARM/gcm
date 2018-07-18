@@ -9,6 +9,7 @@
 #include"GcmSolverInfo.h"
 
 constexpr const int Err = 1;
+constexpr const double one_third = 1.0/3.0;
 
 Tensor<2> I  = ttl::identity(i,j);
 Tensor<2> O  = ttl::identity(i,j)*0.0;
@@ -256,7 +257,7 @@ class PvpMaterial
 class StateVariables
 {
   public:
-    Tensor<2> M, MI, eFnp1, tau, eS, hat_eS, hat_tau, psi_d, psi_v;;
+    Tensor<2> M, MI, eFnp1, tau, eS, eSd, hat_tau, psi_d, psi_v;;
     Tensor<4> L;
     double pJ, pi, bar_tau, g_tau, g_pi, pi_m;
     
@@ -275,14 +276,14 @@ class PvpElasticity
                                                                  bool compute_4th_order = false){
 
       double CJ = ttl::det(C); // eCJ = eJ*eJ; pow(eCJ, -1.0/3.0) = pow(eJ, -2.0/3.0)
-      double factor = pow(CJ, -1.0/3.0);
+      double factor = pow(CJ, -one_third);
       
       double trC = C(i,i);
       
       Tensor<2> CI;
       int err = inv(C, CI);
       
-      dWdC(i,j) = 0.5*mu*factor*(I(i,j) - 1.0/3.0*trC*CI(i,j));
+      dWdC(i,j) = 0.5*mu*factor*(I(i,j) - one_third*trC*CI(i,j));
     
       if(compute_4th_order)
       {
@@ -290,8 +291,8 @@ class PvpElasticity
         CIxCI(i,j,k,l) = CI(i,j)*CI(k,l);
         dCIdC(i,j,k,l)  = -CI(i,k)*CI(j,l);
         
-        d2WdC2(i,j,k,l) = 0.25*mu*factor*(-2.0/3.0*CI(i,j)*I(k,l) - 2.0/3.0*I(i,j)*CI(k,l) 
-                                         + 2.0/9.0*trC*CIxCI(i,j,k,l) - 2.0/3.0*trC*dCIdC(i,j,k,l));
+        d2WdC2(i,j,k,l) = 0.25*mu*factor*(-2.0*one_third*CI(i,j)*I(k,l) - 2.0*one_third*I(i,j)*CI(k,l) 
+                                         + 2.0/9.0*trC*CIxCI(i,j,k,l) - 2.0*one_third*trC*dCIdC(i,j,k,l));
       }
       if(err>0)
         throw Err;
@@ -403,18 +404,27 @@ class PvpIntegrator
     /// \param[in] *pFn   plastic deformation gradient at t(n)
     /// \param[in] *hFnp1 thermal expansion part of deformation gradient at t(n+1)
     /// \param[in] *hFn   thermal expansion part of deformation gradient at t(n)    
+    /// \param[in] total_Lagrangian if true, compute tensors based on total lagrangian, default is false (updated Lagrangian)
     void set_tenosrs(double *Fnp1,
                      double *Fn,
                      double *pFnp1,
                      double *pFn,
                      double *hFnp1,
-                     double *hFn){
+                     double *hFn,
+                     bool total_Lagrangian = false){
       Fs.Fnp1  = Fnp1;
-      Fs.Fn    = Fn;
       Fs.pFnp1 = pFnp1;
-      Fs.pFn   = pFn;
       Fs.hFnp1 = hFnp1;
-      Fs.hFn   = hFn;
+ 
+      if(total_Lagrangian){
+        Fs.Fn    = I.data;
+        Fs.pFn   = I.data;
+        Fs.hFn   = I.data;
+      } else {
+        Fs.Fn    = Fn;
+        Fs.pFn   = pFn;
+        Fs.hFn   = hFn;
+      }
       compute_tensors();
     }
     
@@ -485,18 +495,35 @@ class PvpIntegrator
     /// tau, tau_bar will be updated accordingly. Computing sequence is ordered by their dependency.
     ///
     /// \param[in] pc
-    void update_StateVariables(const double pc){
+    void update_StateVariables(const double pc,
+                               bool update4integration = true){
       
       int err = 0;
-
-      err += inv(sv.M, sv.MI);
-      TensorA<2> pFn(Fs.pFn), pFnp1(Fs.pFnp1);
       
-      pFnp1(i,j) = sv.MI(i,k)*pFn(k,l)*N(l,j);
+      TensorA<2> pFnp1(Fs.pFnp1);
+      if(update4integration){
 
-      sv.eFnp1(i,j) = Fa(i,k)*sv.M(k,j);
+        err += inv(sv.M, sv.MI);
+        TensorA<2> pFn(Fs.pFn), pFnp1(Fs.pFnp1);
+        pFnp1(i,j) = sv.MI(i,k)*pFn(k,l)*N(l,j);
+
+        sv.eFnp1(i,j) = Fa(i,k)*sv.M(k,j);
+      
+      } else {
+
+        Tensor<2> FaI, pFnp1I, hFnp1I;
+        TensorA<2> Fnp1(Fs.Fnp1), hFnp1(Fs.hFnp1);
+  
+        err += inv(pFnp1, pFnp1I);
+        err += inv(Fa,    FaI);
+        err += inv(hFnp1, hFnp1I);
+
+        sv.eFnp1(i,j) = Fnp1(i,k)*hFnp1I(k,l)*pFnp1I(l,j);  
+        sv.M(i,j) = FaI(i,k)*sv.eFnp1(k,j); // pvp.set_tenosrs dosen't update M correcltly (M(i,j) = eFnI(i,k)*FrI(k,l)*eFn(l,j);)
+        err += inv(sv.M, sv.MI);
+      }
       sv.pJ = ttl::det(pFnp1);
-      
+     
       double c  = mat.compute_c(pc);
       double d  = mat.compute_d(pc);
       double K  = mat.compute_bulk_modulus(c, d);
@@ -508,12 +535,12 @@ class PvpIntegrator
       elasticity.compute_elasticity_tensor(sv.eS, sv.L, sv.eFnp1, mu, K, c, coeff_U_alpha, 0.0, coeff_U_beta, true);
       
       double tr_eS = sv.eS(i,i);
-      sv.hat_eS(i,j) = sv.eS(i,j) - 1.0/3.0*tr_eS*I(i,j);
-      sv.tau(i,j)    = sv.pJ*sv.eFnp1(i,k)*sv.eS(k,l)*sv.eFnp1(j,l);
-      sv.pi          = compute_pi(sv.tau);
+      sv.eSd(i,j) = sv.eS(i,j) - one_third*tr_eS*I(i,j);
+      sv.tau(i,j) = sv.pJ*sv.eFnp1(i,k)*sv.eS(k,l)*sv.eFnp1(j,l);
+      sv.pi       = compute_pi(sv.tau);
       
       double tr_tau = sv.tau(i,i);
-      sv.hat_tau(i,j)  = sv.tau(i,j) - 1.0/3.0*tr_tau*I(i,j);
+      sv.hat_tau(i,j)  = sv.tau(i,j) - one_third*tr_tau*I(i,j);
       sv.bar_tau = sqrt(sv.hat_tau(i,j)*sv.hat_tau(i,j));
       
       double a = mat.compute_a(pc, c);
@@ -528,7 +555,7 @@ class PvpIntegrator
     }
     
     template<class T> double compute_pi(const T &tau){
-      return -tau(i,i)/3.0;
+      return -tau(i,i)*one_third;
     }
     
     double compute_dHdp(const double pc){
@@ -537,19 +564,19 @@ class PvpIntegrator
     
     template<class T> void compute_psi_d(T &psi_d){
 
-      double m_hat_eS = sqrt(sv.hat_eS(i,j)*sv.hat_eS(i,j));
+      double m_eSd = sqrt(sv.eSd(i,j)*sv.eSd(i,j));
       double beta_D = mat.compute_beta_D();
       
-      if(m_hat_eS<solver_info->computer_zero)
-        psi_d(i,j) = 1.0/3.0*beta_D*I(i,j);
+      if(m_eSd<solver_info->computer_zero)
+        psi_d(i,j) = one_third*beta_D*I(i,j);
       else
-        psi_d(i,j) = sv.hat_eS(i,j)/m_hat_eS + 1.0/3.0*beta_D*I(i,j);
+        psi_d(i,j) = sv.eSd(i,j)/m_eSd + one_third*beta_D*I(i,j);
     }
     
     template<class T> void compute_psi_v(T &psi_v,
                                          const double pc){
       double beta_C = mat.compute_beta_C(pc);
-      psi_v(i,j) = -1.0/3.0*beta_C*I(i,j);
+      psi_v(i,j) = -one_third*beta_C*I(i,j);
     }
     /// compute_residual RM
     template<class T> void compute_RM(T &RM,
@@ -623,13 +650,13 @@ class PvpIntegrator
     
     template<class T1, class T2> void compute_dpsi_d_dM(T1 &dpsi_d_dM,
                                                         const T2 &dSdM){
-      double m_hat_eS = sqrt(sv.hat_eS(i,j)*sv.hat_eS(i,j));
+      double m_eSd = sqrt(sv.eSd(i,j)*sv.eSd(i,j));
       
-      if(m_hat_eS<solver_info->computer_zero)
+      if(m_eSd<solver_info->computer_zero)
         dpsi_d_dM = {};
       else
-        dpsi_d_dM(i,j,k,l) = 1.0/m_hat_eS*(dSdM(i,j,k,l) - I(i,j)*I(m, r)*dSdM(m,r,k,l)/3.0)
-                            -1.0/m_hat_eS/m_hat_eS/m_hat_eS*sv.hat_eS(i,j)*sv.hat_eS(m,r)*dSdM(m,r,k,l);
+        dpsi_d_dM(i,j,k,l) = 1.0/m_eSd*(dSdM(i,j,k,l) - I(i,j)*I(m, r)*dSdM(m,r,k,l)*one_third)
+                            -1.0/m_eSd/m_eSd/m_eSd*sv.eSd(i,j)*sv.eSd(m,r)*dSdM(m,r,k,l);
     }
           
     template<class T1, class T2> void compute_dRMdM(T1 &dRMdM,
@@ -744,12 +771,12 @@ class PvpIntegrator
       
       // compute d_psi_d_dp
       Tensor<2> d_psi_d_dp = {};
-      double m_hat_eS = sqrt(sv.hat_eS(i,j)*sv.hat_eS(i,j));
+      double m_eSd = sqrt(sv.eSd(i,j)*sv.eSd(i,j));
 
-      if(m_hat_eS>solver_info->computer_zero){        
+      if(m_eSd>solver_info->computer_zero){        
         double tr_dSdp = dSdp(i,i);      
-        double hat_eS_dSdp = 1.0/m_hat_eS/m_hat_eS/m_hat_eS*sv.hat_eS(i,j)*dSdp(i,j);
-        d_psi_d_dp(i,j) = 1.0/m_hat_eS*(dSdp(i,j) - tr_dSdp*I(i,j)/3.0) - hat_eS_dSdp*sv.hat_eS(i,j);
+        double eSd_dSdp = 1.0/m_eSd/m_eSd/m_eSd*sv.eSd(i,j)*dSdp(i,j);
+        d_psi_d_dp(i,j) = 1.0/m_eSd*(dSdp(i,j) - tr_dSdp*I(i,j)*one_third) - eSd_dSdp*sv.eSd(i,j);
       }
       
       // compute dgamma_dot_v_pc
@@ -759,7 +786,7 @@ class PvpIntegrator
 
       double dadpc = compute_dadpc(pc);
       double dcdp = compute_dcdp(pc);
-      double dpidp = -d_tau_dp(i,i)/3.0;
+      double dpidp = -d_tau_dp(i,i)*one_third;
       double dpi_mdp = dadpc - dcdp;
       double dg_pidp = mat.compute_b(sv.pi, sv.pi_m)*dadpc;
       double dgamma_dot_v_pc = factor3*(dpidp*0.0 - dpi_mdp - (sv.pi-sv.pi_m)/sv.g_pi*dg_pidp);
@@ -871,18 +898,18 @@ class PvpIntegrator
       return pcnp1;                        
     }
 
-    template<class T> void compute_dMdu(double* dMdUs,
-                                        const double pc,
-                                        double* Grad_us,
-                                        const int nne,
-                                        const int ndofn){
+    void compute_dMdu(double* dMdUs,
+                      const double pc,
+                      double* Grad_us,
+                      const int nne,
+                      const int ndofn){
+                                          
       Tensor<4> U;
-      Tensor<2> B, dSdp;
-      Tensor<4> II, chi, eC, IoxI, eSdoxeSd;
+      Tensor<2> B, dSdp = {}, eC;
+      Tensor<4> II, chi, IoxI;
 
       II(i,j,k,l) = I(i,k)*I(j,l);
       IoxI(i,j,k,l) = I(i,j)*I(k,l);
-      eSdoxeSd(i,j,k,l) = sv.hat_eS(i,j)*sv.hat_eS(k,l);
       
       eC(i,j) = sv.eFnp1(k,i)*sv.eFnp1(k,j);
       
@@ -890,6 +917,13 @@ class PvpIntegrator
       double dddp = compute_dddp(pc);
       double dHdp = compute_dHdp(pc);
       double one_over_dH = 1.0/dHdp;
+      double pi_pi_m_over_g_pi = 0.0;
+      double pow_pi_pi_m_over_g_pi = 0.0;
+      if(sv.pi>sv.pi_m)
+      {  
+        pi_pi_m_over_g_pi = (sv.pi-sv.pi_m)/sv.g_pi;
+        pow_pi_pi_m_over_g_pi = pow(pi_pi_m_over_g_pi, 1.0/mat.param->flr_m - 1.0);
+      }
       
       // start computing A(left side);
       // compute chi
@@ -897,7 +931,7 @@ class PvpIntegrator
       eFFa_sym(i,j) = 0.5*(sv.eFnp1(k,i)*Fa(k,j) + Fa(k,i)*sv.eFnp1(k,j));
       
       compute_dSdp(dSdp, pc);
-      chi(i,j,k,l) = sv.L(i,j,k,m)*eFFa_sym(m,l) - one_over_dH*dSdp(i,j)*sv.MI(l,k);
+      chi(i,j,k,l) = dHdp*sv.L(i,j,k,m)*eFFa_sym(m,l) - dSdp(i,j)*sv.MI(l,k);
             
       //compute D(gamma_dot_d) part      
       double gamma_dot_d = mat.compute_gamma_dot_d(d, sv.bar_tau, sv.g_tau);
@@ -907,7 +941,7 @@ class PvpIntegrator
       double pow_bar_tau_g_tau = pow(sv.bar_tau/sv.g_tau, 1.0/mat.param->flr_m);
       double d_g_tau_dp = compute_dg_tau_dp(pc); 
       
-      double factor1 = pow_bar_tau_g_tau*one_over_dH*mat.param->flr_gamma_dot_0*(-dddp/(d*d) 
+      double factor1 = pow_bar_tau_g_tau*mat.param->flr_gamma_dot_0*(-dddp/(d*d) 
                        + (1.0 - 1.0/d)/(mat.param->flr_m*sv.g_tau)*d_g_tau_dp);
       double factor2 = sv.pJ*mat.param->flr_gamma_dot_0/(mat.param->flr_m*sv.g_tau)*(1.0 - 1.0/d)*pow_bar_tau_g_tau/sv.bar_tau*sv.g_tau;
 
@@ -923,36 +957,45 @@ class PvpIntegrator
       double sub_factor1 = d_bar_tau_d_tau(i,j)*eFeSeFT(i,j);
 
       U1(i,j) = factor1*sv.MI(j,i);
-      U2(i,j) = factor2*(-sub_factor1*sv.MI(j,i) + 2.0*Fa(k,i)*d_bar_tau_d_tau_sym(k,l)*sv.eFnp1(l,m)*sv.eS(m,j)
+      U2(i,j) = factor2*(-dHdp*sub_factor1*sv.MI(j,i) + dHdp*2.0*Fa(k,i)*d_bar_tau_d_tau_sym(k,l)*sv.eFnp1(l,m)*sv.eS(m,j)
                          + eFTdtaueF(k,l)*chi(k,l,i,j));
                          
       // compute D(psi_d) part
       Tensor<4> U3;      
-      double m_eSd = sqrt(sv.hat_eS(i,j)*sv.hat_eS(i,j));
-      double one_over_m_eSd = 0.0;
-      if(m_eSd>solver_info->computer_zero)
-      U3(i,j,k,l) = one_over_m_eSd*chi(i,j,k,l) + (IoxI(i,j,r,s) + eSdoxeSd(i,j,r,s))*chi(r,s,k,l);
+      double m_eSd = sqrt(sv.eSd(i,j)*sv.eSd(i,j));
+
+      Tensor<4> eSdoxeSd = {};
+      
+      if(m_eSd>solver_info->computer_zero){
+        double one_over_m_eSd = 1.0/m_eSd;        
+        eSdoxeSd(i,j,k,l) = one_over_m_eSd*one_over_m_eSd*sv.eSd(i,j)*sv.eSd(k,l); 
+      }
+
+      
+      U3(i,j,k,l) = chi(i,j,k,l) + (-m_eSd*one_third*IoxI(i,j,r,s) - eSdoxeSd(i,j,r,s))*chi(r,s,k,l);
       
       // compute D(gamma_dot_v) part
-      double factor3 = mat.param->flr_gamma_dot_0/(mat.param->flr_m*sv.g_pi)*pow((sv.pi-sv.pi_m)/sv.g_pi, 1.0/mat.param->flr_m - 1.0);
+      double factor3 = mat.param->flr_gamma_dot_0/(mat.param->flr_m*sv.g_pi)*pow_pi_pi_m_over_g_pi;
+
       Tensor<2> U4, U5, U6;
-      U4(i,j) = sv.pJ/3.0*I(k,l)*eFeSeFT(k,l)*sv.MI(j,i);
-      U5(i,j) = -sv.pJ/3.0*(2.0*Fa(k,i)*sv.eFnp1(k,l)*sv.eS(l,j) + eC(k,l)*chi(k,l,i,j));
+      U4(i,j) = dHdp*sv.pJ*one_third*I(k,l)*eFeSeFT(k,l)*sv.MI(j,i);
+      U5(i,j) = -dHdp*sv.pJ*one_third*(2.0*Fa(k,i)*sv.eFnp1(k,l)*sv.eS(l,j) + eC(k,l)*chi(k,l,i,j));
 
       double dadpc = compute_dadpc(pc);
       double dcdp = compute_dcdp(pc);      
       double dpi_mdp = dadpc - dcdp;
       double dg_pidp = mat.compute_b(sv.pi, sv.pi_m)*dadpc;
       
-      U6(i,j) = one_over_dH*(dpi_mdp + (sv.pi-sv.pi_m)/sv.g_pi*dg_pidp)*sv.MI(j,i);
+      U6(i,j) = (dpi_mdp + pi_pi_m_over_g_pi*dg_pidp)*sv.MI(j,i);
       
       // compute D(psi_v) part
-      double factor4 = mat.param->cf_g0/3.0/mat.param->cf_pcinf*one_over_dH;
+      double factor4 = mat.param->cf_g0*one_third/mat.param->cf_pcinf;
             
-      U(i,j,k,l) = A(i,k)*I(j,l) + dt*sv.psi_d(i,j)*(U1(k,l) + U2(k,l))
+      U(i,j,k,l) = m_eSd*dHdp*A(i,k)*I(j,l) + dt*sv.eSd(i,j)*(U1(k,l) + U2(k,l))
                                  + dt*gamma_dot_d*U3(i,j,k,l)
-                                 + dt*factor3*sv.psi_v(i,j)*(U4(k,l) + U5(k,l) + U6(k,l))
-                                 - dt*gamma_dot_v*factor4*I(i,j)*sv.MI(l,k);
+                                 + dt*m_eSd*factor3*sv.psi_v(i,j)*(U4(k,l) + U5(k,l) + U6(k,l))
+                                 - dt*m_eSd*gamma_dot_v*factor4*I(i,j)*sv.MI(l,k);
+                                 
                                       
       // start computing B(right side);
       
@@ -970,18 +1013,20 @@ class PvpIntegrator
           eFGradeFnM_sym(i,j) = 0.5*(eFGradeFnM(i,j) + eFGradeFnM(j,i));
           
           Tensor<4> U7;
-          U7(i,j,k,l) = one_over_m_eSd*sv.L(i,j,k,l) + (IoxI(i,j,r,s)+ eSdoxeSd(i,j,r,s))*sv.L(r,s,k,l);
+          U7(i,j,k,l) = sv.L(i,j,k,l) + (-m_eSd*one_third*IoxI(i,j,r,s)-eSdoxeSd(i,j,r,s))*sv.L(r,s,k,l);
+                        
           double factor5 = d_bar_tau_d_tau(i,j)*GradeFnMeSeF_sym(i,j) + eFTdtaueF(i,j)*sv.L(i,j,k,l)*eFGradeFnM_sym(k,l);
           double factor6 = I(i,j)*GradeFnMeSeF_sym(i,j) + eC(i,j)*sv.L(i,j,k,l)*eFGradeFnM_sym(k,l);
-          B(i,j) = -dt*factor2*factor5*sv.psi_d(i,j) - dt*gamma_dot_v*U7(i,j,k,l)*eFGradeFnM_sym(k,l)
-                   -dt*sv.pJ/3.0*factor3*factor6*sv.psi_v(i,j);
+          B(i,j) = dHdp*(-dt*factor2*factor5*sv.eSd(i,j) - dt*gamma_dot_d*U7(i,j,k,l)*eFGradeFnM_sym(k,l)
+                   + dt*m_eSd*sv.pJ*one_third*factor3*factor6*sv.psi_v(i,j));
           
           try{
             dMdu = ttl::solve( U, B);
           }
           catch(int solve_err){
-            dMdu(i,j) = I(i,j);
-            printf("error on computing dMdu for pvp model. dMdu = delta_ij is set. Solution may not be converging.\n");
+            if(solver_info->debug)            
+              printf("error on computing dMdu for pvp model. dMdu = delta_ij is set. Solution may not be converging.\n");
+            dMdu(i,j) = O(i,j);
           }     
           
         }
@@ -1003,9 +1048,14 @@ int poro_visco_plasticity_integration_algorithm_staggered(const MaterialPoroVisc
                                                           const double dt_in){
   int err = 0;
   PvpIntegrator pvp;
-  pvp.set_pvp_material_parameters(mat);       
-  pvp.set_tenosrs(Fnp1_in, Fn_in, pFnp1_in, pFn_in); 
-
+  pvp.set_pvp_material_parameters(mat); 
+  
+  try{      
+    pvp.set_tenosrs(Fnp1_in, Fn_in, pFnp1_in, pFn_in); 
+  }catch(int i){
+    return 1;
+  }
+  
   pvp.set_scalars(*pc_np1, pc_n);
   pvp.set_solver_info(solver_info, dt_in);
                                                             
@@ -1227,7 +1277,13 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
     //printf("dHdp = %.17e\n", dHdp);  
     return poro_visco_plasticity_integration_algorithm_staggered(mat, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n, dt_in);
   }
-  pvp.set_tenosrs(Fnp1, Fn, pFnp1, pFn);
+  
+  try{      
+    pvp.set_tenosrs(Fnp1, Fn, pFnp1, pFn);
+  }catch(int i){
+    return 1;
+  }
+    
   pvp.set_scalars(*pc_np1, pc_n);
   pvp.set_solver_info(solver_info, dt_in);
   
@@ -1405,7 +1461,11 @@ int poro_visco_plasticity_integration_algorithm_explicit(const MaterialPoroVisco
 {  
   PvpIntegrator pvp;
   pvp.set_pvp_material_parameters(mat);
-  pvp.set_tenosrs(Fnp1, Fn, pFnp1, pFn);
+  try{      
+    pvp.set_tenosrs(Fnp1, Fn, pFnp1, pFn);
+  }catch(int i){
+    return 1;
+  }
   pvp.set_scalars(*pc_np1, pc_n);
   pvp.set_solver_info(solver_info, dt_in);
   
@@ -1552,7 +1612,7 @@ void poro_visco_plasticity_intf_compute_gammas(double &gamma_dot_d,
 
   pvp.set_scalars(pc_np1, pc_n);
   pvp.set_solver_info(solver_info, dt_in);
-  pvp.update_StateVariables(pc_np1);
+  pvp.update_StateVariables(pc_np1, false);
     
   double d = pvp.mat.compute_d(pc_np1);
   gamma_dot_d = pvp.mat.compute_gamma_dot_d(d, pvp.sv.bar_tau, pvp.sv.g_tau);
@@ -1560,7 +1620,7 @@ void poro_visco_plasticity_intf_compute_gammas(double &gamma_dot_d,
 }
 
 void poro_visco_plasticity_compute_dMdu(double *dMdUs,
-                                        const double *Grad_us,
+                                        double *Grad_us,
                                         const MaterialPoroViscoPlasticity *mat,
                                         const GcmSolverInfo *solver_info,
                                         double *Fnp1_in,
@@ -1574,14 +1634,12 @@ void poro_visco_plasticity_compute_dMdu(double *dMdUs,
                                         const int ndofn){
   PvpIntegrator pvp;
   pvp.set_pvp_material_parameters(mat);       
-  pvp.set_tenosrs(Fnp1_in, Fn_in, pFnp1_in, pFn_in); 
-
-  pvp.set_scalars(pc_np1, pc_n);
-  pvp.set_solver_info(solver_info, dt);
-                                                            
-  TensorA<2> pFnp1(pFnp1_in);
+  pvp.set_tenosrs(Fnp1_in, Fn_in, pFnp1_in, pFn_in, I.data, I.data, true);
   
-  pvp.update_StateVariables(pc_n);
-  //pvp.compute_dMdu(dMdUs, pc_np1, Grad_us, nne, ndofn);                                           
+  pvp.set_scalars(pc_np1, pc_n);
+  pvp.set_solver_info(solver_info, dt);               
+  
+  pvp.update_StateVariables(pc_n, false);
+  pvp.compute_dMdu(dMdUs, pc_np1, Grad_us, nne, ndofn);                                           
 }
 
