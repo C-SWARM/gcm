@@ -696,8 +696,8 @@ class PvpIntegrator
       return sqrt(1.5)*compute_dadpc(pc)*mat.param->yf_M; // sqrt(3.0/2.0) = sqrt(1.5)
     }
     
-    template<class T> void compute_dSdp(T &dSdp,
-                                        const double pc){
+    template<class T> void compute_dE_dWdp(T &dSdp,
+                                           const double pc){
       double c = mat.compute_c(pc);
       double d = mat.compute_d(pc);
             
@@ -715,11 +715,6 @@ class PvpIntegrator
 
       Tensor<4> L;
       elasticity.compute_elasticity_tensor(dSdp, L , sv.eFnp1, dmudp, dKdp, dcdp, coeff_U_alpha1, coeff_U_alpha2, coeff_U_beta, false);
-      
-      double dHdp = compute_dHdp(pc);
-      Tensor<2> eC;
-      eC(i,j) = sv.eFnp1(k,i)*sv.eFnp1(k,j);      
-      dSdp(i,j) = dSdp(i,j) - dHdp*sv.L(i,j,k,l)*eC(k,l); // effect from eFnp1 
     }
     
     template<class T1, class T2> void compute_d_tau_dp(T1 &d_tau_dp,
@@ -752,7 +747,14 @@ class PvpIntegrator
       double d = mat.compute_d(pc);
       
       Tensor<2> dSdp, d_tau_dp;
-      compute_dSdp(dSdp, pc);
+      compute_dE_dWdp(dSdp, pc);
+      
+      
+      double dHdp = compute_dHdp(pc);
+      Tensor<2> eC;
+      eC(i,j) = sv.eFnp1(k,i)*sv.eFnp1(k,j);      
+      dSdp(i,j) = dSdp(i,j) - dHdp*sv.L(i,j,k,l)*eC(k,l); // effect from eFnp1 
+            
       compute_d_tau_dp(d_tau_dp, dSdp, pc);
       
       double bar_tau_g_tau = sv.bar_tau/sv.g_tau;
@@ -910,7 +912,7 @@ class PvpIntegrator
                       const int ndofn){
                                           
       Tensor<4> U;
-      Tensor<2> B, dSdp = {}, eC;
+      Tensor<2> B, dE_dWdp = {}, eC;
       Tensor<4> II, chi, IoxI;
 
       II(i,j,k,l) = I(i,k)*I(j,l);
@@ -932,11 +934,11 @@ class PvpIntegrator
       
       // start computing A(left side);
       // compute chi
-      Tensor<2> eFFa_sym;
-      eFFa_sym(i,j) = 0.5*(sv.eFnp1(k,i)*Fa(k,j) + Fa(k,i)*sv.eFnp1(k,j));
+      Tensor<2> eFTFa;
+      eFTFa(i,j) = sv.eFnp1(k,i)*Fa(k,j);
       
-      compute_dSdp(dSdp, pc);
-      chi(i,j,k,l) = dHdp*sv.L(i,j,k,m)*eFFa_sym(m,l) - dSdp(i,j)*sv.MI(l,k);
+      compute_dE_dWdp(dE_dWdp, pc);
+      chi(i,j,k,l) = 2.0*dHdp*sv.L(i,j,l,m)*eFTFa(m,k) - dE_dWdp(i,j)*sv.MI(l,k);
             
       //compute D(gamma_dot_d) part      
       double gamma_dot_d = mat.compute_gamma_dot_d(d, sv.bar_tau, sv.g_tau);
@@ -1003,6 +1005,9 @@ class PvpIntegrator
                                  
                                       
       // start computing B(right side);
+
+      Tensor<4> U7;
+      U7(i,j,k,l) = sv.L(i,j,k,l) + (-one_third*IoxI(i,j,r,s)-eSdoxeSd(i,j,r,s))*sv.L(r,s,k,l);
       
       for(int ia=0; ia<nne; ia++){
         for(int ib=0; ib<ndofn; ib++){
@@ -1017,11 +1022,8 @@ class PvpIntegrator
           GradeFnMeSeF_sym(i,j) = 0.5*(GradeFnMeSeF(i,j) + GradeFnMeSeF(j,i));
           eFGradeFnM_sym(i,j) = 0.5*(eFGradeFnM(i,j) + eFGradeFnM(j,i));
           
-          Tensor<4> U7;
-          U7(i,j,k,l) = sv.L(i,j,k,l) + (-one_third*IoxI(i,j,r,s)-eSdoxeSd(i,j,r,s))*sv.L(r,s,k,l);
-                        
-          double factor5 = d_bar_tau_d_tau(i,j)*GradeFnMeSeF_sym(i,j) + eFTdtaueF(i,j)*sv.L(i,j,k,l)*eFGradeFnM_sym(k,l);
-          double factor6 = I(i,j)*GradeFnMeSeF_sym(i,j) + eC(i,j)*sv.L(i,j,k,l)*eFGradeFnM_sym(k,l);
+          double factor5 = 2.0*d_bar_tau_d_tau(i,j)*GradeFnMeSeF_sym(i,j) + eFTdtaueF(i,j)*sv.L(i,j,k,l)*eFGradeFnM_sym(k,l);
+          double factor6 = 2.0*I(i,j)*GradeFnMeSeF_sym(i,j) + eC(i,j)*sv.L(i,j,k,l)*eFGradeFnM_sym(k,l);
           B(i,j) = dHdp*(-dt*factor2*factor5*sv.eSd(i,j) - dt*gamma_dot_d*U7(i,j,k,l)*eFGradeFnM_sym(k,l)
                    + dt*m_eSd*sv.pJ*one_third*factor3*factor6*sv.psi_v(i,j));
           
