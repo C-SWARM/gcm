@@ -977,7 +977,7 @@ class PvpIntegrator
       }
 
       
-      U3(i,j,k,l) = chi(i,j,k,l) + (-m_eSd*one_third*IoxI(i,j,r,s) - eSdoxeSd(i,j,r,s))*chi(r,s,k,l);
+      U3(i,j,k,l) = chi(i,j,k,l) + (-one_third*IoxI(i,j,r,s) - eSdoxeSd(i,j,r,s))*chi(r,s,k,l);
       
       // compute D(gamma_dot_v) part
       double factor3 = mat.param->flr_gamma_dot_0/(mat.param->flr_m*sv.g_pi)*pow_pi_pi_m_over_g_pi;
@@ -1018,7 +1018,7 @@ class PvpIntegrator
           eFGradeFnM_sym(i,j) = 0.5*(eFGradeFnM(i,j) + eFGradeFnM(j,i));
           
           Tensor<4> U7;
-          U7(i,j,k,l) = sv.L(i,j,k,l) + (-m_eSd*one_third*IoxI(i,j,r,s)-eSdoxeSd(i,j,r,s))*sv.L(r,s,k,l);
+          U7(i,j,k,l) = sv.L(i,j,k,l) + (-one_third*IoxI(i,j,r,s)-eSdoxeSd(i,j,r,s))*sv.L(r,s,k,l);
                         
           double factor5 = d_bar_tau_d_tau(i,j)*GradeFnMeSeF_sym(i,j) + eFTdtaueF(i,j)*sv.L(i,j,k,l)*eFGradeFnM_sym(k,l);
           double factor6 = I(i,j)*GradeFnMeSeF_sym(i,j) + eC(i,j)*sv.L(i,j,k,l)*eFGradeFnM_sym(k,l);
