@@ -715,6 +715,11 @@ class PvpIntegrator
 
       Tensor<4> L;
       elasticity.compute_elasticity_tensor(dSdp, L , sv.eFnp1, dmudp, dKdp, dcdp, coeff_U_alpha1, coeff_U_alpha2, coeff_U_beta, false);
+      
+      double dHdp = compute_dHdp(pc);
+      Tensor<2> eC;
+      eC(i,j) = sv.eFnp1(k,i)*sv.eFnp1(k,j);      
+      dSdp(i,j) = dSdp(i,j) - dHdp*sv.L(i,j,k,l)*eC(k,l); // effect from eFnp1 
     }
     
     template<class T1, class T2> void compute_d_tau_dp(T1 &d_tau_dp,
@@ -789,7 +794,7 @@ class PvpIntegrator
       double dpidp = -d_tau_dp(i,i)*one_third;
       double dpi_mdp = dadpc - dcdp;
       double dg_pidp = mat.compute_b(sv.pi, sv.pi_m)*dadpc;
-      double dgamma_dot_v_pc = factor3*(dpidp*0.0 - dpi_mdp - (sv.pi-sv.pi_m)/sv.g_pi*dg_pidp);
+      double dgamma_dot_v_pc = factor3*(dpidp - dpi_mdp - (sv.pi-sv.pi_m)/sv.g_pi*dg_pidp);
 
       // compute gamma_dot_v
       double gamma_dot_v = mat.compute_gamma_dot_v(sv.pi, sv.pi_m, sv.g_pi);
