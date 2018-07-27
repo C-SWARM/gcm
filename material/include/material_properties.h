@@ -123,49 +123,49 @@ int set_J2_plasticity_parameters(MATERIAL_J2_PLASTICITY *J2P, const double hp,
                                                               const double k0);
 typedef struct
 {
-  double yf_M,            // Yield function parameters
-         yf_alpha,        //   :
-         flr_m,           // Flow rule parameters
-         flr_gamma_dot_0, //   :
-         hr_a1,           // Hardening rule parameters
-         hr_a2,           //   :
-         hr_Lambda1,      //   :
-         hr_Lambda2,      //   :
-         c_inf,           // Cohesion rule parameters
-         c_Gamma,         //   :
-         d_B,             // Transition rule parameters
-         d_pcb,           //   :
-         mu_0,            // Shear modulus parameters
-         mu_1,            //   :
-         K_p0,            // Bulk modulus parameters
-         K_kappa,         //   :
-         pl_n,            // Power law exponent
-         cf_g0,           // Compaction function parameters
-         cf_pcinf,        //   :
-         pc_0,            // initial pc
-         pJ;              // initial plastic deformation
+  double M,            // Yield function parameters
+         alpha,        //   :
+         m,            // Flow rule parameters
+         gamma_dot_0,  //   :
+         a1,           // Hardening rule parameters
+         a2,           //   :
+         Lambda1,      //   :
+         Lambda2,      //   :
+         c_inf,        // Cohesion rule parameters
+         Gamma,        //   :
+         B,            // Transition rule parameters
+         pc_b,         //   :
+         mu_0,         // Shear modulus parameters
+         mu_1,         //   :
+         p0,           // Bulk modulus parameters
+         kappa,        //   :
+         n,            // Power law exponent
+         g0,           // Compaction function parameters
+         pc_inf,       //   :
+         pc_0,         // initial pc
+         pJ;           // initial plastic deformation
 } MaterialPoroViscoPlasticity;
 
 void set_properties_poro_visco_plasticity(MaterialPoroViscoPlasticity *mat,
-                                          const double yf_M_in,
-                                          const double yf_alpha_in,
-                                          const double flr_m_in,
-                                          const double flr_gamma_dot_0_in,
-                                          const double hr_a1_in,
-                                          const double hr_a2_in,
-                                          const double hr_Lambda1_in,
-                                          const double hr_Lambda2_in,
+                                          const double M_in,
+                                          const double alpha_in,
+                                          const double m_in,
+                                          const double gamma_dot_0_in,
+                                          const double a1_in,
+                                          const double a2_in,
+                                          const double Lambda1_in,
+                                          const double Lambda2_in,
                                           const double c_inf_in,
-                                          const double c_Gamma_in,
-                                          const double d_B_in,
-                                          const double d_pcb_in,
+                                          const double Gamma_in,
+                                          const double B_in,
+                                          const double pc_b_in,
                                           const double mu_0_in,
                                           const double mu_1_in,
-                                          const double K_p0_in,
-                                          const double K_kappa_in,
-                                          const double pl_n_in,
-                                          const double cf_g0_in,
-                                          const double cf_pcinf_in);
+                                          const double p0_in,
+                                          const double kappa_in,
+                                          const double n_in,
+                                          const double g0_in,
+                                          const double pc_inf_in);
 
 void print_material_property_poro_visco_plasticity(const MaterialPoroViscoPlasticity *mat);                                          
 

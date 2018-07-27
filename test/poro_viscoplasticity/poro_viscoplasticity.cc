@@ -415,7 +415,7 @@ int main(int argc,char *argv[])
       err += print_inputs(mat_pvp, sim);
     
     // perform simulations
-    double p0 = mat_pvp.K_p0;
+    double p0 = mat_pvp.p0;
     double h  = poro_visco_plasticity_hardening(p0, &mat_pvp);
     double HardLawJp0Coeff = pow(exp(h), 1.0/3.0);
     
