@@ -9,6 +9,7 @@
 #include "constitutive_model_handle.h"
 #include "GcmSolverInfo.h"
 
+// integration algorithm for PVP model in a staggered manner
 int poro_visco_plasticity_integration_algorithm(const MaterialPoroViscoPlasticity *mat,
                                                 const GcmSolverInfo *solver_info,
                                                 double *Fnp1,
@@ -20,25 +21,21 @@ int poro_visco_plasticity_integration_algorithm(const MaterialPoroViscoPlasticit
                                                 const double dt_in,
                                                 const bool is_implicit = true); 
 
+/// compute PKII and elasticity tensor w.r.t eC
 void poro_visco_plasticity_update_elasticity(double *eS_out,
                                              double *L_out,
                                              const MaterialPoroViscoPlasticity *param,
                                              double *eF_in,
                                              const double pc,
                                              const bool compute_4th_order = false);
-
-double poro_visco_plasticity_hardening(const double pc,
-                                       const MaterialPoroViscoPlasticity *param);
                                        
 /// compute conforming pressure for given plastic deformation 
-/// \param[in] pJ        determinant of pF
-/// \param[in] mat_pvp   poro_viscoplaticity material object
-/// \return    computed pc value  
 double poro_visco_plasticity_compute_pc(double pJ, 
                                         double pc,
                                         const MaterialPoroViscoPlasticity *mat,
                                         const GcmSolverInfo *solver_info);
 
+/// compute PKII and elasticity tensor for deviatoric part of W w.r.t eC
 void poro_visco_plasticity_update_elasticity_dev(double *eS_out,
                                                  double *L_out,
                                                  const MaterialPoroViscoPlasticity *param,
@@ -46,17 +43,21 @@ void poro_visco_plasticity_update_elasticity_dev(double *eS_out,
                                                  const double pc,
                                                  const bool compute_4th_order);
 
+/// compute derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
 double poro_visco_plasticity_intf_compute_dudj(const double eJ,
                                                const double pc,
-                                               const MaterialPoroViscoPlasticity *param);                                               
+                                               const MaterialPoroViscoPlasticity *param);     
 
+/// compute 2nd derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
 double poro_visco_plasticity_intf_compute_d2udj2(const double eJ,
                                                  const double pc,
                                                  const MaterialPoroViscoPlasticity *param);                                                 
 
+/// compute hardening function value of p_c
 double poro_visco_plasticity_hardening(const double pc,
                                        const MaterialPoroViscoPlasticity *param);
 
+/// compute plastic strain rates
 void poro_visco_plasticity_intf_compute_gammas(double &gamma_dot_d,
                                                double &gamma_dot_v,
                                                double *Fnp1_in,
@@ -69,6 +70,7 @@ void poro_visco_plasticity_intf_compute_gammas(double &gamma_dot_d,
                                                const MaterialPoroViscoPlasticity *param,
                                                const GcmSolverInfo *solver_info);
 
+/// compute dMdU for an finite element for PDE
 void poro_visco_plasticity_compute_dMdu(double *dMdUs,
                                         double *Grad_us,
                                         const MaterialPoroViscoPlasticity *mat,
@@ -82,7 +84,8 @@ void poro_visco_plasticity_compute_dMdu(double *dMdUs,
                                         const double dt,
                                         const int nne,
                                         const int ndofn);
-                                        
+
+/// define PVP integrator                                        
 class GcmPvpIntegrator : public GcmIntegrator
 {
   public:
