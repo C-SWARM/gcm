@@ -3,7 +3,7 @@
 /// 
 /// [1] University of Notre Dame, Notre Dame, IN
 
-# ifndef H__H__PORO_VISCOPLASTICITY__H__H
+#ifndef H__H__PORO_VISCOPLASTICITY__H__H
 
 #include "material_properties.h"
 #include "constitutive_model_handle.h"
@@ -119,4 +119,4 @@ class GcmPvpIntegrator : public GcmIntegrator
     
 };                                        
 
-# endif
+#endif

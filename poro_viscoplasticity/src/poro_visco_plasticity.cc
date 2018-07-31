@@ -22,38 +22,6 @@ double Macaulay(const double x,
   return (x >= x0)? x-x0 : 0.0;  
 }
 
-template<class T> void print(double *A, const int dim, const char *name = NULL)
-{
-  if(name==NULL)
-    printf("A={");
-  else
-    printf("%s = {", name);
-    
-  for(int ia=0; ia<dim; ia++){
-    if(ia==dim-1)
-      printf("%.17e,", A[ia]);
-    else
-      printf("%.17e", A[ia]);
-  }
-  printf("};\n");
-}
-
-template<class T> void print(T &A, const int dim, const char *name = NULL)
-{
-  if(name==NULL)
-    printf("A={");
-  else
-    printf("%s = {", name);
-    
-  for(int ia=0; ia<dim; ia++){
-    if(ia==dim-1)
-      printf("%.17e", A.data[ia]);
-    else
-      printf("%.17e, ", A.data[ia]);
-  }
-  printf("};\n");
-}
-
 /// class carrying 2nd order tensor (3x3 matrix) from C
 class F_FromC
 {
@@ -695,7 +663,7 @@ class PvpIntegrator
                                             + sv.psi_v(i,j)*dgamma_dot_v_dM(k,l));
     }
    
-    template<class T> void compute_dE_dWdp(T &dSdp,
+    template<class T> void compute_dE_dWdp(T &dE_dWdp,
                                            const double pc){
       double c = mat.compute_c(pc);
       double d = mat.compute_d(pc);
@@ -713,7 +681,7 @@ class PvpIntegrator
       double coeff_U_beta  = mat.compute_coeff_U_beta(c);
 
       Tensor<4> L;
-      elasticity.compute_elasticity_tensor(dSdp, L , sv.eFnp1, dmudp, dKdp, dcdp, coeff_U_alpha1, coeff_U_alpha2, coeff_U_beta, false);
+      elasticity.compute_elasticity_tensor(dE_dWdp, L , sv.eFnp1, dmudp, dKdp, dcdp, coeff_U_alpha1, coeff_U_alpha2, coeff_U_beta, false);
     }
     
     template<class T1, class T2> void compute_d_tau_dp(T1 &d_tau_dp,
@@ -1032,7 +1000,8 @@ class PvpIntegrator
           
         }
       }
-    }   
+
+    } 
 
     ~PvpIntegrator(){};    
 };
@@ -1642,3 +1611,4 @@ void poro_visco_plasticity_compute_dMdu(double *dMdUs,
   pvp.update_StateVariables(pc_n, false);
   pvp.compute_dMdu(dMdUs, pc_np1, Grad_us, nne, ndofn);                                           
 }
+
