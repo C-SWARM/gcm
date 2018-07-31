@@ -924,7 +924,6 @@ class PvpIntegrator
 
       dRpdM(i,j) = -sv.pJ*sv.MI(j,i);    
 
-      double Hpc = mat.compute_H(pc);                
       double dRpdp = -sv.pJ*mat.compute_dHdp(pc);
       
       for(int ia=0; ia<DIM_3x3; ia++){
@@ -1038,7 +1037,6 @@ class PvpIntegrator
       double d = mat.compute_d(pc);
       double dddp = mat.compute_dddp(pc);
       double dHdp = mat.compute_dHdp(pc);
-      double one_over_dH = 1.0/dHdp;
       double pi_pi_m_over_g_pi = 0.0;
       double pow_pi_pi_m_over_g_pi = 0.0;
       if(sv.pi>sv.pi_m)
@@ -1059,7 +1057,6 @@ class PvpIntegrator
       double gamma_dot_d = mat.compute_gamma_dot_d(d, sv.bar_tau, sv.g_tau);
       double gamma_dot_v = mat.compute_gamma_dot_v(sv.pi, sv.pi_m, sv.g_pi);      
 
-      double bar_tau_g_tau = sv.bar_tau/sv.g_tau;
       double pow_bar_tau_g_tau = pow(sv.bar_tau/sv.g_tau, 1.0/mat.param->m);
       double d_g_tau_dp = mat.compute_dg_tau_dp(pc); 
       
