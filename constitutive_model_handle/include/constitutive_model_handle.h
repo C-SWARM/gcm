@@ -110,7 +110,7 @@ class GcmIntegrator
 };
 
 
-/// find n: n = f(m) where f(
+/// find n: n = f(m) where f(m) is given below:
 /// L0 = (m-x1)*(m-x2)/(x0-x1)/(x0-x2);
 /// L1 = (m-x0)*(m-x2)/(x1-x0)/(x1-x2);
 /// L2 = (m-x0)*(m-x2)/(x2-x0)/(x2-x1);
@@ -123,9 +123,5 @@ double quadratic_interpolation(const double nm1,
                                const double dtn,
                                const double dtnp1,
                                const double dt);
-
-int GCM_integration_algorithm(auto integrator,
-                              const double dtn,
-                              const double dtnp1);
                               
 #endif
