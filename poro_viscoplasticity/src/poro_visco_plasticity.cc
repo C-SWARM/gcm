@@ -961,12 +961,14 @@ class PvpIntegrator
     /// \return computed conforming pressure
     double compute_pc(double pcn,
                       const double pJ){
+                        
+      bool is_convg = true;
       
       double logJp = log(pJ);      
       double DfDpcn = mat.compute_dHdp(pcn);
       
       int it=0;
-      double pcnp1 = pc_n;
+      double pcnp1 = pcn;
       
       if(fabs(DfDpcn) < solver_info->tol_M){
         double a = pcn;
@@ -994,6 +996,9 @@ class PvpIntegrator
             b =c;
         }
         pcnp1 = c;
+        if(it==maxIt)
+          is_convg = false;
+          
       } else {
         const int maxIt=100;
         pcnp1 = pcn;
@@ -1008,7 +1013,13 @@ class PvpIntegrator
           if(fabs(logJp - mat.compute_H(pcnp1)) < solver_info->tol_hardening)
             break;
         }
+        if(it==maxIt)
+          is_convg = false;        
       }
+      
+      if(!is_convg && solver_info->debug)
+        printf("Cannot compute pc for pJ = %e: pc_n = %e, pc_np1 = %e\n", pJ, pcn, pcnp1);
+        
       return pcnp1;                        
     }
 
@@ -1230,7 +1241,8 @@ int poro_visco_plasticity_integration_algorithm_staggered(const MaterialPoroVisc
       catch (int i)
       {
         ++err;
-        printf("Error detected\n");
+        if(solver_info->debug)
+          printf("Matrix is singular. The solution (Poro-visco-plasticity) could not be computed.\n");
         break;      
       }
             
@@ -1325,7 +1337,7 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
       du = ttl::solve(K,R);
     }
     catch(const int solve_err){  // no solution
-      if(1)
+      if(solver_info->debug)
         printf( "Matrix is singular. The solution (Poro-visco-plasticity) could not be computed.\n");
 
       ++err;
@@ -1366,7 +1378,7 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
       
     if(eng_norm/eng_norm_0 < (pvp.solver_info->tol_M)*(pvp.solver_info->tol_M))
     {
-      if(0)
+      if(solver_info->debug)
         printf("converge on energe norm %e\n", eng_norm/eng_norm_0);
 
       //break;
