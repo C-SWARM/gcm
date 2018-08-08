@@ -137,31 +137,38 @@ int read_deformation_gradient(Tensor<2> &F)
 int print_output_header(FILE *out)
 {
   int vno = 0;
-  fprintf(out,"%% %s[%d] %s[%d] ", "t", vno++, "Jnp1", vno++);
+  fprintf(out,"%% %s[%d] %s[%d] ", "t", vno, "Jnp1", vno+1);
   fprintf(out,"%s[%d] %s[%d] %s[%d] %s[%d] %s[%d] %s[%d] %s[%d] %s[%d] %s[%d] ", 
-               "F11", vno++, "F12", vno++, "F13",vno++,
-               "F21", vno++, "F22", vno++, "F23",vno++,
-               "F31", vno++, "F32", vno++, "F33",vno++);
+               "F11", vno+2, "F12", vno+3, "F13",vno+4,
+               "F21", vno+5, "F22", vno+6, "F23",vno+7,
+               "F31", vno+8, "F32", vno+9, "F33",vno+10);
+  vno += 10;               
   fprintf(out,"%s[%d] %s[%d] %s[%d] %s[%d] ",
-               "dw", vno++,"vw", vno++,"dX", vno++,"vX", vno++);
+               "dw", vno+1,"vw", vno+2,"dX", vno+3,"vX", vno+4);
+  vno += 4;               
   fprintf(out,"%s[%d] %s[%d] %s[%d] %s[%d] %s[%d] %s[%d] %s[%d] ",
-               "sigma0_11", vno++,"sigma0_22", vno++,"sigma0_33", vno++,
-               "sigma0_23", vno++,"sigma0_31", vno++,"sigma0_12", vno++,"sigma_eff_0",vno++);
+               "sigma0_11", vno+1,"sigma0_22", vno+2,"sigma0_33", vno+3,
+               "sigma0_23", vno+4,"sigma0_31", vno+5,"sigma0_12", vno+6,"sigma_eff_0",vno+7);
+  vno += 7;               
   fprintf(out,"%s[%d] %s[%d] %s[%d] %s[%d] %s[%d] %s[%d] ",
-               "S0_11", vno++, "S022", vno++, "S033",vno++,
-               "S0_23", vno++, "S031", vno++, "S012",vno++);
+               "S0_11", vno+1, "S022", vno+2, "S033",vno+3,
+               "S0_23", vno+4, "S031", vno+5, "S012",vno+6);
+  vno += 6;
   fprintf(out,"%s[%d] %s[%d] %s[%d] %s[%d] %s[%d] %s[%d] %s[%d] ",
-               "sigma11", vno++, "sigma22", vno++, "sigma33",vno++,
-               "sigma23", vno++, "sigma31", vno++, "sigma12",vno++,"sigma_eff",vno++);
+               "sigma11", vno+1, "sigma22", vno+2, "sigma33",vno+3,
+               "sigma23", vno+4, "sigma31", vno+5, "sigma12",vno+6,"sigma_eff",vno+7);
+  vno += 7;
   fprintf(out,"%s[%d] %s[%d] %s[%d] %s[%d] %s[%d] %s[%d] ",
-               "S11", vno++, "S22", vno++, "S33",vno++,
-               "S23", vno++, "S31", vno++, "S12",vno++);
+               "S11", vno+1, "S22", vno+2, "S33",vno+3,
+               "S23", vno+4, "S31", vno+5, "S12",vno+6);
+  vno += 6;
   fprintf(out,"%s[%d] %s[%d] %s[%d] %s[%d] %s[%d] %s[%d] %s[%d] ",
-               "E11", vno++, "E22", vno++, "E33",vno++,
-               "E23", vno++, "E31", vno++, "E12",vno++,"Eeff",vno++);
+               "E11", vno+1, "E22", vno+2, "E33",vno+3,
+               "E23", vno+4, "E31", vno+5, "E12",vno+6,"Eeff",vno+7);
+  vno += 7;
   fprintf(out,"%s[%d] %s[%d] %s[%d] %s[%d] %s[%d] %s[%d] %s[%d]\n",
-               "e11", vno++, "e22", vno++, "e33",vno++,
-               "e23", vno++, "e31", vno++, "e12",vno++,"eeff",vno++);  
+               "e11", vno+1, "e22", vno+2, "e33",vno+3,
+               "e23", vno+4, "e31", vno+5, "e12",vno+6,"eeff",vno+7);  
   return 0;
 };
 
@@ -276,8 +283,8 @@ int test_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
                                             &w,&X,&H,&is_it_damaged,
                                             wn,Xn,dt,Fnp1.data);
                                                                                  
-    err += update_damaged_elasticity(&mat_d,&elast,w,is_it_damaged,H,
-                                     dt,Fnp1.data, construct_ET);
+    err += update_damage_elasticity(&mat_d,&elast,w,is_it_damaged,H,
+                                    dt,Fnp1.data, construct_ET);
                                             
     err += elast.compute_Cauchy_eff(&elast,&sigma_eff,Fnp1.data);
     err += elast.compute_Cauchy(&elast,sigma.data,Fnp1.data);
@@ -384,12 +391,12 @@ int test_split_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
     double sigma_eff = 0.0;
     Jnp1 = ttl::det(Fnp1);
     
-    err += continuum_damage_split_integration_alg(&mat_d,&elast,
+    err += continuum_split_damage_integration_alg(&mat_d,&elast,
                                      &dw,&vw,&dX,&vX,&dH,&vH,
                                      &is_it_damaged_d,&is_it_damaged_v,                                     
                                      dwn,vwn,dXn,vXn,dt,Fnp1.data);    
     
-    err += update_damaged_elasticity_split(&mat_d,&elast,dw,vw,dH,vH,
+    err += update_split_damage_elasticity(&mat_d,&elast,dw,vw,dH,vH,
                                           is_it_damaged_d,is_it_damaged_v,
                                           dt, Fnp1.data, construct_ET);
                                           

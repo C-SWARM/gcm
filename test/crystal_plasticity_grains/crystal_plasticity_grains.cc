@@ -202,7 +202,7 @@ int test_crystal_plasticity_single_crystal(const MAT_PROP *mat_in,
     }        
   }
   
-  char out[1024];
+  char out[2048];
   sprintf(out, "%s_Fs_%d.txt", sim->file_out, grain_id);
   FILE *fp = fopen(out, "w");
   fprintf(fp, "%e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e\n",
@@ -372,7 +372,7 @@ int test_crystal_plasticity_grains(MAT_PROP *mat,
   
   if(myrank==0)
   {
-    char fname[1024];
+    char fname[2048];
     sprintf(fname, "%s_%d.txt", sim->file_out,n_grain); 
     FILE *fp = fopen(fname, "w");
 

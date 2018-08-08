@@ -45,7 +45,7 @@ void test_damage_model(void)
     Xn = X;
     is_it_damaged = 0;
 
-    err += update_damaged_elasticity(&mat_d,&elast,w,is_it_damaged,H,
+    err += update_damage_elasticity(&mat_d,&elast,w,is_it_damaged,H,
                                      dt,F.data,1);
 
     fprintf(out,"%e %e %e\n", d*a, S.data[0], w);
