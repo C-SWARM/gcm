@@ -447,14 +447,14 @@ int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   return err;
 }
 
-int update_split_damage_elasticity_dev(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                       ELASTICITY *elasticity,
-                                       double dw,
-                                       double dH,
-                                       int is_it_damaged_d,
-                                       const double dt,
-                                       double *F_in, 
-                                       const int compute_stiffness)
+int update_damage_elasticity_dev(MATERIAL_CONTINUUM_DAMAGE *mat_d,
+                                 ELASTICITY *elasticity,
+                                 double dw,
+                                 double dH,
+                                 int is_it_damaged_d,
+                                 const double dt,
+                                 double *F_in, 
+                                 const int compute_stiffness)
 {
   int err = 0;
 
@@ -492,14 +492,12 @@ int update_split_damage_elasticity_dev(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 
 /// compute derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
 /// 
-/// \param[in] mat_d      damage model material property object
 /// \param[in] elasticity elasticity object
 /// \param[in] eJ         det(eF)
 /// \param[in] vw         volumetric part damage parameter
-double split_damage_compute_dudj(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                 ELASTICITY *elasticity,
-                                 const double eJ,
-                                 const double vw)
+double damage_compute_dudj(ELASTICITY *elasticity,
+                           const double eJ,
+                           const double vw)
 {
   double dudj = 0.0;  
   elasticity->compute_dudj(&dudj, eJ);
@@ -509,14 +507,12 @@ double split_damage_compute_dudj(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 
 /// compute  2nd derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
 /// 
-/// \param[in] mat_d      damage model material property object
 /// \param[in] elasticity elasticity object
 /// \param[in] eJ         det(eF)
 /// \param[in] vw         volumetric part damage parameter
-double split_damage_compute_d2udj2(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                   ELASTICITY *elasticity,
-                                   const double eJ,
-                                   const double vw)
+double damage_compute_d2udj2(ELASTICITY *elasticity,
+                             const double eJ,
+                             const double vw)
 {
   double d2udj2 = 0.0;  
   elasticity->compute_d2udj2(&d2udj2, eJ);

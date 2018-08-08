@@ -110,25 +110,23 @@ int apply_split_damage_on_stiffness(double *L_out, double *dS0_in, double *vS0_i
                                     double dw, double vw, int is_it_damaged_d, int is_it_damaged_v,
                                     double dH, double vH, double dt, double mu);
                                                                    
-int update_split_damage_elasticity_dev(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                       ELASTICITY *elasticity,
-                                       double dw,
-                                       double dH,
-                                       int is_it_damaged_d,
-                                       const double dt,
-                                       double *F_in, 
-                                       const int compute_stiffness);
-/// compute derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
-double split_damage_compute_dudj(MATERIAL_CONTINUUM_DAMAGE *mat_d,
+int update_damage_elasticity_dev(MATERIAL_CONTINUUM_DAMAGE *mat_d,
                                  ELASTICITY *elasticity,
-                                 const double eJ,
-                                 const double vw);
+                                 double dw,
+                                 double dH,
+                                 int is_it_damaged_d,
+                                 const double dt,
+                                 double *F_in, 
+                                 const int compute_stiffness);
+/// compute derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
+double damage_compute_dudj(ELASTICITY *elasticity,
+                           const double eJ,
+                           const double vw);
 
 /// compute  2nd derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
-double split_damage_compute_d2udj2(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                   ELASTICITY *elasticity,
-                                   const double eJ,
-                                   const double vw);
+double damage_compute_d2udj2(ELASTICITY *elasticity,
+                             const double eJ,
+                             const double vw);
 #ifdef __cplusplus
 }
 #endif /* #ifdef __cplusplus */
