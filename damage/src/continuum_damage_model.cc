@@ -4,6 +4,8 @@
 
 #define MIN(a,b) ((a)>(b)?(b):(a))
 #define MAX(a,b) ((a)>(b)?(a):(b))
+  
+constexpr double DELTA_W_MAX = 0.05;
 
 int continuum_damage_Weibull(double *G, 
                              const double Y, 
@@ -208,7 +210,6 @@ int continuum_damage_integration_alg_public(MATERIAL_CONTINUUM_DAMAGE *mat_d,
                                             double wn,
                                             double Xn,
                                             const double dt,
-                                            double *F_in,
                                             double Y)
 {
   int err = 0;
@@ -571,4 +572,34 @@ double damage_compute_d2udj2(ELASTICITY *elast,
   elast->compute_d2udj2(&d2udj2, eJ);
   
   return (1.0 - vw)*d2udj2;  
+}
+
+/// Provide a public interface to the subdivision parameter to allow
+/// other constitutive models to subdivide in a consistent fashion when
+/// using the damage integration algorithm.
+///
+/// \param[in] w_n   damage at t(n)
+/// \param[in] w_np1 damage at t(n+1)
+double compute_subdiv_param(const double w_n,
+                            const double w_np1){
+  double w = w_np1 - w_n;
+  return w/DELTA_W_MAX;
+}
+
+
+/// Provide a public interface to the subdivision parameter to allow
+/// other constitutive models to subdivide in a consistent fashion when
+/// using the split damage integration algorithm.
+///
+/// \param[in] dw_n deviatoric damage at t(n)
+/// \param[in] dw_n deviatoric damage at t(n+1)
+/// \param[in] vw_n volumetric damage at t(n)
+/// \param[in] vw_n volumetric damage at t(n+1) 
+double compute_subdiv_param4split_damage(const double dw_n,
+                                         const double dw_np1,
+                                         const double vw_n,
+                                         const double vw_np1){
+  double dw = dw_np1 - dw_n;
+  double vw = vw_np1 - vw_n;
+  return MAX(dw, vw)/DELTA_W_MAX;
 }

@@ -39,7 +39,6 @@ int continuum_damage_integration_alg_public(MATERIAL_CONTINUUM_DAMAGE *mat_d,
                                             double wn,
                                             double Xn,
                                             const double dt,
-                                            double *F_in,
                                             double Y);
 
 int continuum_split_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
@@ -127,6 +126,16 @@ double damage_compute_dudj(ELASTICITY *elast,
 double damage_compute_d2udj2(ELASTICITY *elast,
                              const double eJ,
                              const double vw);
+
+/// Provide the subdivision parameter for the damage model
+double compute_subdiv_param(const double w_n,
+                            const double w_np1);
+
+/// Provide the subdivision parameter for the split damage model                            
+double compute_subdiv_param4split_damage(const double dw_n,
+                                         const double dw_np1,
+                                         const double vw_n,
+                                         const double vw_np1);
 #ifdef __cplusplus
 }
 #endif /* #ifdef __cplusplus */
