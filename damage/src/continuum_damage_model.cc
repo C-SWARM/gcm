@@ -389,7 +389,7 @@ int apply_split_damage_on_stiffness(double *L_out, double *dS0_in, double *vS0_i
 }
 
 int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                   ELASTICITY *elasticity,
+                                   ELASTICITY *elast,
                                    double dw,
                                    double vw,
                                    double dH,
@@ -402,53 +402,83 @@ int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 {
   int err = 0;
 
-  Tensor<2> C,CI,dS_0,vS_0;
+  Tensor<2> C, CI, dS_0;
+  Tensor<2>vS_0 = {};
   
   // use double arrays as Matrix
-  TensorA<2> F(F_in), S(elasticity->S);
-  
-  double detF = ttl::det(F);
+  TensorA<2> F(F_in);
   C = F(k,i)*F(k,j);
-  inv(C,CI);
-  
-  double detC = detF*detF;
   
   // compute stress -->
-  double dudj = 0.0;  
-  double kappa = elasticity->mat->kappa;    
-  elasticity->compute_PK2_dev(C.data, elasticity->mat, dS_0.data);
-  elasticity->compute_dudj(&dudj, detF);
-  
-  vS_0(i,j) = kappa*detF*dudj*CI(i,j);
-          
+  elast->compute_PK2_dev(C.data, elast->mat, dS_0.data);
+
+  inv(C,CI);
+  double detF = ttl::det(F);
+  double kappa = elast->mat->kappa;    
+  double dudj = 0.0; 
+  elast->compute_dudj(&dudj, detF);      
+
+  vS_0(i,j) = kappa*detF*dudj*CI(i,j);  
+
   if(compute_stiffness)
-  {
+  {            
     Tensor<4> dL;
-    TensorA<4> L(elasticity->L);
-      
-    double d2udj2 = 0.0;    
-    elasticity->compute_tangent_dev(C.data, elasticity->mat, dL.data);              
-    elasticity->compute_d2udj2(&d2udj2, detF);
+    TensorA<4> L(elast->L);
+    
+    double detC = detF*detF;
+    double d2udj2 = 0.0; 
+    elast->compute_tangent_dev(C.data, elast->mat, dL.data);
+    elast->compute_d2udj2(&d2udj2, detF);
     
     L(i,j,k,l) = (1-dw)*dL(i,j,k,l) + (1-vw)*(kappa*(detF*dudj + detC*d2udj2)*CI(i,j)*CI(k,l)
                                               -2.0*kappa*detF*dudj*CI(i,k)*CI(l,j));
+ 
+    if(is_it_damaged_d || is_it_damaged_v)
+    {  
+      double W = 0.0, U = 0.0;
 
-    double dt_mu = dt*(mat_d->mu);
-
-    if(is_it_damaged_d)
-      L(i,j,k,l) += (dt_mu)/(1.0+dt_mu)*(dH)*dS_0(i,j)*dS_0(k,l);
+      elast->compute_potential_dev(C.data, elast->mat, &W);    
+      elast->compute_u(&U,detF);
+      U *= kappa;
+    
+      double dt_mu = dt*(mat_d->mu);
+    
+      if(is_it_damaged_d){
+        double alpha_dev = mat_d->alpha_dev;
+        double beta_dev  = mat_d->beta_dev;
       
+        if(beta_dev<0)
+          beta_dev = -beta_dev*H_of_J(detF);      
+          
+        double dY = alpha_dev*W + beta_dev*U;
+        double H1 = 0.0;
+        err += continuum_damage_Weibull_evolution(&H1, dY, mat_d);        
+        L(i,j,k,l) += (dt_mu)/(1.0+dt_mu)*(H1*alpha_dev)*dS_0(i,j)*dS_0(k,l)
+                   +  (dt_mu)/(1.0+dt_mu)*(H1*beta_dev)*dS_0(i,j)*vS_0(k,l);        
+      }
 
-    if(is_it_damaged_v)
-      L(i,j,k,l) += (dt_mu)/(1.0+dt_mu)*(vH)*vS_0(i,j)*vS_0(k,l);        
+      if(is_it_damaged_v){
+        double alpha_vol = mat_d->alpha_vol;   
+        double beta_vol  = mat_d->beta_vol;  
+    
+        if(beta_vol<0)
+          beta_vol = -beta_vol*H_of_J(detF);
+
+        double vY = alpha_vol*W + beta_vol*U;
+        double H2 = 0.0;
+        err += continuum_damage_Weibull_evolution(&H2, vY, mat_d);    
+        L(i,j,k,l) += (dt_mu)/(1.0+dt_mu)*(H2*alpha_vol)*vS_0(i,j)*dS_0(k,l)
+                   +  (dt_mu)/(1.0+dt_mu)*(H2*beta_vol)*vS_0(i,j)*vS_0(k,l);
+      }
+    }            
   }
   
-  err += apply_split_damage_on_stress(elasticity->S, dS_0.data, vS_0.data, dw, vw);      
+  err += apply_split_damage_on_stress(elast->S, dS_0.data, vS_0.data, dw, vw);      
   return err;
 }
 
 int update_damage_elasticity_dev(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                 ELASTICITY *elasticity,
+                                 ELASTICITY *elast,
                                  double dw,
                                  double dH,
                                  int is_it_damaged_d,
@@ -458,64 +488,87 @@ int update_damage_elasticity_dev(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 {
   int err = 0;
 
-  Tensor<2> C,dS_0,vS_0;
+  Tensor<2> C, dS_0;
   
   // use double arrays as Matrix
-  TensorA<2> F(F_in);  
+  TensorA<2> F(F_in);
   C = F(k,i)*F(k,j);
-  
+    
   // compute stress -->
-  elasticity->compute_PK2_dev(C.data, elasticity->mat, dS_0.data);
+  elast->compute_PK2_dev(C.data, elast->mat, dS_0.data);
           
   if(compute_stiffness)
   {
     Tensor<4> dL;
-    TensorA<4> L(elasticity->L);
+    TensorA<4> L(elast->L);
       
-    elasticity->compute_tangent_dev(C.data, elasticity->mat, dL.data);              
+    elast->compute_tangent_dev(C.data, elast->mat, dL.data);              
     
     L(i,j,k,l) = (1-dw)*dL(i,j,k,l);
+    
+    if(is_it_damaged_d){
+      Tensor<2> CI, vS_0;
 
-    double dt_mu = dt*(mat_d->mu);
-
-    if(is_it_damaged_d)
-      L(i,j,k,l) += (dt_mu)/(1.0+dt_mu)*(dH)*dS_0(i,j)*dS_0(k,l);
-      
-   }
+      inv(C,CI);
+      double detF = ttl::det(F);
+      double kappa = elast->mat->kappa;    
+      double dudj = 0.0; 
+      elast->compute_dudj(&dudj, detF); 
   
-  for(int ia=0; ia<DIM_3x3; ++ia)
-    elasticity->S[ia] = (1.0 - dw)*dS_0.data[ia];
-
+      vS_0(i,j) = kappa*detF*dudj*CI(i,j);      
+      
+      double W = 0.0, U = 0.0;    
+      elast->compute_potential_dev(C.data, elast->mat, &W);    
+      elast->compute_u(&U,detF);
+      U *= (elast->mat->kappa);
+        
+      double alpha_dev = mat_d->alpha_dev;
+      double beta_dev  = mat_d->beta_dev;
+           
+      if(beta_dev<0)
+        beta_dev = -beta_dev*H_of_J(detF);
+      
+        
+      double dY = alpha_dev*W + beta_dev*U;  
+      double H1 = 0.0;
+      err += continuum_damage_Weibull_evolution(&H1, dY, mat_d);
+      
+      double dt_mu = dt*(mat_d->mu);
+      L(i,j,k,l) += (dt_mu)/(1.0+dt_mu)*(H1*alpha_dev)*dS_0(i,j)*dS_0(k,l)
+                 +  (dt_mu)/(1.0+dt_mu)*(H1*beta_dev)*dS_0(i,j)*vS_0(k,l);        
+    }
+  }  
+  err += apply_damage_on_stress(elast->S, dS_0.data, dw); // apply only deviatoric part
   return err;
 }
 
 
 /// compute derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
 /// 
-/// \param[in] elasticity elasticity object
-/// \param[in] eJ         det(eF)
-/// \param[in] vw         volumetric part damage parameter
-double damage_compute_dudj(ELASTICITY *elasticity,
+/// \param[in] elast elasticity object
+/// \param[in] eJ    det(eF)
+/// \param[in] vw    volumetric part damage parameter
+double damage_compute_dudj(ELASTICITY *elast,
                            const double eJ,
                            const double vw)
 {
   double dudj = 0.0;  
-  elasticity->compute_dudj(&dudj, eJ);
+  elast->compute_dudj(&dudj, eJ);
   
   return (1.0 - vw)*dudj;  
 }
 
 /// compute  2nd derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
 /// 
-/// \param[in] elasticity elasticity object
-/// \param[in] eJ         det(eF)
-/// \param[in] vw         volumetric part damage parameter
-double damage_compute_d2udj2(ELASTICITY *elasticity,
+/// \param[in] elast elasticity object
+/// \param[in] eJ    det(eF)
+/// \param[in] vw    volumetric part damage parameter
+double damage_compute_d2udj2(ELASTICITY *elast,
                              const double eJ,
                              const double vw)
 {
   double d2udj2 = 0.0;  
-  elasticity->compute_d2udj2(&d2udj2, eJ);
+  elast->compute_d2udj2(&d2udj2, eJ);
   
   return (1.0 - vw)*d2udj2;  
 }
