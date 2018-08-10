@@ -244,6 +244,28 @@ static int compute_S0_Sbar(auto& S0,
   return err;
 }
 
+static int compute_S0_Sbar_dev(auto& S0,
+                               auto& Sbar,
+                               const auto& F,
+                               const auto& sp,
+                               const ELASTICITY *elast)
+{
+  int err = 0;
+  // compute the current configuration deviatoric stresses
+
+  double G = (elast->mat)->G;
+  Tensor<2> s0,sbar,bbar, C, CI;
+
+  err += compute_bbar(bbar, F);
+  err += compute_s0(G, bbar,s0);
+  sbar(i,j) = s0(i,j) - sp(i,j);
+
+  //perform pull-back */
+  err += compute_pull_back(F,s0,S0);
+  err += compute_pull_back(F,sbar,Sbar);
+  return err;
+}
+
 int compute_S0_Sbar_public(double *S0_out,
                            double *Sbar_out,
                            double *F_in,
@@ -254,6 +276,20 @@ int compute_S0_Sbar_public(double *S0_out,
 
   TensorA<2> S0(S0_out), Sbar(Sbar_out), F(F_in), sp(sp_in);
   err += compute_S0_Sbar(S0,Sbar,F,sp,elast);
+
+  return err;
+}
+
+int compute_S0_Sbar_dev_public(double *S0_out,
+                               double *Sbar_out,
+                               double *F_in,
+                               double *sp_in,
+                               ELASTICITY *elast)
+{
+  int err = 0;
+
+  TensorA<2> S0(S0_out), Sbar(Sbar_out), F(F_in), sp(sp_in);
+  err += compute_S0_Sbar_dev(S0,Sbar,F,sp,elast);
 
   return err;
 }
@@ -429,6 +465,7 @@ static int compute_Lbar(auto& Lbar,
   return err;
 }
 
+
 int compute_Lbar_public(double *Lbar_out,
                         double *F_in,
                         double *Fn_in,
@@ -443,6 +480,26 @@ int compute_Lbar_public(double *Lbar_out,
   TensorA<2> F(F_in), Fn(Fn_in), sp_n(sp_n_in);
 
   err += compute_Lbar(Lbar, F, Fn, sp_n, gamma, J2P, elast);
+  return err;
+}
+
+int compute_Lbar_dev_public(double *Lbar_out,
+                            double *F_in,
+                            double *Fn_in,
+                            double *sp_n_in,
+                            double gamma,
+                            MATERIAL_J2_PLASTICITY *J2P,
+                            ELASTICITY *elast)
+{
+  int err = 0;
+
+  TensorA<4> Lbar(Lbar_out);
+  TensorA<2> F(F_in), Fn(Fn_in), sp_n(sp_n_in);
+
+  if (gamma > 0)
+    err += compute_loading_Aep_dev(Lbar,F,Fn,sp_n,gamma,J2P,elast->mat);
+  else
+    err += compute_unloading_Aep_dev(Lbar,F,Fn,sp_n,(elast->mat)->G);
   return err;
 }
 
