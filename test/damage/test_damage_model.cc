@@ -408,8 +408,6 @@ int main(int argc,char *argv[])
     fclose(fp);        
     destruct_elasticity(&elast);
     
-    test_damage_model();
-    
     gettimeofday(&end, NULL);
     double diff = (double)(end.tv_usec - start.tv_usec)/1000000.0 
     + (double)(end.tv_sec - start.tv_sec);
