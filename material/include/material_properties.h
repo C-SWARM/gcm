@@ -117,6 +117,9 @@ int set_split_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1,
                                                                 const double db,
                                                                 const double va,
                                                                 const double vb);
+
+/// print material parameters for the damage model                                                                
+int print_material_property_damage_model(MATERIAL_CONTINUUM_DAMAGE *mat);
                                                                 
 int set_J2_plasticity_parameters(MATERIAL_J2_PLASTICITY *J2P, const double hp,
                                                               const double beta,

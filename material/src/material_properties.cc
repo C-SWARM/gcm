@@ -171,6 +171,27 @@ int set_split_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1,
   return err;
 }
 
+/// print material parameters for the damage model.
+///
+/// param[in] material property object for the damage model
+int print_material_property_damage_model(MATERIAL_CONTINUUM_DAMAGE *mat)
+{
+  int err = 0;
+  printf("-----------------------------------------------------------\n");
+  printf("damage model properties\n");
+  printf("-----------------------------------------------------------\n");
+  printf("Damage scale parameter (p1)     = %e\n", mat->P1);
+  printf("Damage shape parameter (p2)     = %e\n", mat->P2);
+  printf("Damage energy threshold (Yin)   = %e\n", mat->Y_in);
+  printf("Damage viscosity (mu)           = %e\n", mat->mu);  
+  printf("Maximum damage                  = %e\n", mat->w_max);
+  printf("Split damage parameter alpha_d  = %e\n", mat->alpha_dev);
+  printf("Split damage parameter beta_d   = %e\n", mat->beta_dev);
+  printf("Split damage parameter alpha_v  = %e\n", mat->alpha_vol);  
+  printf("Split damage parameter beta_v   = %e\n", mat->beta_vol);
+  return err;
+}
+
 int set_J2_plasticity_parameters(MATERIAL_J2_PLASTICITY *J2P, const double hp,
                                                               const double beta,
                                                               const double k0)
