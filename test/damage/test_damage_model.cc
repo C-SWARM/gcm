@@ -1,72 +1,419 @@
-#include "constitutive_model.h"
+/// Authors:
+/// Sangmin Lee, [1], <slee43@nd.edu>
+/// 
+/// [1] University of Notre Dame, Notre Dame, IN
+
+#include <iostream>
+#include "input_file_read_handles.h"
 #include "material_properties.h"
 #include "hyperelasticity.h"
 #include "continuum_damage_model.h"
+#include "crystal_plasticity_integration.h"
 #include <sys/time.h>
+#include <string.h>
+#include <ttl/ttl.h>
 
-#include <stdio.h>
+using namespace std;
+template<int R=2, int D = 3, class S=double>
+using Tensor = ttl::Tensor<R, D, S>;
 
-void test_damage_model(void)
+static constexpr ttl::Index<'i'> i;
+static constexpr ttl::Index<'j'> j;
+static constexpr ttl::Index<'k'> k;
+static constexpr ttl::Index<'l'> l;
+  
+#define DIM_3x3 9
+
+class SIM_PARAMS
+{
+public:
+  double dt;             /// time step size
+  int    stepno;         /// number of time steps
+  char   file_out[1024]; /// output file name
+  int    intg_type;      ///
+  int    Lno;            /// number velocity gradient
+  double velocity;
+  int    dim; 
+  double *t_end;
+  double *L;
+  SIM_PARAMS()
+  {
+    dt        = 0.0;
+    stepno    = 0;
+    Lno       = 0;
+    velocity  = 0.0;
+    dim       = 0;
+    t_end = NULL;
+    L     = NULL;
+  }
+  ~SIM_PARAMS()
+  {
+    if(t_end!=NULL)
+      delete[] t_end;
+      
+    if(L !=NULL)
+      delete[] L; 
+  }
+};
+
+/// print damage model results
+///
+/// \param[in]  fp            file pointer for writing simulation results
+/// \param[in]  F             total deformation gradient
+/// \param[in]  w             damage
+/// \param[in]  H             dGdY from the consistency condition
+/// \param[in]  is_it_damaged if 1 : damage was evolved
+///                             0 : damage wasn't evolved
+/// \param[in]  dt            time step size
+/// \param[in]  t             time
+/// \param[in]  mat_d         material property object for damage model
+/// \param[out] elast         elasticity object. elast.S will be updated
+/// \param[in]  print_option  if 1: display computed values
+void print_results(FILE *fp,
+                  ttl::Tensor<2,3,double> &F,
+                  const double w,
+                  const double H,
+                  const int is_it_damaged,
+                  const double dt,
+                  const double t,
+                  MATERIAL_CONTINUUM_DAMAGE &mat_d,
+                  ELASTICITY &elast,
+                  const int print_option){
+
+  update_damage_elasticity(&mat_d,&elast,w,is_it_damaged,H,
+                                  dt,F.data,0);
+
+  ttl::Tensor<2,3,double *> S(elast.S);
+  double  J = ttl::det(F);
+  ttl::Tensor<2,3,double> sigma;
+  sigma(i,l) = F(i,j)*S(j,k)*F(l,k)/J;
+
+  if(print_option==1)        
+    printf("%.17e %.17e %.17e %.17e %.17e\n", t, w, elast.S[0],elast.S[4],elast.S[8]);
+
+  fprintf(fp, "%.17e %.17e ", t, w);
+
+  for(int ia=0; ia<DIM_3x3; ia++)
+    fprintf(fp, "%.17e ", sigma.get(ia));
+    
+  fprintf(fp, "\n");
+}
+
+/// compute total deformation gradient by integrating velocity gradient
+///
+/// \param[out] *F   deformation gradient at t
+/// \param[in]   t   current time
+/// \return non-zero on internal error
+int F_of_t(double *F,
+           double t);
+            
+
+/// compute total deformation gradient by integrating velocity gradient
+///
+/// \param[in]  *Fn  deformation gradient at tn
+/// \param[out] *F   deformation gradient at t
+/// \param[out] *L   velocity gradient
+/// \param[in]   t   current time
+/// \param[in]  &sim simulation parameters are defined in this object e.g. dt and time step size and velocity gradient 
+/// \return non-zero on internal error
+int F_of_t(double *Fn,
+           double *F,
+           double *L,
+           double t,            
+           const SIM_PARAMS &sim)
+{
+  int err = 0;
+
+  switch(sim.intg_type)
+  {
+    case 0:
+    {
+      int ia = 0;
+      for(; ia<sim.Lno; ia++)
+      {
+        if(t<sim.t_end[ia])
+          break;
+      }
+      memcpy(L,sim.L+ia,DIM_3x3*sizeof(double));
+      Fnp1_Implicit(F, Fn, L, sim.dt);      
+      break;
+    }
+    case 1:
+    {
+      double I[DIM_3x3] = {1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0};      
+      memcpy(F, I, DIM_3x3*sizeof(double));
+      if(sim.dim>=1) F[0] = 1.0 + sim.velocity*t;
+      if(sim.dim>=2) F[4] = 1.0 + sim.velocity*t;
+      if(sim.dim>=3) F[8] = 1.0 + sim.velocity*t;        
+      break;      
+    }
+    case 2:
+      err += F_of_t(F, t);
+      break;
+       
+    default:
+      break;
+  }      
+  
+
+  return err;
+};
+
+/// read input file
+///
+/// Input file is formated as:
+/// # is comments
+/// #-------------------------------------------------------------------------
+/// #  E     nu    devPotFlag volPotFlag mu  ome_max[0,1) p1  p2  Yin
+/// #-------------------------------------------------------------------------
+///    800   0.34  1          2          100 1.0          8.0 2.5 0.15
+/// #-------------------------------------------------------------------------
+/// # Analysis name
+/// #-------------------------------------------------------------------------
+///   compression
+/// #
+/// # time steps
+/// # dt   number_of_time_steps
+/// #-------------------------------------------------------------------------
+///   1.0  100
+/// #-------------------------------------------------------------------------
+/// # integration type (method of computing deformation gradient)
+/// # 0: F_of_t(L1,L2,L3, ...) : L = n number of velocity gradient with t(end) to be transient when t reaches t_end
+/// # 1: F_of_t(v,dim)         : v = velocity (F = 1 + v*t), dim = 1: uniaxial displacement
+/// #                                                              2: biaxial displacement
+/// #                                                              3: triaxial displacement
+/// # 2: user define F_of_t    : requres compile
+/// #-------------------------------------------------------------------------
+/// # [integration type] if type==0: number of Ls and list of Ls are followed]
+/// #                    if type==1: velocity and dim are followed
+/// 0 3
+/// # 1 50e-6 1
+/// #-------------------------------------------------------------------------
+/// # 1st velocity gradient
+/// # L11 L12 L13 L21 L22  L23 L31 L32 L33  t_end
+/// #-------------------------------------------------------------------------
+///   -0.005  0.0    0.0
+///    0.0   -0.005  0.0
+///    0.0    0.0   -0.005 42.6
+/// 
+///   -0.005  0.005  0.0
+///    0.0   -0.005  0.0
+///    0.0    0.0   -0.005 46.0
+/// 
+///    0.0    0.005  0.0
+///    0.0    0.0    0.0
+///    0.0    0.0    0.0 132.0 
+/// \param[in]      *in      file pointer to be read
+/// \param[in, out] &mat_e   material property object for elasticity
+/// \param[in, out] &mat_d   material property object for damage model
+/// \param[in, out] &sim     simulation parameter object such as numer of time step, time step size
+/// \return         non-zero on interal error
+int read_input_file(const char *input_file,
+                    MATERIAL_ELASTICITY &mat_e,
+                    MATERIAL_CONTINUUM_DAMAGE &mat_d,
+                    SIM_PARAMS &sim)
 {
   int err = 0;
   
-  Tensor<2> F = {};
+  FILE *fp_sim = NULL;
+  fp_sim = fopen(input_file, "r");
+
+  // read material and simulation parameters
+  // if fail to read the file, exit    
+  if(fp_sim==NULL)
+  { 
+    cout << "fail to read ["<< input_file << "]\n";
+    exit(-1);      
+  }  
+
+  double E, nu, mu, ome_max, p1, p2, Yin;
+  int devPotFlag, volPotFlag;
+  
+  err += goto_valid_line(fp_sim);
+      
+  // read material parameters 
+  fscanf(fp_sim, "%lf %lf", &E, &nu);
+  fscanf(fp_sim, "%d %d", &devPotFlag, &volPotFlag);  
+  fscanf(fp_sim, "%lf %lf %lf %lf %lf", &mu, &ome_max, &p1, &p2, &Yin);
     
-  MATERIAL_ELASTICITY mat_e;
-  MATERIAL_CONTINUUM_DAMAGE mat_d;
+  set_properties_using_E_and_nu(&mat_e, E, nu);
+  mat_e.devPotFlag = devPotFlag;
+  mat_e.volPotFlag = volPotFlag;
+    
+  set_damage_parameters(&mat_d, p1, p2, Yin, mu, ome_max);  
   
-  set_properties_using_E_and_nu(&mat_e,800.0,0.34);
-  set_damage_parameters(&mat_d, 8.0, 2.5, 0.15, 100.0, 1.0);
-  print_material_property_elasticity(&mat_e);
+  err += goto_valid_line(fp_sim);
+  fscanf(fp_sim, "%s", sim.file_out);
   
-  ELASTICITY elast;
-  construct_elasticity(&elast, &mat_e, 1);
+  err += goto_valid_line(fp_sim);
+  fscanf(fp_sim, "%lf %d", &(sim.dt), &(sim.stepno));
   
-  TensorA<2> S(elast.S);  
-
-  double d = 0.001;
-  double dt = 1.0;
+  err += goto_valid_line(fp_sim);
+  fscanf(fp_sim, "%d", &(sim.intg_type));
   
-  double w, X, H, wn, Xn;
-  w = wn = X = Xn = H = 0.0;
-  int is_it_damaged = 0;
-
-  FILE *out = fopen("stress.txt", "w");
-  for(int a = 0; a<100; a++)
+  switch(sim.intg_type)
   {
-   
-    F[0][0] = 1.0 + d*a;
-    F[1][1] = F[2][2] = 1.0 - d*a/2.0;
-
-    err += continuum_damage_integration_alg(&mat_d,&elast,
-                                            &w,&X,&H,&is_it_damaged,
-                                            wn,Xn,dt,F.data);
-    wn = w;
-    Xn = X;
-    is_it_damaged = 0;
-
-    err += update_damage_elasticity(&mat_d,&elast,w,is_it_damaged,H,
-                                     dt,F.data,1);
-
-    fprintf(out,"%e %e %e\n", d*a, S.data[0], w);
+    case 0:
+    {  
+      fscanf(fp_sim, "%d", &(sim.Lno));
+      sim.L = new double[sim.Lno*DIM_3x3];
+      sim.t_end = new double[sim.Lno];
+      
+      // read 1st velocity gradient
+      for(int ia=0; ia<sim.Lno; ia++)
+      {
+        err += goto_valid_line(fp_sim);
+        double *L = sim.L + DIM_3x3*ia;
+        fscanf(fp_sim, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", L+0,L+1,L+2,
+                                                                  L+3,L+4,L+5,
+                                                                  L+6,L+7,L+8,
+                                                                  sim.t_end + ia);
+      }
+      break;
+    }
+    case 1:
+    {
+      fscanf(fp_sim, "%lf %d", &(sim.velocity), &(sim.dim));
+      break;
+    }
+    case 2:
+      // use user define F_of_t
+      // do_nothing
+      break;
+    default:
+      // use user define F_of_t
+      // do_nothing
+      break;
   }
-  fclose(out);        
-  destruct_elasticity(&elast);
-}
+  fclose(fp_sim);
+  
+  return err;
+}  
 
+/// print numerical and material parameters
+/// 
+/// \param[in] &mat_e   material property object for elasticity
+/// \param[in] &mat_d   material property object for damage model
+/// \param[in] &sim     simulation parameter object such as numer of time step, time step size
+/// \return         non-zero on interal error 
+int print_inputs(MATERIAL_ELASTICITY &mat_e,
+                 MATERIAL_CONTINUUM_DAMAGE &mat_d,
+                 SIM_PARAMS &sim)
+{
+  int err = 0;
+
+  cout << "--------------------------------------------" << endl;
+  cout << "Numerical parameters" << endl;  
+  cout << "--------------------------------------------" << endl;            
+  cout << "output file name\t: "     << sim.file_out  << endl;
+  cout << "dt\t\t\t: "               << sim.dt        << endl;
+  cout << "number of time steps\t: " << sim.stepno    << endl;
+  cout << "loading velocity \t: "    << sim.velocity  << endl;
+  cout << "loading dimension \t: "   << sim.dim       << endl;  
+  cout << "number of Ls\t\t: "       << sim.Lno       << endl;
+  for(int ia=0; ia<sim.Lno; ia++)
+  {
+    cout << "End time = " << sim.t_end[ia] << "\t: ";
+    cout << "L" << "(" << ia << ") = ["; 
+    cout << sim.L[ia*DIM_3x3+0] << " " << sim.L[ia*DIM_3x3+1] << " " << sim.L[ia*DIM_3x3+2] << "; ";
+    cout << sim.L[ia*DIM_3x3+3] << " " << sim.L[ia*DIM_3x3+4] << " " << sim.L[ia*DIM_3x3+5] << "; ";
+    cout << sim.L[ia*DIM_3x3+6] << " " << sim.L[ia*DIM_3x3+7] << " " << sim.L[ia*DIM_3x3+8] << "];" << endl;
+  }
+  
+  cout << "--------------------------------------------" << endl;
+  cout << "Material parameters" << endl;  
+  cout << "--------------------------------------------" << endl;
+  print_material_property_elasticity(&mat_e);
+  print_material_property_damage_model(&mat_d);
+  
+
+  return err;
+} 
 
 int main(int argc,char *argv[])
 {
   int err = 0;
-  struct timeval start, end;
-  gettimeofday(&start, NULL);
+    
+  char fn_sim[1024];
+  int print_option = 0;
 
-  test_damage_model();    
+  if(argc<2)
+  {
+    cout << "Usage:./test_damage_model [FILE_SIM] [print_option]\n";
+    cout << "\t[FILE_SIM]\t: file path with simulation parameters\n";
+    cout << "\t[print_option]\t: if -1: do not print anything\n";
+    cout << "\t                  if  0: print input parameters\n";
+    cout << "\t                  if  1: print input and outputs\n";
+    cout << "\t                  default is 0\n";    
+    exit(-1);
+  }
+  else
+  {    
+    // read commend line arguments
+    sscanf(argv[1], "%s", fn_sim);
+    
+    if(argc>=3)
+      sscanf(argv[2], "%d", &print_option);
+      
+      
+    MATERIAL_ELASTICITY mat_e;
+    MATERIAL_CONTINUUM_DAMAGE mat_d;
+    ELASTICITY elast;
+    SIM_PARAMS sim;
+
+    err += read_input_file(fn_sim, mat_e, mat_d, sim);
+    construct_elasticity(&elast, &mat_e, 1);
+    
+    if(print_option>=0)
+      err += print_inputs(mat_e, mat_d, sim);
+
+    // deformation gradients
+    ttl::Tensor<2,3,double> L  = {};
+    ttl::Tensor<2,3,double> F  = {1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0};
+    ttl::Tensor<2,3,double> Fn = {1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0};
+
+    char fname[2048];
+    sprintf(fname, "%s.txt", sim.file_out); 
+    FILE *fp = fopen(fname, "w");
+
+    if(print_option==1)
+    {  
+      cout << "--------------------------------------------" << endl;
+      cout << "Simulation results ([time] [w] sigma(11~33))" << endl;  
+      cout << "--------------------------------------------" << endl;      
+    }
+        
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
   
-  gettimeofday(&end, NULL);
-  double diff = (double)(end.tv_usec - start.tv_usec)/1000000.0 
-  + (double)(end.tv_sec - start.tv_sec);
-  printf ("Total time: %.4lf s\n", diff);
-  
-  return err;
+    double w, X, H, wn, Xn;
+    w = wn = X = Xn = H = 0.0;
+    int is_it_damaged = 0;
+
+    for(int iA=1; iA<=sim.stepno; iA++){
+      double t = iA*(sim.dt);
+      // compute total deformation gradient using velocity gradient
+      F_of_t(Fn.data,F.data,L.data,t,sim);
+
+      err += continuum_damage_integration_alg(&mat_d,&elast,
+                                              &w,&X,&H,&is_it_damaged,
+                                               wn,Xn,sim.dt,F.data);
+      wn = w;
+      Xn = X;
+      is_it_damaged = 0;
+
+      print_results(fp, F, w, H, is_it_damaged,
+                    sim.dt, t, mat_d, elast, print_option);
+    }
+    fclose(fp);        
+    destruct_elasticity(&elast);
+    
+    test_damage_model();
+    
+    gettimeofday(&end, NULL);
+    double diff = (double)(end.tv_usec - start.tv_usec)/1000000.0 
+    + (double)(end.tv_sec - start.tv_sec);
+    printf ("Total time: %.4lf s\n", diff);
+    
+  }
 }
