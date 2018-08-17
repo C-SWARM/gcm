@@ -15,5 +15,5 @@ TESTS = test_damage_model.sh
 
 test_damage_model.sh:
 	echo "#!/usr/bin/env bash" > $@
-	echo "../run.sh test_damage_model damage stress" >> $@
+	echo "../run.sh 'test_damage_model params_compression.in' damage stress" >> $@
 	chmod +x $@
