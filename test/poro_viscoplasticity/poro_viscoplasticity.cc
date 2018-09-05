@@ -41,6 +41,7 @@ public:
   double *t_end;
   double *L;
   bool   implicit;
+  double TMD;
   SIM_PARAMS()
   {
     dt        = 0.0;
@@ -83,8 +84,7 @@ enum param_names {
   PARAM_pl_n,       // Power law exponent
   PARAM_cf_g0,      // Compaction function parameters
   PARAM_cf_pcinf,   //   :
-  PARAM_pc_0,       // initial pc
-  PARAM_pJ,         // initial plastic deformation
+  PARAM_TMD,        // initial TMD, TDM*pJ = TMD_0;
   PARAM_NO
 };
 
@@ -94,6 +94,7 @@ int print_results(FILE *fp,
                   const double pc,
                   const double t,
                   const MaterialPoroViscoPlasticity *mat_pvp,
+                  const double *L0,
                   const int print_option){
   int err = 0;
   
@@ -116,7 +117,13 @@ int print_results(FILE *fp,
 
   for(int ia=0; ia<DIM_3x3; ia++)
     fprintf(fp, "%.17e ", sigma.get(ia));
-    
+
+  double l[3]={};
+  for(int ia=0; ia<3; ia++){
+    l[ia] = F_in[ia*3+0] + F_in[ia*3+1] + F_in[ia*3+2];
+    fprintf(fp, "%.17e ", (l[ia]-L0[ia])/L0[ia]);
+  }
+      
   fprintf(fp, "\n");
   
   return err;
@@ -189,9 +196,9 @@ int F_of_t(double *Fn,
 /// 1 # if 1: implicit 
 /// #      0: explicit
 /// #-------------------------------------------------------------------------
-/// #  yf_M  yf_alpha  flr_m flr_gamma0  hr_a1 hr_a2 hr_Lambda1 hr_Lambda2  c_inf c_Gamma d_B d_pcb mu_0 mu_1 K_p0  K_kappa pl_n cf_g0 cf_pcinf
+/// #  yf_M  yf_alpha  flr_m flr_gamma0  hr_a1 hr_a2 hr_Lambda1 hr_Lambda2  c_inf c_Gamma d_B d_pcb mu_0 mu_1 K_p0  K_kappa pl_n cf_g0 cf_pcinf TDM
 /// #-------------------------------------------------------------------------
-///    1.0   1.1       0.15  0.0005      0.62  0.37  77.22      13.01       15    0.01    0.2 5.8   30   60   0.063 0.008   2    1     290
+///    1.0   1.1       0.15  0.0005      0.62  0.37  77.22      13.01       15    0.01    0.2 5.8   30   60   0.063 0.008   2    1     290 0.9
 /// #-------------------------------------------------------------------------
 /// # Analysis name
 /// #-------------------------------------------------------------------------
@@ -286,6 +293,8 @@ int read_input_file(const char *input_file,
                                        param[PARAM_pl_n],
                                        param[PARAM_cf_g0],
                                        param[PARAM_cf_pcinf]);
+
+  sim.TMD = param[PARAM_TMD];
   
   err += goto_valid_line(fp_sim);
   fscanf(fp_sim, "%s", sim.file_out);
@@ -360,6 +369,7 @@ int print_inputs(MaterialPoroViscoPlasticity &mat_pvp,
   cout << "loading velocity \t: "    << sim.velocity  << endl;
   cout << "loading dimension \t: "   << sim.dim       << endl;  
   cout << "number of Ls\t\t: "       << sim.Lno       << endl;
+  cout << "TMD         \t\t: "       << sim.TMD       << endl;
   for(int ia=0; ia<sim.Lno; ia++)
   {
     cout << "End time = " << sim.t_end[ia] << "\t: ";
@@ -424,31 +434,54 @@ int main(int argc,char *argv[])
     double  F0[DIM_3x3] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
     double   I[DIM_3x3] = {1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0};
 
-    F0[0] = F0[4] = F0[8] =  HardLawJp0Coeff;
-                 
-    double pc_n, pc_np1;
-    pc_n = pc_np1 = p0;
+
+    double h_pc_inf  = poro_visco_plasticity_hardening(mat_pvp.pc_inf, &mat_pvp);
+    double TMD_0 = exp(h_pc_inf);
+
+    double pJ_0 = TMD_0/sim.TMD;
+    double pow_pJ = pow(pJ_0, 1.0/3.0);
+    F0[0] = F0[4] = F0[8] =  pow_pJ;    
+    
+    double pc_n = poro_visco_plasticity_compute_pc(pJ_0,
+                                                   (mat_pvp.p0 + mat_pvp.pc_inf)/2.0,
+                                                   &mat_pvp,
+                                                   &solver_info);
+
+    if(print_option==1){
+      cout << "TMD_0 = " << TMD_0   << endl;
+      cout << "TMD   = " << sim.TMD << endl;
+      cout << "pJ_0  = " << pJ_0    << endl;
+      cout << "pc_n  = " << pc_n    << endl;        
+    }
+    
+    double pc_np1 = pc_n;
     
     memcpy(pFn,   F0, sizeof(double)*DIM_3x3);
     memcpy(pFnp1, F0, sizeof(double)*DIM_3x3);
-    memcpy( Fn,    I, sizeof(double)*DIM_3x3);
-    memcpy( Fnp1,  I, sizeof(double)*DIM_3x3);    
+    memcpy( Fn,   F0, sizeof(double)*DIM_3x3);
+    memcpy( Fnp1, F0, sizeof(double)*DIM_3x3);    
 
     char fname[2048];
     sprintf(fname, "%s.txt", sim.file_out); 
     FILE *fp = fopen(fname, "w");
 
-    if(print_option==1)
-    {  
-      cout << "--------------------------------------------" << endl;
-      cout << "Simulation results ([time] [pC] [J] [eJ] [pJ] sigma(11~33))" << endl;  
-      cout << "--------------------------------------------" << endl;      
-    }
-        
     Tensor<2,3,double *> pF(pFnp1);
     
     struct timeval start, end;
-    gettimeofday(&start, NULL);    
+    gettimeofday(&start, NULL);
+    
+    double L0[3];
+    double l[3];
+    
+    for(int ia=0; ia<3; ia++)
+      L0[ia] = Fnp1[ia*3+0] + Fnp1[ia*3+1] + Fnp1[ia*3+2];
+
+    if(print_option==1){  
+      cout << "--------------------------------------------" << endl;
+      cout << "Simulation results ([time] [pc] [J] [eJ] [pJ] sigma(11~33))" << endl;  
+      cout << "--------------------------------------------" << endl;
+      cout << "initial geometry (computed from 1x1x1 box) = " << L0[0] << ", " << L0[1] << ", " << L0[2] << endl;
+    }
     
     for(int iA=1; iA<=sim.stepno; iA++)
     {
@@ -458,11 +491,12 @@ int main(int argc,char *argv[])
       F_of_t(Fn,Fnp1,L,t,sim);
       
       err += poro_visco_plasticity_integration_algorithm(&mat_pvp, &solver_info, Fnp1, Fn, pFnp1, pFn, &pc_np1, pc_n, sim.dt, sim.implicit);
-      err += print_results(fp, Fnp1, pFnp1, pc_np1, t, &mat_pvp, print_option); 
-                                               
+      err += print_results(fp, Fnp1, pFnp1, pc_np1, t, &mat_pvp, L0, print_option); 
+
       memcpy(pFn,pFnp1,sizeof(double)*DIM_3x3);
-      memcpy( Fn, Fnp1,sizeof(double)*DIM_3x3);
+      memcpy( Fn, Fnp1,sizeof(double)*DIM_3x3);      
       pc_n = pc_np1;
+      
     }
     fclose(fp);
     

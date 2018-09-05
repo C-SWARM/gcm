@@ -1546,6 +1546,21 @@ void poro_visco_plasticity_update_elasticity_dev(double *eS_out,
   eS(i,j) = 2.0*dWdC(i,j);
 }
 
+/// compute shear modulus as a function fo pc
+/// 
+/// \param[in]  param  poro_viscoplaticity material object  
+/// \param[in]  pc     conforming pressure
+/// \return computed shear modulus
+double poro_visco_plasticity_compute_shear_modulus(const MaterialPoroViscoPlasticity *param,
+                                                   const double pc){  
+  PvpMaterial mat(param);      
+  double c  = mat.compute_c(pc);
+  double d  = mat.compute_d(pc);
+  double mu = mat.compute_shear_modulus(c, d);
+  
+  return mu;
+}
+
 /// compute derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
 /// 
 /// \param[in] eJ    det(eF)

@@ -42,6 +42,9 @@ void poro_visco_plasticity_update_elasticity_dev(double *eS_out,
                                                  double *eF_in,
                                                  const double pc,
                                                  const bool compute_4th_order);
+/// compute shear modulus
+double poro_visco_plasticity_compute_shear_modulus(const MaterialPoroViscoPlasticity *param,
+                                                   const double pc);
 
 /// compute derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
 double poro_visco_plasticity_intf_compute_dudj(const double eJ,
