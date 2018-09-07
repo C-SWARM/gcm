@@ -202,7 +202,7 @@ int main(int argc,char *argv[])
     double h_pc_inf  = poro_visco_plasticity_hardening(mat_pvp.pc_inf, &mat_pvp);
     double TMD_0 = exp(h_pc_inf);
     
-    if(print_option==1)
+    if(print_option>=0)
       cout << "TMD_0 = " << TMD_0   << endl;
 
     double pc_0   = mat_pvp.p0;
@@ -212,7 +212,7 @@ int main(int argc,char *argv[])
     sprintf(fname, "%s.moduli", sim.file_out); 
     FILE *fp = fopen(fname, "w");
 
-    if(print_option==1){  
+    if(print_option>=0){  
       cout << "--------------------------------------------" << endl;
       cout << "Computing moduli: ([TMD] [E] [G] [kappa] [nu])" << endl;  
       cout << "--------------------------------------------" << endl;      
@@ -244,11 +244,12 @@ int main(int argc,char *argv[])
     }
     fclose(fp);
     
-    gettimeofday(&end, NULL);
-    double diff = (double)(end.tv_usec - start.tv_usec)/1000000.0 
-    + (double)(end.tv_sec - start.tv_sec);
-    printf ("Total time: %.4lf s\n", diff);
-    
+    if(print_option>=0){
+      gettimeofday(&end, NULL);
+      double diff = (double)(end.tv_usec - start.tv_usec)/1000000.0
+                  + (double)(end.tv_sec - start.tv_sec);
+      printf ("Total time: %.4lf s\n", diff);
+    }    
   }
   return err;
 }

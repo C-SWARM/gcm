@@ -30,9 +30,9 @@ class PARAMS
 {
 public:
   MaterialPoroViscoPlasticity mat_pvp;
-  double pJ;
+  double TMD;
   PARAMS(){
-    pJ = 1.0;
+    TMD = 1.0;
   }
   ~PARAMS(){}
 };
@@ -47,13 +47,18 @@ int print_results(PARAMS &param){
   GcmSolverInfo solver_info;
   set_gcm_solver_info(&solver_info, 10, 10, 100, 1.0e-6, 1.0e-6, 1.0e-15);
   solver_info.debug = true;
-    
-  double pc = poro_visco_plasticity_compute_pc(param.pJ,
-                                               param.mat_pvp.p0,
-                                               &param.mat_pvp,
-                                               &solver_info);
 
-  cout<<"pc = " << pc << ", pJ = "<< param.pJ << endl;
+
+  double h_pc_inf  = poro_visco_plasticity_hardening(param.mat_pvp.pc_inf, &param.mat_pvp);
+  double TMD_0 = exp(h_pc_inf);
+
+  double pJ = TMD_0/param.TMD;
+  double pc = poro_visco_plasticity_compute_pc(pJ,
+                                              (param.mat_pvp.p0 + param.mat_pvp.pc_inf)/2.0,
+                                              &param.mat_pvp,
+                                              &solver_info);
+    
+  cout << "TMD = "<< param.TMD << ", TMD0 = " << TMD_0 << ", pJ = "<< pJ <<": pc = " << pc << endl;
   return err;
 }
                   
@@ -65,7 +70,7 @@ int print_results(PARAMS &param){
 /// #  yf_M  yf_alpha  flr_m flr_gamma0  hr_a1 hr_a2 hr_Lambda1 hr_Lambda2  c_inf c_Gamma d_B d_pcb mu_0 mu_1 K_p0  K_kappa pl_n cf_g0 cf_pcinf
 /// #-------------------------------------------------------------------------
 ///    1.0   1.1       0.15  0.0005      0.62  0.37  77.22      13.01       15    0.01    0.2 5.8   30   60   0.063 0.008   2    1     290
-/// # pJ
+/// # TMD
 /// 0.9
 /// \return non-zero on interal error
 int read_input_file(const char *input_file,
@@ -99,7 +104,7 @@ int read_input_file(const char *input_file,
                                        pvp_param[16], pvp_param[17], pvp_param[18]);
   
   err += goto_valid_line(fp);
-  fscanf(fp, "%lf", &param.pJ);
+  fscanf(fp, "%lf", &param.TMD);
     
   fclose(fp);
   
@@ -118,7 +123,7 @@ int print_inputs(PARAMS &param)
   // print Material parameters  
   print_material_property_poro_visco_plasticity(&param.mat_pvp);
   
-  cout << "pJ = " << param.pJ << endl;
+  cout << "TMD = " << param.TMD << endl;
   return err;
 }                 
 
@@ -130,8 +135,17 @@ int main(int argc,char *argv[])
 
   if(argc<2)
   {
-    cout << "Usage: ./compute_stress [FILE_PARAM]\n";
-    cout << "\t[FILE_PARAM]\t: file path for parameters\n";
+    cout << "Usage: ./compute_stress [FILE_PARAM]" << endl;
+    cout << "\t[FILE_PARAM]\t: file path for parameters" << endl;
+    cout << "\t\t\t#Input file is formated as:" << endl;
+    cout << "\t\t\t# is comments" << endl;
+    cout << "\t\t\t#-------------------------------------------------------------------------" << endl;
+    cout << "\t\t\t#  M    alpha  m    gamma0 a1    a2   Lambda1 Lambda2  c_inf Gamma  B   pcb  mu_0 mu_1 K_p0  K_kappa n g0 pcinf" << endl;
+    cout << "\t\t\t#-------------------------------------------------------------------------" << endl;
+    cout << "\t\t\t   1.0  1.1    0.15 0.0005 0.62  0.37 77.22   13.01    15    0.01   0.2 5.8  30   60   0.063 0.008   2 1  290" << endl;
+    cout << "\t\t\t# TMD" << endl;
+    cout << "\t\t\t0.9" << endl;
+
     exit(-1);
   }
   else

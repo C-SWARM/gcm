@@ -447,7 +447,7 @@ int main(int argc,char *argv[])
                                                    &mat_pvp,
                                                    &solver_info);
 
-    if(print_option==1){
+    if(print_option>=0){
       cout << "TMD_0 = " << TMD_0   << endl;
       cout << "TMD   = " << sim.TMD << endl;
       cout << "pJ_0  = " << pJ_0    << endl;
@@ -476,7 +476,7 @@ int main(int argc,char *argv[])
     for(int ia=0; ia<3; ia++)
       L0[ia] = Fnp1[ia*3+0] + Fnp1[ia*3+1] + Fnp1[ia*3+2];
 
-    if(print_option==1){  
+    if(print_option>=0){  
       cout << "--------------------------------------------" << endl;
       cout << "Simulation results ([time] [pc] [J] [eJ] [pJ] sigma(11~33))" << endl;  
       cout << "--------------------------------------------" << endl;
@@ -500,11 +500,12 @@ int main(int argc,char *argv[])
     }
     fclose(fp);
     
-    gettimeofday(&end, NULL);
-    double diff = (double)(end.tv_usec - start.tv_usec)/1000000.0 
-    + (double)(end.tv_sec - start.tv_sec);
-    printf ("Total time: %.4lf s\n", diff);
-    
+    if(print_option>=0){
+      gettimeofday(&end, NULL);
+      double diff = (double)(end.tv_usec - start.tv_usec)/1000000.0
+                  + (double)(end.tv_sec - start.tv_sec);
+      printf ("Total time: %.4lf s\n", diff);
+    }
   }
   return err;
 }
