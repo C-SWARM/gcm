@@ -400,6 +400,7 @@ int main(int argc,char *argv[])
                                                wn,Xn,sim.dt,F.data);
       wn = w;
       Xn = X;
+      Fn(i,j) = F(i,j);
       is_it_damaged = 0;
 
       print_results(fp, F, w, H, is_it_damaged,
