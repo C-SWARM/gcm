@@ -29,12 +29,12 @@ int print_data(Matrix<double> &A, const char *name)
 {
   int err = 0;
   cout << name << " = [\n";
-  for(int i=1; i<=A.m_row; i++)
+  for(int i=0; i<A.m_row; i++)
     {
-        for(int j=1; j<=A.m_col; j++)
+        for(int j=0; j<A.m_col; j++)
           cout << A.get_a_value(i, j) << " ";
 
-        if(i==A.m_row)
+        if(i==A.m_row-1)
           cout << "];\n";
         else
           cout << "\n";
@@ -113,7 +113,7 @@ int matrix_operation(int test_no)
   B.initialization(3,3, 0.1);
   C.initialization(3,3, 0.2);
 
-  A = B + C;
+  A.add(B,C);
   A.print("A");
   B.print("B");
   C.print("C");
@@ -123,7 +123,7 @@ int matrix_operation(int test_no)
   B.initialization(3,3, 0.5);
   err += print_test_header(test_no++, "A = B - C\n");
 
-  A = B - C;
+  A.sub(B,C);
   A.print("A");
   B.print("B");
   C.print("C");
@@ -133,8 +133,8 @@ int matrix_operation(int test_no)
   B.initialization(3,2, 0.5);
   C.initialization(2,3, 0.3);
   err += print_test_header(test_no++, "A = B * C\n");
-
-  A = B*C;
+  
+  A.prod(B,C);
   A.print("A");
   B.print("B");
   C.print("C");
@@ -157,7 +157,9 @@ int matrix_operation(int test_no)
   B.initialization(3,3,1.0);
   C.initialization(3,3,0.1);
 
-  A = a*B + C;
+  A = B;
+  A.prod(a);
+  A.add(C);
 
   printf("a = %f\n", a);
   B.print("B");

@@ -200,7 +200,7 @@ public:
   /// \return data component at a, b
   constexpr T& operator () (const int a, const int b)
   {
-    return *(m_pdata+(a-1)*m_col+(b-1));
+    return *(m_pdata + a*m_col + b);
   }
   
 
@@ -212,7 +212,7 @@ public:
   /// \return data component at a, b
   constexpr T& operator () (const int a)
   {
-    return *(m_pdata+a-1);
+    return *(m_pdata+a);
   }
   
   /// operator overriding for Matrix  
@@ -347,9 +347,9 @@ template <class T> void Matrix<T>::initialization(const int m_size,
 {
   this->initialization(m_size, n_size);
   
-  for(int i=1; i<=m_row; i++)
+  for(int i=0; i<m_row; i++)
   {
-    for(int j=1; j<=m_col; j++)
+    for(int j=0; j<m_col; j++)
     {
       set_a_value(i, j, value);
     }
@@ -432,10 +432,10 @@ template <class T> void Matrix<T>::initialization(const int m_size,
 { 
   this->initialization(m_size, n_size);
 
-  for(int i=1; i<=m_row; i++)
+  for(int i=0; i<m_row; i++)
   {
-    for(int j=1; j<=m_col; j++)
-      set_a_value(i, j, p[(i-1)*m_size + j-1]);
+    for(int j=0; j<m_col; j++)
+      set_a_value(i, j, p[i*m_size + j]);
   }
 }
 
@@ -471,7 +471,7 @@ template <class T> void Matrix<T>::cleanup(void)
 template <class T> int Matrix<T>::check_size_and_null(const int m, 
                                                       const int n)
 {
-  if((0<m && m<=m_row) && (0<n && n<=m_col) && (m_pdata != NULL)) 
+  if((0<m && m<m_row) && (0<n && n<m_col) && (m_pdata != NULL)) 
     return 1;
   else
     return 0;
@@ -490,7 +490,7 @@ template <class T> void Matrix<T>::set_a_value(const int m,
                                                const int n, 
                                                const T &value)
 {
-  *(m_pdata+(m-1)*m_col+(n-1)) = value;
+  *(m_pdata + m*m_col + n) = value;
 }
 
 /// set all components by a data array
@@ -529,7 +529,7 @@ template <class T> void Matrix<T>::set_values(const T &d)
 template <class T> T Matrix<T>::get_a_value(const int m, 
                                             const int n)
 {
-  return *(m_pdata+(m-1)*m_col+(n-1));
+  return *(m_pdata + (m*m_col + n));
 }
 
 /// get pointer of a component(m, n)
@@ -543,7 +543,7 @@ template <class T> T Matrix<T>::get_a_value(const int m,
 template <class T> T* Matrix<T>::get_a_value_pointer(const int m, 
                                                      const int n)
 {
-  return m_pdata+((m-1)*m_col+(n-1));
+  return m_pdata + (m*m_col + n);
 }
 
 /// matrix addition to self
@@ -809,9 +809,9 @@ template <class T> void Matrix<T>::trans(Matrix<T> &A)
   }
   
   this->initialization(A.m_col,A.m_row);
-  for(int ia=1; ia<=A.m_row; ia++)
+  for(int ia=0; ia<A.m_row; ia++)
   {
-    for(int ib=1; ib<=A.m_col; ib++)
+    for(int ib=0; ib<A.m_col; ib++)
       this->set_a_value(ib,ia,A(ia,ib));
   }
 }
@@ -834,9 +834,9 @@ template <class T> void Matrix<T>::trans(void)
   }
     
   Matrix<T> A(this->m_col,this->m_row);
-  for(int ia=1; ia<=this->m_row; ia++)
+  for(int ia=0; ia<this->m_row; ia++)
   {
-    for(int ib=1; ib<=this->m_col; ib++)
+    for(int ib=0; ib<this->m_col; ib++)
       A(ib,ia) = this->get_a_value(ia,ib);
   }
   this->initialization(A);
@@ -871,7 +871,7 @@ template <class T> void Matrix<T>::print(const char *name, const char *format)
   {
     for(int j=0; j<this->m_col; j++)
     {
-      printf(format, this->get_a_value(i+1, j+1));
+      printf(format, this->get_a_value(i, j));
       printf(" ");
     }
     cout << "\n";
