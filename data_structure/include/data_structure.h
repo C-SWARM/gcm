@@ -471,7 +471,7 @@ template <class T> void Matrix<T>::cleanup(void)
 template <class T> int Matrix<T>::check_size_and_null(const int m, 
                                                       const int n)
 {
-  if((0<m && m<m_row) && (0<n && n<m_col) && (m_pdata != NULL)) 
+  if((0<=m && m<m_row) && (0<=n && n<m_col) && (m_pdata != NULL)) 
     return 1;
   else
     return 0;
