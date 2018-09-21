@@ -10,18 +10,20 @@
 
 #define idx_2(row,col) ((unsigned int) ((row)*3+(col)))
 
-static int compute_push_forward(const auto& F,
-                                const auto& A,
-                                auto& a)
+template <class T, class U, class V>
+static int compute_push_forward(const T& F,
+                                const U& A,
+                                V& a)
 {
   int err = 0;
   a = F(i,k)*A(k,l)*F(j,l);
   return err;
 }
 
-static int compute_pull_back(const auto& F,
-                             const auto& a,
-                             auto& A)
+template <class T, class U, class V>
+static int compute_pull_back(const T& F,
+                             const U& a,
+                             V& A)
 {
   int err = 0;
   Tensor<2> FI;
@@ -30,9 +32,10 @@ static int compute_pull_back(const auto& F,
   return err;
 }
 
-static int compute_pull_Tensor4(const auto& FI,
-                                const auto& aep,
-                                auto& Aep)
+template <class T, class U, class V>
+static int compute_pull_Tensor4(const T& FI,
+                                const U& aep,
+                                V& Aep)
 {
   int err = 0;
   Aep(i,j,k,l) = FI(i,m)*FI(j,r)*FI(k,v)*FI(l,w)*aep(m,r,v,w);
@@ -40,8 +43,9 @@ static int compute_pull_Tensor4(const auto& FI,
 }
 
 // dev(a) = a - 1/3 tr(a) i
-static int compute_dev(const auto& a,
-                       auto& dev_a)
+template <class T, class U>
+static int compute_dev(const T& a,
+                       U& dev_a)
 {
   int err = 0;
   double tra = a(i,i)/3.0;
@@ -51,9 +55,10 @@ static int compute_dev(const auto& a,
   return err;
 }
 
+template <class T, class U>
 static int compute_s0(double G,
-                      const auto& bbar,
-                      auto& s0)
+                      const T& bbar,
+                      U& s0)
 {
   int err = 0;
   double tra = bbar(i,i)/3.0;
@@ -64,8 +69,9 @@ static int compute_s0(double G,
 }
 
 /* bbar = J^-(2/3) F F' */
-static int compute_bbar_of_J(auto& bbar,
-                             const auto& F,
+template <class T, class U>
+static int compute_bbar_of_J(T& bbar,
+                             const U& F,
                              double J)
 {
   int err = 0;
@@ -74,8 +80,9 @@ static int compute_bbar_of_J(auto& bbar,
   return err;
 }
 
-static int compute_bbar(auto& bbar,
-                        const auto& F)
+template <class T, class U>
+static int compute_bbar(T& bbar,
+                        const U& F)
 {
   int err = 0;
 
@@ -84,9 +91,10 @@ static int compute_bbar(auto& bbar,
   return err;
 }
 
-static int compute_Fubar(const auto& F,
-                         const auto& Fn,
-                         auto& Fubar)
+template <class T, class U, class V>
+static int compute_Fubar(const T& F,
+                         const U& Fn,
+                         V& Fubar)
 {
   int err = 0;
   Tensor<2> FnI;
@@ -102,10 +110,11 @@ static int compute_Fubar(const auto& F,
   return err;
 }
 
-static int compute_sp_tr(const auto& F,
-                         const auto& Fn,
-                         const auto& spn,
-                         auto& sp_tr)
+template <class T, class U, class V, class W>
+static int compute_sp_tr(const T& F,
+                         const U& Fn,
+                         const V& spn,
+                         W& sp_tr)
 {
   int err = 0;
   Tensor<2> Fubar;
@@ -121,11 +130,12 @@ static int compute_sp_tr(const auto& F,
   return err;
 }
 
+template <class T, class U, class V>
 static double compute_normal(const MATERIAL_J2_PLASTICITY *J2P,
                              const MATERIAL_ELASTICITY *mat_e,
-                             const auto& s_tr,
-                             const auto& sp_tr,
-                             auto &n)
+                             const T& s_tr,
+                             const U& sp_tr,
+                             V& n)
 {
   double G = mat_e->G;
   double coef = (J2P->hp)/(3.0*G)*(1.0 - J2P->beta);
@@ -142,11 +152,12 @@ static double compute_normal(const MATERIAL_J2_PLASTICITY *J2P,
   return nrm;
 };
 
+template <class T, class U, class V>
 static double phi_yield_functioncompute_normal(const MATERIAL_J2_PLASTICITY *J2P,
                                                const MATERIAL_ELASTICITY *mat_e,
-                                               const auto& s_tr,
-                                               const auto& sp_tr,
-                                               auto& n,
+                                               const T& s_tr,
+                                               const U& sp_tr,
+                                               V& n,
                                                double ep_n)
 {
   double ksi_nrm = compute_normal(J2P,mat_e,s_tr,sp_tr,n);
@@ -209,10 +220,11 @@ int J2_plasticity_integration_alg(double *sp_out,
   return err;
 }
 
-static int compute_S0_Sbar(auto& S0,
-                           auto& Sbar,
-                           const auto& F,
-                           const auto& sp,
+template <class T, class U, class V, class W>
+static int compute_S0_Sbar(T& S0,
+                           U& Sbar,
+                           const V& F,
+                           const W& sp,
                            const ELASTICITY *elast)
 {
   int err = 0;
@@ -244,10 +256,11 @@ static int compute_S0_Sbar(auto& S0,
   return err;
 }
 
-static int compute_S0_Sbar_dev(auto& S0,
-                               auto& Sbar,
-                               const auto& F,
-                               const auto& sp,
+template <class T, class U, class V, class W>
+static int compute_S0_Sbar_dev(T& S0,
+                               U& Sbar,
+                               const V& F,
+                               const W& sp,
                                const ELASTICITY *elast)
 {
   int err = 0;
@@ -332,10 +345,11 @@ int compute_S0_Sbar_split_public(double *dS0_out,   double *vS0_out,
 
 // compute the deviatoric initial/unloading tangent in the reference
 // configuration
-static int compute_unloading_Aep_dev(auto &Aep_dev,
-                                     const auto &F,
-                                     const auto &Fn,
-                                     const auto &sp_n,
+template <class T, class U, class V, class W>
+static int compute_unloading_Aep_dev(T& Aep_dev,
+                                     const U& F,
+                                     const V& Fn,
+                                     const W& sp_n,
                                      double G)
 {
   int err = 0;
@@ -364,10 +378,11 @@ static int compute_unloading_Aep_dev(auto &Aep_dev,
 
 // compute the deviatoric plastic loading tangent in the reference
 // configuration
-static int compute_loading_Aep_dev(auto &Aep_dev,
-                                   const auto& F,
-                                   const auto& Fn,
-                                   const auto& sp_n,
+template <class T, class U, class V, class W>
+static int compute_loading_Aep_dev(T& Aep_dev,
+                                   const U& F,
+                                   const V& Fn,
+                                   const W& sp_n,
                                    double gamma,
                                    const MATERIAL_J2_PLASTICITY *J2P,
                                    const MATERIAL_ELASTICITY *mat_e)
@@ -428,10 +443,11 @@ static int compute_loading_Aep_dev(auto &Aep_dev,
   return err;
 }
 
-static int compute_Lbar(auto& Lbar,
-                        const auto& F,
-                        const auto& Fn,
-                        const auto& sp_n,
+template <class T, class U, class V, class W>
+static int compute_Lbar(T& Lbar,
+                        const U& F,
+                        const V& Fn,
+                        const W& sp_n,
                         double gamma,
                         const MATERIAL_J2_PLASTICITY *J2P,
                         const ELASTICITY *elast)
