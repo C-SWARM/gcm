@@ -961,9 +961,9 @@ class PvpIntegrator
     /// \return computed conforming pressure
     double compute_pc(double pcn,
                       const double pJ){
-                        
+
       bool is_convg = true;
-      
+
       double logJp = log(pJ);      
       double DfDpcn = mat.compute_dHdp(pcn);
       
@@ -971,34 +971,45 @@ class PvpIntegrator
       double pcnp1 = pcn;
       
       if(fabs(DfDpcn) < solver_info->tol_M){
-        double a = pcn;
-        double b = a;
-        double c = a;
+        // start golden section method
+        double tau = 1.0 - (sqrt(5.0) - 1.0)/2.0;
+        // set initial values      
         
-        while(1){
-          b = b*2.0;
-          double fpcnp1 = logJp + mat.compute_H(b);
-          if(fpcnp1 <= 0)
-             break;
+        double xU = mat.param->pc_inf; // upper limit
+        double xL = mat.param->pc_b;   // lower limit
+        double dx = mat.param->pc_inf - mat.param->pc_b;
+        
+        double x1 = (1.0-tau)*xL + tau*xU;
+        double x2 = tau*xL + (1.0-tau)*xU;
+        
+        double temp1 = mat.compute_H(x1) - logJp;
+        double F1 = temp1*temp1;
+        
+        double temp2 = mat.compute_H(x2) - logJp;
+        double F2 = temp2*temp2;
+        
+        // start iteration
+        while((xU-xL)/dx>solver_info->tol_M){
+          if(F1>=F2){
+            xL = x1;
+            x1 = x2;
+            F1 = F2;
+        
+            x2 = tau*xL + (1.0-tau)*xU;
+            temp2 = mat.compute_H(x2) - logJp;
+            F2 = temp2*temp2;
+          } else {
+            xU = x2;
+            x2 = x1;
+            F2 = F1;      
+        
+            x1 = (1-tau)*xL + tau*xU;
+            temp1 = mat.compute_H(x1) - logJp;
+            F1 = temp1*temp1;
+          }
         }
+        pcnp1 = 0.5*(xL + xU);
         
-        const int maxIt=500;
-        
-        while (it < maxIt){
-          ++it;
-          c = 0.5 * (a+b);
-          double fpccheck = -logJp + mat.compute_H(c);
-          if(fabs(fpccheck) < solver_info->tol_hardening)
-            break;
-          else if( fpccheck > 0 )
-            a = c;
-          else
-            b =c;
-        }
-        pcnp1 = c;
-        if(it==maxIt)
-          is_convg = false;
-          
       } else {
         const int maxIt=100;
         pcnp1 = pcn;
