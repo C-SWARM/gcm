@@ -390,7 +390,7 @@ int print_inputs(MaterialPoroViscoPlasticity &mat_pvp,
 int main(int argc,char *argv[])
 {
   int err = 0;
-    
+      
   char fn_sim[1024];
   int print_option = 0;
 
@@ -401,6 +401,7 @@ int main(int argc,char *argv[])
     cout << "\t[print_option]\t: if -1: do not print anything\n";
     cout << "\t                  if  0: print input parameters\n";
     cout << "\t                  if  1: print input and outputs\n";
+    cout << "\t                  if  2: active debug mode and print input and outputs\n"; 
     cout << "\t                  default is 0\n";    
     exit(-1);
   }
@@ -418,8 +419,10 @@ int main(int argc,char *argv[])
     err += read_input_file(fn_sim, mat_pvp, sim);
     
     GcmSolverInfo solver_info;
-    set_gcm_solver_info(&solver_info, 10, 10, 100, 1.0e-6, 1.0e-6, 1.0e-15);
-
+    set_gcm_solver_info(&solver_info, 10, 10, 10, 1.0e-6, 1.0e-6, 1.0e-15);
+    solver_info.max_subdivision = 1024;
+    if(print_option==2)
+      solver_info.debug = true;
 
     if(print_option>=0)
       err += print_inputs(mat_pvp, sim);
@@ -430,7 +433,7 @@ int main(int argc,char *argv[])
     double HardLawJp0Coeff = pow(exp(h), 1.0/3.0);
     
     // deformation gradients
-    double Fnp1[DIM_3x3], Fn[DIM_3x3], pFnp1[DIM_3x3], pFn[DIM_3x3], L[DIM_3x3];
+    double Fnp1[DIM_3x3], Fn[DIM_3x3], Fnm1[DIM_3x3], pFnp1[DIM_3x3], pFn[DIM_3x3], L[DIM_3x3];
     double  F0[DIM_3x3] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
     double   I[DIM_3x3] = {1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0};
 
@@ -458,6 +461,7 @@ int main(int argc,char *argv[])
     
     memcpy(pFn,   F0, sizeof(double)*DIM_3x3);
     memcpy(pFnp1, F0, sizeof(double)*DIM_3x3);
+    memcpy( Fnm1, F0, sizeof(double)*DIM_3x3);    
     memcpy( Fn,   F0, sizeof(double)*DIM_3x3);
     memcpy( Fnp1, F0, sizeof(double)*DIM_3x3);    
 
@@ -482,19 +486,37 @@ int main(int argc,char *argv[])
       cout << "--------------------------------------------" << endl;
       cout << "initial geometry (computed from 1x1x1 box) = " << L0[0] << ", " << L0[1] << ", " << L0[2] << endl;
     }
-    
+
+
+  GcmPvpIntegrator integrator;
+  integrator.mat = &mat_pvp;
+  integrator.solver_info = &solver_info;
+  integrator.set_tensors(Fnp1, Fn, Fnm1, pFnp1, pFn, I, I);
+  integrator.pc_np1 = &pc_np1;
+
+
     for(int iA=1; iA<=sim.stepno; iA++)
     {
       double t = iA*(sim.dt);
       
       // compute total deformation gradient using velocity gradient
       F_of_t(Fn,Fnp1,L,t,sim);
-      
-      err += poro_visco_plasticity_integration_algorithm(&mat_pvp, &solver_info, Fnp1, Fn, pFnp1, pFn, &pc_np1, pc_n, sim.dt, sim.implicit);
+
+      integrator.pc_n   = pc_n;
+      int Err = integrator.run_integration_algorithm(sim.dt, sim.dt);
+            
+      if(Err>0){
+        printf("pvp integrator is not converging\n");
+        ++err;
+      }
+        
       err += print_results(fp, Fnp1, pFnp1, pc_np1, t, &mat_pvp, L0, print_option); 
+      
 
       memcpy(pFn,pFnp1,sizeof(double)*DIM_3x3);
-      memcpy( Fn, Fnp1,sizeof(double)*DIM_3x3);      
+
+      memcpy(Fnm1, Fn,sizeof(double)*DIM_3x3);            
+      memcpy(Fn, Fnp1,sizeof(double)*DIM_3x3);      
       pc_n = pc_np1;
       
     }
