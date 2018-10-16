@@ -427,16 +427,10 @@ int main(int argc,char *argv[])
     if(print_option>=0)
       err += print_inputs(mat_pvp, sim);
     
-    // perform simulations
-    double p0 = mat_pvp.p0;
-    double h  = poro_visco_plasticity_hardening(p0, &mat_pvp);
-    double HardLawJp0Coeff = pow(exp(h), 1.0/3.0);
-    
     // deformation gradients
     double Fnp1[DIM_3x3], Fn[DIM_3x3], Fnm1[DIM_3x3], pFnp1[DIM_3x3], pFn[DIM_3x3], L[DIM_3x3];
     double  F0[DIM_3x3] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
     double   I[DIM_3x3] = {1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0};
-
 
     double h_pc_inf  = poro_visco_plasticity_hardening(mat_pvp.pc_inf, &mat_pvp);
     double TMD_0 = exp(h_pc_inf);
@@ -475,7 +469,6 @@ int main(int argc,char *argv[])
     gettimeofday(&start, NULL);
     
     double L0[3];
-    double l[3];
     
     for(int ia=0; ia<3; ia++)
       L0[ia] = Fnp1[ia*3+0] + Fnp1[ia*3+1] + Fnp1[ia*3+2];
