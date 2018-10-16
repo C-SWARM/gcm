@@ -1,6 +1,8 @@
 #ifndef H__H__CONSTITUTIVE_MODEL_HANDLE__H__H
 #define H__H__CONSTITUTIVE_MODEL_HANDLE__H__H
 
+#include"GcmSolverInfo.h"
+
 struct MATERIAL_ELASTICITY;
 #ifndef TYPE_MATERIAL_ELASTICITY
 #define TYPE_MATERIAL_ELASTICITY
@@ -74,6 +76,8 @@ int constitutive_model_handle_init(CONSTITUTIVE_MODEL_PACKS *cm_pack);
 class GcmIntegrator
 {
   public:
+    GcmSolverInfo *solver_info;
+    
     double *Fnp1, *Fn, *Fnm1, *pFnp1, *pFn;
     double *hFnp1, *hFn;
     double F_s[9], Fn_s[9], pFn_s[9];

@@ -98,7 +98,6 @@ class GcmPvpIntegrator : public GcmIntegrator
   double pc_n_s;
   
   MaterialPoroViscoPlasticity *mat;
-  GcmSolverInfo *solver_info;
 
   GcmPvpIntegrator(){
     pc_np1 = NULL;
