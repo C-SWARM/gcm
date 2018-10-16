@@ -954,6 +954,51 @@ class PvpIntegrator
       R.data[DIM_3x3] = Rpc;
     }
     
+    /// compute pc as a function of pJ using golden section method
+    ///
+    /// \param[in] pJ  det(pFnp1)
+    /// \return computed pc
+    double golden_section_method(const double pJ){
+      double tau = 1.0 - (sqrt(5.0) - 1.0)/2.0;
+      // set initial values      
+      
+      double logJp = log(pJ); 
+      double xU = mat.param->pc_inf; // upper limit
+      double xL = mat.param->pc_b;   // lower limit
+      double dx = mat.param->pc_inf - mat.param->pc_b;
+      
+      double x1 = (1.0-tau)*xL + tau*xU;
+      double x2 = tau*xL + (1.0-tau)*xU;
+      
+      double temp1 = mat.compute_H(x1) - logJp;
+      double F1 = temp1*temp1;
+      
+      double temp2 = mat.compute_H(x2) - logJp;
+      double F2 = temp2*temp2;
+      
+      // start iteration
+      while((xU-xL)/dx>solver_info->tol_M){
+        if(F1>=F2){
+          xL = x1;
+          x1 = x2;
+          F1 = F2;
+      
+          x2 = tau*xL + (1.0-tau)*xU;
+          temp2 = mat.compute_H(x2) - logJp;
+          F2 = temp2*temp2;
+        } else {
+          xU = x2;
+          x2 = x1;
+          F2 = F1;      
+      
+          x1 = (1-tau)*xL + tau*xU;
+          temp1 = mat.compute_H(x1) - logJp;
+          F1 = temp1*temp1;
+        }
+      }
+      return 0.5*(xL + xU);
+    }
+    
     /// compute pc as a function of pJ numerically
     ///
     /// \param[in] pcn conforming pressure at t(n)
@@ -963,54 +1008,15 @@ class PvpIntegrator
                       const double pJ){
 
       bool is_convg = true;
-
-      double logJp = log(pJ);      
       double DfDpcn = mat.compute_dHdp(pcn);
       
       int it=0;
       double pcnp1 = pcn;
       
       if(fabs(DfDpcn) < solver_info->tol_M){
-        // start golden section method
-        double tau = 1.0 - (sqrt(5.0) - 1.0)/2.0;
-        // set initial values      
-        
-        double xU = mat.param->pc_inf; // upper limit
-        double xL = mat.param->pc_b;   // lower limit
-        double dx = mat.param->pc_inf - mat.param->pc_b;
-        
-        double x1 = (1.0-tau)*xL + tau*xU;
-        double x2 = tau*xL + (1.0-tau)*xU;
-        
-        double temp1 = mat.compute_H(x1) - logJp;
-        double F1 = temp1*temp1;
-        
-        double temp2 = mat.compute_H(x2) - logJp;
-        double F2 = temp2*temp2;
-        
-        // start iteration
-        while((xU-xL)/dx>solver_info->tol_M){
-          if(F1>=F2){
-            xL = x1;
-            x1 = x2;
-            F1 = F2;
-        
-            x2 = tau*xL + (1.0-tau)*xU;
-            temp2 = mat.compute_H(x2) - logJp;
-            F2 = temp2*temp2;
-          } else {
-            xU = x2;
-            x2 = x1;
-            F2 = F1;      
-        
-            x1 = (1-tau)*xL + tau*xU;
-            temp1 = mat.compute_H(x1) - logJp;
-            F1 = temp1*temp1;
-          }
-        }
-        pcnp1 = 0.5*(xL + xU);
-        
+        pcnp1 = golden_section_method(pJ);        
       } else {
+        double logJp = log(pJ); 
         const int maxIt=100;
         pcnp1 = pcn;
         
@@ -1028,8 +1034,13 @@ class PvpIntegrator
           is_convg = false;        
       }
       
-      if(!is_convg && solver_info->debug)
-        printf("Cannot compute pc for pJ = %e: pc_n = %e, pc_np1 = %e\n", pJ, pcn, pcnp1);
+      if(!is_convg){
+        if(solver_info->debug){
+          printf("Cannot compute pc using NR. for pJ = %e: pc_n = %e, pc_np1 = %e\n", pJ, pcn, pcnp1);
+          printf("Compute using golden_section_method\n");          
+        }
+        pcnp1 = golden_section_method(pJ);
+      }
         
       return pcnp1;                        
     }
@@ -1219,6 +1230,8 @@ int poro_visco_plasticity_integration_algorithm_staggered(const MaterialPoroVisc
       
   int it=0;
   
+  int is_it_cnvg = 0;
+  
   // staggered solution for M      
   while (it < solver_info->max_itr_stag){
     it++;
@@ -1271,11 +1284,21 @@ int poro_visco_plasticity_integration_algorithm_staggered(const MaterialPoroVisc
     pvp.compute_RM(rm, pcr);
     
     double norm_rm = sqrt(rm(i,j)*rm(i,j));
-    double norm_Mr = sqrt(pvp.sv.M(i,j)*pvp.sv.M(i,j));    
+    double norm_Mr = sqrt(pvp.sv.M(i,j)*pvp.sv.M(i,j));
     
-    if (norm_rm/norm_Mr < solver_info->tol_M  )
-      break;    
+    if(solver_info->debug)
+      printf("(%d/%d)residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", itMr, solver_info->max_itr_stag, norm_rm, norm_Mr, norm_rm/norm_Mr);    
+    
+    if(norm_rm/norm_Mr < solver_info->tol_M)
+    {
+      is_it_cnvg = 1;
+      break;
+    }
   }
+  
+  if(is_it_cnvg==0)
+    ++err;
+    
   return err;
 }
 
@@ -1318,7 +1341,9 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
   }catch(int i){
     return 1;
   }
-    
+  
+  int is_it_cnvg = 0;
+  
   pvp.set_scalars(*pc_np1, pc_n);
   pvp.set_solver_info(solver_info, dt_in);
   
@@ -1333,8 +1358,9 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
   double norm_R_0 = pvp.solver_info->computer_zero;
   double norm_R   = pvp.solver_info->computer_zero;
   double eng_norm_0 = pvp.solver_info->computer_zero;
-        
-  for(int iA = 0; iA<pvp.solver_info->max_itr_M; iA++){
+    
+  int iA;      
+  for(iA = 0; iA<pvp.solver_info->max_itr_M; iA++){
     
     if(iA==0){
       pvp.update_StateVariables(pc);  
@@ -1371,8 +1397,10 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
     if(solver_info->debug)
       printf("(%d/%d)residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", iA, pvp.solver_info->max_itr_M, norm_R, norm_R_0, norm_R/norm_R_0);
 
-    if(norm_R/norm_R_0<pvp.solver_info->tol_M)
+    if(norm_R/norm_R_0<pvp.solver_info->tol_M){
+      is_it_cnvg = 1;      
       break;
+    }
     
     double eng_norm = 0.0;
     for(int ia=0; ia<=DIM_3x3; ia++)
@@ -1392,11 +1420,15 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
       if(solver_info->debug)
         printf("converge on energe norm %e\n", eng_norm/eng_norm_0);
 
-      //break;
+      is_it_cnvg = 1;
+      break;
     }
     
   } 
   *pc_np1 = pc;
+  
+  if(is_it_cnvg==0)
+    ++err;
   
   return err; 
 }

@@ -49,9 +49,9 @@ int GcmIntegrator::run_integration_algorithm(const double dt_n,
   int err = 0;
   int stepno = 1;
   
-  int is_it_cnvg = 1;
+  int not_cnvged = 1;
   
-  while(is_it_cnvg>0)
+  while(not_cnvged>0)
   {
     double dt_s = dt_np1/stepno;    
         
@@ -63,9 +63,14 @@ int GcmIntegrator::run_integration_algorithm(const double dt_n,
     this->set_variable_at_n();
           
     // do sub-cycling
-
+    if(solver_info->debug)
+      printf("GCM sub-cycling scheme. Number of Sub-cycling = %d\n", stepno);
+      
     for(int ia=0; ia<stepno; ++ia)
-    { 
+    {       
+      if(solver_info->debug)
+        printf(">> Sub-cycling = %d/%d\n", ia, stepno);
+      
       // update F(stepno)     
       for(int ib=0; ib<DIM_3x3; ++ib)
       {
@@ -79,9 +84,9 @@ int GcmIntegrator::run_integration_algorithm(const double dt_n,
         }
       }
       
-      is_it_cnvg = this->constitutive_model_integration(dt_s);
+      not_cnvged = this->constitutive_model_integration(dt_s);
       
-      if(is_it_cnvg > 0)
+      if(not_cnvged > 0)
         break;
 
       for(int ic=0; ic<DIM_3x3; ic++)
@@ -92,10 +97,15 @@ int GcmIntegrator::run_integration_algorithm(const double dt_n,
       this->update_variable();
     }
     stepno *= 2;
+    if(stepno > solver_info->max_subdivision)
+      break;
   }
   
+  if(not_cnvged>0)
+    ++err;
+  
   if(err>0 && stepno>1)
-    printf("integration algorithm failed after sub-cycling. sub-cycling number = %d\n", stepno);
+    printf("integration algorithm failed after sub-cycling. sub-cycling number %d/%d\n", stepno/2, solver_info->max_subdivision);
   
   return err;
 }
