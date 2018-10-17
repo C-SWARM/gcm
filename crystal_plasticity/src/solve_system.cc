@@ -275,7 +275,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
 
     if(norm_R > norm_R_n)
     {
-      if(DEBUG_PRINT_STAT)
+      if(solver_info->debug)
         printf("Integration algorithm is diverging (M: %e -> %e)\n", norm_R_n, norm_R);
       break;
     }
@@ -295,7 +295,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
     }
     catch(const int inverseException)  // no inverse exists
     {
-      if(DEBUG_PRINT_STAT)
+      if(solver_info->debug)
         printf( "Matrix is singular. The solution (Crystal plasticity) could not be computed.\n");
 
       err += 1;
@@ -325,7 +325,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
     // check convergence based on energy norm
     if(eng_norm/eng_norm_0 < (solver_info->tol_M)*(solver_info->tol_M))
     {
-      if(DEBUG_PRINT_STAT)
+      if(solver_info->debug)
         printf("converge on energe norm %e\n", eng_norm/eng_norm_0);
 
       is_it_cnvg_on_eng_norm = 1;
@@ -335,7 +335,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
     norm_R_n = norm_R;
   }
 
-  if(DEBUG_PRINT_STAT)
+  if(solver_info->debug)
   {
     printf("itr = %d\n", cnt-1);
     printf("residual: |R| = %e, |R0| = %e, |R/R0| = %e\n", norm_R, *norm_R_0, norm_R/(*norm_R_0));
@@ -393,7 +393,7 @@ int Newton_Rapson_hardening(double *g_np1, double *eFnp1_in,
   return err;
 }
 
-int staggered_Newton_Rapson_compute(double *pFnp1_out, double *g_out, double *lambda,
+int staggered_Newton_Rapson(double *pFnp1_out, double *g_out, double *lambda,
                             double *pFn_in, double *Fn_in, double *Fnp1_in, double *hFn_in, double *hFnp1_in,
                             double g_n, double dt,
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
@@ -403,7 +403,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *g_out, double *la
                             int *is_it_cnvg)
 {
   int err = 0;
-
+  
   perIter_ODE_EXA_metric += 10;
   
   double g_np1_k   = g_n;
@@ -446,7 +446,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *g_out, double *la
 
   for(int k=0; k<max_itr; k++)
   {
-    if(DEBUG_PRINT_STAT)
+    if(solver_info->debug)
       printf("staggered iter = %d:\n", k);
 
     if(k==0)
@@ -478,7 +478,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *g_out, double *la
     if(k==0 && err_g>solver_info->computer_zero)
       err_g_n = err_g;
 
-    if(DEBUG_PRINT_STAT)
+    if(solver_info->debug)
     {
       printf("err(g_np1) \t= %e\n", err_g);
       printf("w_max \t= %e\n", (*d_gamma)/D_GAMMA_D);
@@ -490,13 +490,13 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *g_out, double *la
 
     if(err_g > err_g_n)
     {
-      if(DEBUG_PRINT_STAT)
+      if(solver_info->debug)
         printf("Integration algorithm is diverging (g: %e -> %e)\n", err_g_n, err_g);
       break;
     }
     if((*d_gamma)/D_GAMMA_D > D_GAMMA_TOL && solver_info->max_subdivision > 1)
     {
-      if(DEBUG_PRINT_STAT)
+      if(solver_info->debug)
         printf("Need smaller dt w_max = %e\n", (*d_gamma)/D_GAMMA_D);
       break;
     }
@@ -517,157 +517,6 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *g_out, double *la
   return err;
 }
 
-int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *g_out, double *lambda,
-                            double *pFn_in, double *Fn_in, double *Fnp1_in, double *hFn_in, double *hFnp1_in,
-                            double g_n, double dt,
-                            MATERIAL_CONSTITUTIVE_MODEL *mat,
-                            ELASTICITY *elasticity,
-                            GcmSolverInfo *solver_info,
-                            int stepno,
-                            double *d_gamma,
-                            int *is_it_cnvg)
-{
-  int err = 0;
-
-  Tensor<2> dF,F_s,Fn_s,pFn_s;
-
-  double dt_s = dt/stepno;
-
-  for(int b=0; b<DIM_3x3; b++)
-  {
-       dF.data[b] = (Fnp1_in[b] - Fn_in[b])/stepno;
-     Fn_s.data[b] =  Fn_in[b];
-    pFn_s.data[b] = pFn_in[b];
-  }
-
-  double g_n_s = g_n;
-
-  int is_sub_cnvg = 0;
-
-  for(int a=0; a<stepno; a++)
-  {
-    if(DEBUG_PRINT_STAT)
-      printf("-----------------------\n sub step: (%d/%d) \n-----------------------\n", a+1, stepno);
-
-    is_sub_cnvg = 0;
-    F_s = Fn_s(i,j) + dF(i,j);
-
-    err += staggered_Newton_Rapson_compute(pFnp1_out, g_out,lambda,
-                                         pFn_s.data,
-                                          Fn_s.data,
-                                           F_s.data,
-                                         hFn_in, hFnp1_in,
-                                         g_n_s,dt_s,mat,
-                                         elasticity,solver_info,d_gamma,&is_sub_cnvg);
-    if((*d_gamma)/D_GAMMA_D>D_GAMMA_TOL || !is_sub_cnvg)
-    {
-      err = 1;
-      break;
-    }
-
-    for(int b=0; b<DIM_3x3; b++)
-    {
-      pFn_s.data[b] = pFnp1_out[b];
-       Fn_s.data[b] = F_s.data[b];
-    }
-    g_n_s = *g_out;
-  }
-
-  *is_it_cnvg = is_sub_cnvg;
-
-  return err;
-}
-
-/// integrate crystal plasticity from pFn to pFnp1 for general cases (includes thermal expansions)
-///
-/// In integrating plastic part of deformation gradient and hardening,
-/// Both non-linear iterations are staggered until two rediduals (M = pFr_I and g = hardening) are converged.
-/// If one of the iterations is diverging, subdivision steps can be applied if solver_info include
-/// subdivision number greater than 1. In the subdivision steps, loading (Fnp1) is linearly factorized as smaller
-/// time step size used. The subdivision step size increases 2, 4, 8, 18, ... upto solver_infor.max_subdivision.
-///
-/// \param[out] pFnp1_out deformation gradient (plastic) at time step = n + 1
-/// \param[out] g_out updated hardening at time step =  n + 1
-/// \param[out] lambda updated Lagrange multiplier at time step =  n + 1
-/// \param[in] pFn_in deformation gradient (plastic) at time step = n
-/// \param[in] Fn_in deformation gradient (total) at time step = n
-/// \param[in] Fnp1_in deformation gradient (total) at time step = n + 1
-/// \param[in] hFn_in deformation gradient (due to thermal expansion) at time step = n
-/// \param[in] hFnp1_in deformation gradient (due to thermal expansion) at time step = n + 1
-/// \param[in] g_n hardening at time step =  n
-/// \param[in] dt time step size
-/// \param[in] mat material parameters
-/// \param[in] elasticity object to compute elasticity (stress)
-/// \param[in] solver_info defines numerical parameters
-/// \return non-zero on interal error
-int staggered_Newton_Rapson_generalized(double *pFnp1_out, double *g_out, double *lambda,
-                                        double *pFn_in, double *Fn_in, double *Fnp1_in, double *hFn_in, double *hFnp1_in,
-                                        double g_n, double dt,
-                                        MATERIAL_CONSTITUTIVE_MODEL *mat,
-                                        ELASTICITY *elasticity,
-                                        GcmSolverInfo *solver_info)
-{
-  int err = 0;
-  double lambda_in = *lambda;
-  int is_it_cnvg = 0;
-  double d_gamma;
-  err += staggered_Newton_Rapson_compute(pFnp1_out, g_out,lambda,
-                                         pFn_in,Fn_in,Fnp1_in,hFn_in,hFnp1_in,g_n,dt,mat,
-                                         elasticity,solver_info,&d_gamma,&is_it_cnvg);
-
-  if(solver_info->max_subdivision<2)
-  {
-    if(is_it_cnvg==0)
-      printf("Integration algorithm is diverging\n");
-    return err;
-  }
-
-  double w = (d_gamma)/D_GAMMA_D;
-  if(w < D_GAMMA_TOL && is_it_cnvg)
-    return err;
-
-  if(!is_it_cnvg || w>D_GAMMA_TOL)
-  {
-    if(DEBUG_PRINT_STAT)
-    {
-      printf("WARNING: Time stepping size is adjusted in Crystal plasticity integration (w=%e)\n", w);
-      printf("Enterring sub division ..\n");
-    }
-
-    int stepno = 2;
-    while(w>D_GAMMA_TOL || !is_it_cnvg)
-    {
-      *lambda = lambda_in;
-      err = 0;
-      is_it_cnvg = 0;
-      err += staggered_Newton_Rapson_subdivision(pFnp1_out, g_out,lambda,
-                                                 pFn_in,Fn_in,Fnp1_in,hFn_in,hFnp1_in,g_n,dt,
-                                                 mat,elasticity,solver_info,stepno,&d_gamma,&is_it_cnvg);
-      stepno *= 2;
-      w = d_gamma/D_GAMMA_D;
-
-      if(stepno>(solver_info->max_subdivision))
-      {
-        if(w>D_GAMMA_TOL)
-        {
-          if(DEBUG_PRINT_STAT)
-          {
-            printf("WARNING: reach maximum number of sub division\n");
-            printf("Integration algorithm updates values computed at the final step\n");
-          }
-          err++;
-        }
-        break;
-      }
-    }
-  }
-
-  if(is_it_cnvg==0)
-    printf("After subdivision: Integration algorithm is diverging\n");
-
-  return err;
-}
-
 int Fnp1_Implicit(double *Fnp1_out, double *Fn_in, double *L_in, double dt)
 {
   int err = 0;
@@ -683,44 +532,6 @@ int Fnp1_Implicit(double *Fnp1_out, double *Fn_in, double *L_in, double dt)
 
   err += inv(A, AI);
   Fnp1 = AI(i,k)*Fn(k,j);
-  return err;
-}
-
-/// integrate crystal plasticity from pFn to pFnp1
-///
-/// Integrating plastic part of deformation gradient and hardening
-/// same as staggered_Newton_Rapson_generalized except not includs thermal expansions.
-///
-/// \param[out] pFnp1_out deformation gradient (plastic) at time step = n + 1
-/// \param[out] g_out updated hardening at time step =  n + 1
-/// \param[out] lambda updated Lagrange multiplier at time step =  n + 1
-/// \param[in] pFn_in deformation gradient (plastic) at time step = n
-/// \param[in] Fn_in deformation gradient (total) at time step = n
-/// \param[in] Fnp1_in deformation gradient (total) at time step = n + 1
-/// \param[in] g_n hardening at time step =  n
-/// \param[in] dt time step size
-/// \param[in] mat material parameters
-/// \param[in] elasticity object to compute elasticity (stress)
-/// \param[in] solver_info defines numerical parameters
-/// \return non-zero on interal error
-int staggered_Newton_Rapson(double *pFnp1_out, double *g_out, double *lambda,
-                            double *pFn_in, double *Fn_in, double *Fnp1_in,
-                            double g_n, double dt,
-                            MATERIAL_CONSTITUTIVE_MODEL *mat,
-                            ELASTICITY *elasticity,
-                            GcmSolverInfo *solver_info)
-{
-  double hFn[9]; // hFn*hFnp1_I
-  hFn[1] = hFn[2] = hFn[3] = hFn[5] = hFn[6] = hFn[7] = 0.0;
-  hFn[0] = hFn[4] = hFn[8] = 1.0;
-
-  double hFnp1[9]; // hFn*hFnp1_I
-  hFnp1[1] = hFnp1[2] = hFnp1[3] = hFnp1[5] = hFnp1[6] = hFnp1[7] = 0.0;
-  hFnp1[0] = hFnp1[4] = hFnp1[8] = 1.0;
-
-  int err = staggered_Newton_Rapson_generalized(pFnp1_out, g_out,lambda,
-                                                pFn_in, Fn_in, Fnp1_in, hFn, hFnp1,
-                                                g_n, dt, mat, elasticity, solver_info);
   return err;
 }
 
