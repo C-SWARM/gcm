@@ -2,6 +2,7 @@
 #define H__H__CONSTITUTIVE_MODEL_HANDLE__H__H
 
 #include"GcmSolverInfo.h"
+#include<stdlib.h>
 
 struct MATERIAL_ELASTICITY;
 #ifndef TYPE_MATERIAL_ELASTICITY

@@ -43,6 +43,14 @@ double quadratic_interpolation(const double nm1,
   return nm1*L0 + n*L1 + np1*L2;
 }
 
+
+/// If one of the iterations is diverging, subdivision steps will be applied if solver_info include
+/// subdivision number greater than 1. In the subdivision steps, loading (Fnp1) is quadratically interplolated
+/// as smaller time step size is used. The subdivision step size increases 2, 4, 8, 18, ... upto 
+/// solver_infor.max_subdivision.
+///
+/// \param[in]     dt(n)
+/// \param[dt_np1] dt(n+1)
 int GcmIntegrator::run_integration_algorithm(const double dt_n,
                                              const double dt_np1){
   
@@ -67,7 +75,7 @@ int GcmIntegrator::run_integration_algorithm(const double dt_n,
       printf("GCM sub-cycling scheme. Number of Sub-cycling = %d\n", stepno);
       
     for(int ia=0; ia<stepno; ++ia)
-    {       
+    {     
       if(solver_info->debug)
         printf(">> Sub-cycling = %d/%d\n", ia, stepno);
       
