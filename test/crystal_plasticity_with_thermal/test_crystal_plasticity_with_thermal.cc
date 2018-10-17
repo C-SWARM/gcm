@@ -49,11 +49,11 @@ void test_crystal_plasticity_single_crystal(T1 &Fnp1, T2 &hFnp1, const char *fil
   // create solver info: criteria for numerical iterations
   GcmSolverInfo solver_info;
   set_gcm_solver_info(&solver_info,max_itr_stag,
-                                                  max_itr_hardening,
-                                                  max_itr_M,
-                                                  tol_hardening,
-                                                  tol_M,
-                                                  computer_zero);  
+                      max_itr_hardening,
+                      max_itr_M,
+                      tol_hardening,
+                      tol_M,
+                      computer_zero);  
   //print_crystal_plasticity_solver_info(&solver_info); // <= this is optional
   
   // create elasticity object for integration
@@ -66,14 +66,30 @@ void test_crystal_plasticity_single_crystal(T1 &Fnp1, T2 &hFnp1, const char *fil
   pFnp1 = ttl::identity(i,j);
   xFn   = ttl::identity(i,j);
       
-  double g_n   = mat_p.g0;
-  double g_np1 = mat_p.g0;
+  double g_np1;
   double dt     = 0.1;
   double lambda = 0.0;
+  
+  GcmCpIntegrator integrator;
+  
+  integrator.mat         = &mat;
+  integrator.elasticity  = &elast;
+  integrator.solver_info = &solver_info;  
+  
+  integrator.set_tensors(Fnp1.data,
+                         xFn.data,
+                         xFn.data,
+                         pFnp1.data,
+                         xFn.data,
+                         hFnp1.data,
+                         xFn.data);
 
-  staggered_Newton_Rapson_generalized(pFnp1.data, &g_np1, &lambda, 
-                                      xFn.data, xFn.data,Fnp1.data, xFn.data, hFnp1.data,
-                                      g_n, dt, &mat, &elast, &solver_info);
+  integrator.gnp1   = &g_np1;
+  integrator.lambda = &lambda;
+  integrator.gn     = g_np1 = mat_p.g0;
+  
+  // perform integration algorithm for the crystal plasticity
+  integrator.run_integration_algorithm(dt, dt);
 
   printf("pFnp1 = [\n%e %e %e \n%e %e %e\n%e %e %e]\n",
           pFnp1[0][0], pFnp1[0][1], pFnp1[0][2],

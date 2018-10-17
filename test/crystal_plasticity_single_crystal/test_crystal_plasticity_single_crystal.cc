@@ -5,7 +5,7 @@
 #include "flowlaw.h"
 #include <sys/time.h>
 
-void test_crystal_plasticity_single_crystal(void)
+void test_crystal_plasticity_single_crystal(const int debug)
 {
   //double lame1 = 75600.0;
   //double lame2     = 26100.0;
@@ -55,7 +55,8 @@ void test_crystal_plasticity_single_crystal(void)
                       max_itr_M,
                       tol_hardening,
                       tol_M,
-                      computer_zero);  
+                      computer_zero);
+                      solver_info.debug = debug;
   //print_crystal_plasticity_solver_info(&solver_info); // <= this is optional
   
   // create elasticity object for integration
@@ -64,17 +65,17 @@ void test_crystal_plasticity_single_crystal(void)
   construct_elasticity(&elast, &mat_e, 1);  
 
   // set variables for integration
-  Tensor<2> pFn,pFnp1,pFnp1_I,eFnp1,Fn,Fnp1,L={},sigma,PK2dev,sigma_dev;
+  Tensor<2> pFn,pFnp1,pFnp1_I,eFnp1,Fnm1,Fn,Fnp1,L={},sigma,PK2dev,sigma_dev;
   
   pFn   = ttl::identity(i,j);
   pFnp1 = ttl::identity(i,j);
   eFnp1 = ttl::identity(i,j);
+  Fnm1  = ttl::identity(i,j);  
   Fn    = ttl::identity(i,j);
   Fnp1  = ttl::identity(i,j);
-      
-  double g_n,g_np1;
-  g_n = g_np1 = mat_p.g0;
   
+  double g_np1;
+  double lambda = 0.0;
   double dt = 0.001;
   
   double d = 1.0;
@@ -87,24 +88,40 @@ void test_crystal_plasticity_single_crystal(void)
   
   FILE *fp = fopen("single_crystal_results.txt", "w");
   
+  double hF[9] = {1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0};
+
+  GcmCpIntegrator integrator;
+  
+  integrator.mat         = &mat;
+  integrator.elasticity  = &elast;
+  integrator.solver_info = &solver_info; 
+    
+  integrator.set_tensors(Fnp1.data,
+                         Fn.data,
+                         Fnm1.data,
+                         pFnp1.data,
+                         pFn.data,
+                         hF,hF);
+                         
+  integrator.gnp1   = &g_np1;
+  integrator.lambda = &lambda;
+  integrator.gn     = g_np1 = mat_p.g0;
+
   for(int a = 1; a<=1000; a++)
   {
-    double lambda = 0.0;
     double t = a*dt;
-    
+    lambda = 0.0;
     // compute total deformation gradient using velocity gradient
-    Fnp1_Implicit(Fnp1.data, Fn.data, L.data, dt); 
-    
-    staggered_Newton_Rapson(pFnp1.data, &g_np1, &lambda, 
-                            pFn.data, Fn.data,Fnp1.data, 
-                            g_n, dt, &mat, &elast, &solver_info);
-                            
-    pFn = pFnp1(i,j);
-    Fn  = Fnp1(i,j);
+    Fnp1_Implicit(Fnp1.data, Fn.data, L.data, dt);                            
+    integrator.run_integration_algorithm(dt, dt);
+  
+    pFn(i,j)  = pFnp1(i,j);
+    Fnm1(i,j) = Fn(i,j);
+    Fn(i,j)   = Fnp1(i,j);
     inv(pFnp1,pFnp1_I);
     eFnp1 = Fnp1(i,k)*pFnp1_I(k,j);
        
-    g_n = g_np1;
+    integrator.gn = g_np1;
     
     
     // print result at time t
@@ -128,10 +145,17 @@ void test_crystal_plasticity_single_crystal(void)
 int main(int argc,char *argv[])
 {
   int err = 0;
+  
+  int debug;
+  if(argc<2)
+    debug = 0;
+  else
+    sscanf(argv[1], "%d", &debug);
+    
   struct timeval start, end;
   gettimeofday(&start, NULL);
 
-  test_crystal_plasticity_single_crystal();
+  test_crystal_plasticity_single_crystal(debug);
   
   gettimeofday(&end, NULL);
   double diff = (double)(end.tv_usec - start.tv_usec)/1000000.0 

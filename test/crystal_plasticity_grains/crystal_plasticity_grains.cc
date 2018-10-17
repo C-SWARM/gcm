@@ -1,3 +1,4 @@
+#include "constitutive_model_handle.h"
 #include "constitutive_model.h"
 #include "material_properties.h"
 #include "hyperelasticity.h"
@@ -151,7 +152,8 @@ int test_crystal_plasticity_single_crystal(const MAT_PROP *mat_in,
                       tol_hardening,
                       tol_M,
                       computer_zero,
-                      max_sub_cycling);
+                      max_sub_cycling);   
+
   //print_crystal_plasticity_solver_info(&solver_info); // <= this is optional
   
   // create elasticity object for integration
@@ -160,35 +162,54 @@ int test_crystal_plasticity_single_crystal(const MAT_PROP *mat_in,
   err += construct_elasticity(&elast, &mat_e, 1);  
 
   // set variables for integration
-  Tensor<2> pFn,pFnp1,pFnp1_I,eFnp1,Fn,Fnp1,L,D,sigma;
+  Tensor<2> pFn,pFnp1,pFnp1_I,eFnp1,Fnm1,Fn,Fnp1,L,D,sigma;
 
   pFn   = ttl::identity(i,j);
   pFnp1 = ttl::identity(i,j);
   eFnp1 = ttl::identity(i,j);
+  Fnm1  = ttl::identity(i,j);
   Fn    = ttl::identity(i,j);
   Fnp1  = ttl::identity(i,j);
     
-  double g_n,g_np1;
-  g_n = g_np1 = mat_p.g0;  
+  double lambda = 0.0;
+  double g_np1;
+  
+  double hF[9] = {1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0};  
+  
+  GcmCpIntegrator integrator;
+  
+  integrator.mat         = &mat;
+  integrator.elasticity  = &elast;
+  integrator.solver_info = &solver_info; 
+    
+  integrator.set_tensors(Fnp1.data,
+                         Fn.data,
+                         Fnm1.data,
+                         pFnp1.data,
+                         pFn.data,
+                         hF,hF);
+                         
+  integrator.gnp1   = &g_np1;
+  integrator.lambda = &lambda;
+  integrator.gn     = g_np1 = mat_p.g0;
   
   for(int a = 1; a<=sim->stepno; a++)
   {
-    double lambda = 0.0;
     double t = a*(sim->dt);
+    lambda = 0.0;
     
     // compute total deformation gradient using velocity gradient
     F_of_t(Fn,Fnp1,L,t,sim); 
     
-    err += staggered_Newton_Rapson(pFnp1.data, &g_np1, &lambda, 
-                                   pFn.data, Fn.data,Fnp1.data, 
-                                   g_n, sim->dt, &mat, &elast, &solver_info);
-   
-    pFn = pFnp1(i,j);
-    Fn  = Fnp1(i,j);
+    err += integrator.run_integration_algorithm(sim->dt, sim->dt);
+       
+    pFn  = pFnp1(i,j);
+    Fnm1 = Fn(i,j);
+    Fn   = Fnp1(i,j);
     err += inv(pFnp1,pFnp1_I);
     eFnp1 = Fnp1(i,k)*pFnp1_I(k,j);
          
-    g_n = g_np1;
+    integrator.gn = g_np1;
     
     // print result at time t    
     err += elast.update_elasticity(&elast,eFnp1.data,0);
