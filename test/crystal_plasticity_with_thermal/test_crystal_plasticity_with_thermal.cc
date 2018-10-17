@@ -47,8 +47,8 @@ void test_crystal_plasticity_single_crystal(T1 &Fnp1, T2 &hFnp1, const char *fil
   set_properties_constitutive_model(&mat,&mat_e,&mat_p);
   
   // create solver info: criteria for numerical iterations
-  CRYSTAL_PLASTICITY_SOLVER_INFO solver_info;
-  set_crystal_plasticity_solver_info(&solver_info,max_itr_stag,
+  GcmSolverInfo solver_info;
+  set_gcm_solver_info(&solver_info,max_itr_stag,
                                                   max_itr_hardening,
                                                   max_itr_M,
                                                   tol_hardening,

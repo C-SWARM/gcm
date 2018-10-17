@@ -419,8 +419,7 @@ int main(int argc,char *argv[])
     err += read_input_file(fn_sim, mat_pvp, sim);
     
     GcmSolverInfo solver_info;
-    set_gcm_solver_info(&solver_info, 10, 10, 10, 1.0e-6, 1.0e-6, 1.0e-15);
-    solver_info.max_subdivision = 1024;
+    set_gcm_solver_info(&solver_info, 10, 10, 10, 1.0e-6, 1.0e-6, 1.0e-15, 1024);
     if(print_option==2)
       solver_info.debug = true;
 

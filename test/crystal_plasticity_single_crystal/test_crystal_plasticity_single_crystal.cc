@@ -49,13 +49,13 @@ void test_crystal_plasticity_single_crystal(void)
   set_properties_constitutive_model(&mat,&mat_e,&mat_p);
   
   // create solver info: criteria for numerical iterations
-  CRYSTAL_PLASTICITY_SOLVER_INFO solver_info;
-  set_crystal_plasticity_solver_info(&solver_info,max_itr_stag,
-                                                  max_itr_hardening,
-                                                  max_itr_M,
-                                                  tol_hardening,
-                                                  tol_M,
-                                                  computer_zero);  
+  GcmSolverInfo solver_info;
+  set_gcm_solver_info(&solver_info,max_itr_stag,
+                      max_itr_hardening,
+                      max_itr_M,
+                      tol_hardening,
+                      tol_M,
+                      computer_zero);  
   //print_crystal_plasticity_solver_info(&solver_info); // <= this is optional
   
   // create elasticity object for integration

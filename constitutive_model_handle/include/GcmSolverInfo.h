@@ -19,5 +19,9 @@ void set_gcm_solver_info(GcmSolverInfo *solver_info,
                         const int max_itr_M,
                         const double tol_hardening, 
                         const double tol_M, 
-                        const double computer_zero);
+                        const double computer_zero,
+                        const int max_subdivision = -1);
+
+void print_gcm_solver_info(GcmSolverInfo *solver_info);                     
+
 #endif

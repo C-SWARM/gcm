@@ -16,7 +16,7 @@
 
 long perIter_ODE_EXA_metric = 0;
 
-int set_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info,
+int set_crystal_plasticity_solver_info(GcmSolverInfo *solver_info,
                                        int max_itr_stag, int max_itr_hardening, int max_itr_M,
                                        double tol_hardening, double tol_M, double computer_zero)
 {
@@ -32,7 +32,7 @@ int set_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_in
   return err;
 }
 
-int print_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info)
+int print_crystal_plasticity_solver_info(GcmSolverInfo *solver_info)
 {
   int err = 0;
   printf("-----------------------------------------------------------\n");
@@ -187,7 +187,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
                     double g_np1_k, double dt,
                     MATERIAL_CONSTITUTIVE_MODEL *mat,
                     ELASTICITY *elasticity,
-                    CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info,
+                    GcmSolverInfo *solver_info,
                     int *is_it_cnvg,
                     double *norm_R_0,
                     double *d_gamma,
@@ -355,7 +355,7 @@ int Newton_Rapson_hardening(double *g_np1, double *eFnp1_in,
                             double g_n, double g_np1_k, double dt,
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
                             ELASTICITY *elasticity,
-                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info)
+                            GcmSolverInfo *solver_info)
 {
   int err = 0;
 
@@ -398,7 +398,7 @@ int staggered_Newton_Rapson_compute(double *pFnp1_out, double *g_out, double *la
                             double g_n, double dt,
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
                             ELASTICITY *elasticity,
-                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info,
+                            GcmSolverInfo *solver_info,
                             double *d_gamma,
                             int *is_it_cnvg)
 {
@@ -522,7 +522,7 @@ int staggered_Newton_Rapson_subdivision(double *pFnp1_out, double *g_out, double
                             double g_n, double dt,
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
                             ELASTICITY *elasticity,
-                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info,
+                            GcmSolverInfo *solver_info,
                             int stepno,
                             double *d_gamma,
                             int *is_it_cnvg)
@@ -605,7 +605,7 @@ int staggered_Newton_Rapson_generalized(double *pFnp1_out, double *g_out, double
                                         double g_n, double dt,
                                         MATERIAL_CONSTITUTIVE_MODEL *mat,
                                         ELASTICITY *elasticity,
-                                        CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info)
+                                        GcmSolverInfo *solver_info)
 {
   int err = 0;
   double lambda_in = *lambda;
@@ -708,7 +708,7 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *g_out, double *lambda,
                             double g_n, double dt,
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
                             ELASTICITY *elasticity,
-                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info)
+                            GcmSolverInfo *solver_info)
 {
   double hFn[9]; // hFn*hFnp1_I
   hFn[1] = hFn[2] = hFn[3] = hFn[5] = hFn[6] = hFn[7] = 0.0;

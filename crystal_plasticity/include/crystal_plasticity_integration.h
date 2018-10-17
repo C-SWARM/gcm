@@ -17,32 +17,12 @@ extern long perTimestep_EXA_metric; //Exa metric accumulated over the current ti
 extern long total_EXA_metric;       //Total Exa metric accumulated over each NR iteration
 extern long dof_EXA_metric;         //Exa metric for accumulated Ndof over each NR iteration
 
-struct CRYSTAL_PLASTICITY_SOLVER_INFO
-{
-  int max_itr_stag;     // maximum number of iteration for staggerd NR
-  int max_itr_hardening; // maximum number of iteration for hardening NR
-  int max_itr_M;         // maximum number of iteration for M NR where (M = pFn_I)
-  double tol_hardening;
-  double tol_M;
-  double computer_zero;
-  int max_subdivision;
-  int debug;
-};
-
-typedef struct CRYSTAL_PLASTICITY_SOLVER_INFO CRYSTAL_PLASTICITY_SOLVER_INFO;
-
-int set_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info, 
-                                       int max_itr_stag, int max_itr_hardening, int max_itr_M, 
-                                       double tol_hardening, double tol_M, double computer_zero);
-
-int print_crystal_plasticity_solver_info(CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info);     
-
 int staggered_Newton_Rapson_compute(double *pFnp1_out, double *g_out, double *lambda,
                                     double *pFn_in, double *Fn_in, double *Fnp1_in, double *hFn_in, double *hFnp1_in,
                                     double g_n, double dt,
                                     MATERIAL_CONSTITUTIVE_MODEL *mat,
                                     ELASTICITY *elasticity,
-                                    CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info,
+                                    GcmSolverInfo *solver_info,
                                     double *d_gamma,
                                     int *is_it_cnvg);
 
@@ -67,7 +47,7 @@ int staggered_Newton_Rapson_generalized(double *pFnp1_out, double *g_out, double
                                         double g_n, double dt, 
                                         MATERIAL_CONSTITUTIVE_MODEL *mat,
                                         ELASTICITY *elasticity, 
-                                        CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info);
+                                        GcmSolverInfo *solver_info);
 
 /// integrate crystal plasticity from pFn to pFnp1
 ///
@@ -88,7 +68,7 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *g_out, double *lambda,
                             double g_n, double dt, 
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
                             ELASTICITY *elasticity, 
-                            CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info); 
+                            GcmSolverInfo *solver_info); 
                             
 int Fnp1_Implicit(double *Fnp1_out, double *Fn_in, double *L_in, double dt);
 
@@ -100,22 +80,23 @@ class GcmCpIntegrator : public GcmIntegrator
 {
   public:
 
-  double gn, gnm1;
+  double gn;
   double *gnp1;
   double *lambda;
   double gn_s;
   
   MATERIAL_CONSTITUTIVE_MODEL *mat;
   ELASTICITY *elasticity;
-  CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info;
 
   GcmCpIntegrator(){
     mat         = NULL;
     elasticity  = NULL;
     solver_info = NULL;
+    gn = gn_s = {};
+    gnp1 = lambda = NULL;
   }  
   
-  virtual int run_integration_algorithm(const double dt) 
+  virtual int constitutive_model_integration(const double dt) 
   {
     int err = 0;
     double d_gamma = 0.0;
