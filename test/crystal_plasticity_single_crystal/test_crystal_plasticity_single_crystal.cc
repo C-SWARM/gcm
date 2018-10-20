@@ -61,8 +61,8 @@ void test_crystal_plasticity_single_crystal(const int debug)
   
   // create elasticity object for integration
   // this creates memory for stress and elasticity tensor s.t. requres destructor
-  ELASTICITY elast;
-  construct_elasticity(&elast, &mat_e, 1);  
+  HyperElasticity elast;
+  elast.construct_elasticity(&mat_e, true);  
 
   // set variables for integration
   Tensor<2> pFn,pFnp1,pFnp1_I,eFnp1,Fnm1,Fn,Fnp1,L={},sigma,PK2dev,sigma_dev;
@@ -125,19 +125,17 @@ void test_crystal_plasticity_single_crystal(const int debug)
     
     
     // print result at time t
-    double sigma_eff;
-    double PK2_eff;
+    double sigma_eff;    
     double det_pF = ttl::det(pFnp1);
         
-    elast.update_elasticity(&elast,eFnp1.data,0);
-    elast.compute_PK2_eff(&elast,&PK2_eff);
-    elast.compute_Cauchy_eff(&elast,&sigma_eff,eFnp1.data);   
+    elast.update_elasticity(eFnp1.data,false);
+    double PK2_eff = elast.compute_PK2_eff();
+    elast.compute_Cauchy_eff(&sigma_eff,eFnp1.data);   
 
     fprintf(fp, "%e %e %e %e %e %e\n",t,sigma_eff,PK2_eff, g_np1, det_pF, PK2[0][0]);
   }    
   
-  fclose(fp);  
-  destruct_elasticity(&elast);
+  fclose(fp);
   destruct_slip_system(&slip);
 }
 

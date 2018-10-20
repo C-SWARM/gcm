@@ -82,7 +82,7 @@ double H_of_J(double J)
 }
   
 int split_damage_evolutions(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                            ELASTICITY *elast,
+                            HyperElasticity *elast,
                             double *dw,
                             double *vw,
                             double *dX,
@@ -166,7 +166,7 @@ int split_damage_evolutions(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 
 
 int continuum_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                     ELASTICITY *elast,
+                                     HyperElasticity *elast,
                                      double *w,
                                      double *X,
                                      double *H,
@@ -189,7 +189,7 @@ int continuum_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   
   
   
-  elast->compute_potential_dev(C.data, elast->mat, &Wdev);
+  elast->compute_potential_dev(C.data, &Wdev);
   elast->compute_u(&U, J);
   
   U *= (elast->mat->kappa);
@@ -202,7 +202,7 @@ int continuum_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 }
 
 int continuum_damage_integration_alg_public(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                            ELASTICITY *elast,
+                                            HyperElasticity *elast,
                                             double *w,
                                             double *X,
                                             double *H,
@@ -218,7 +218,7 @@ int continuum_damage_integration_alg_public(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   return err;
 }
 int continuum_split_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                           ELASTICITY *elast,
+                                           HyperElasticity *elast,
                                            double *dw,
                                            double *vw,
                                            double *dX,
@@ -245,7 +245,7 @@ int continuum_split_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   double W, U;
   W = U = 0.0;
   
-  elast->compute_potential_dev(C.data, elast->mat, &W);    
+  elast->compute_potential_dev(C.data, &W);
   elast->compute_u(&U,J);
   U *= (elast->mat->kappa);
   
@@ -257,7 +257,7 @@ int continuum_split_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 }
 
 int continuum_split_damage_integration_alg_public(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                                  ELASTICITY *elast,
+                                                  HyperElasticity *elast,
                                                   double *dw,
                                                   double *vw,
                                                   double *dX,
@@ -318,16 +318,16 @@ int apply_damage_on_stiffness(double *L_out, double *S0_in, double *L_in,
 }
 
 int update_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                             ELASTICITY *elast,
+                             HyperElasticity *elast,
                              double w,
                              int is_it_damaged,
                              double H,
                              const double dt,
                              double *F_in, 
-                             const int compute_stiffness)
+                             const bool compute_stiffness)
 {
   int err = 0;
-  elast->update_elasticity(elast,F_in, compute_stiffness);
+  elast->update_elasticity(F_in, compute_stiffness);
               
   if(compute_stiffness)
   {
@@ -390,7 +390,7 @@ int apply_split_damage_on_stiffness(double *L_out, double *dS0_in, double *vS0_i
 }
 
 int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                   ELASTICITY *elast,
+                                   HyperElasticity *elast,
                                    double dw,
                                    double vw,
                                    double dH,
@@ -399,7 +399,7 @@ int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
                                    int is_it_damaged_v,
                                    const double dt,
                                    double *F_in, 
-                                   const int compute_stiffness)
+                                   const bool compute_stiffness)
 {
   int err = 0;
 
@@ -411,7 +411,7 @@ int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   C = F(k,i)*F(k,j);
   
   // compute stress -->
-  elast->compute_PK2_dev(C.data, elast->mat, dS_0.data);
+  elast->compute_PK2_dev(C.data, dS_0.data);
 
   inv(C,CI);
   double detF = ttl::det(F);
@@ -428,7 +428,7 @@ int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
     
     double detC = detF*detF;
     double d2udj2 = 0.0; 
-    elast->compute_tangent_dev(C.data, elast->mat, dL.data);
+    elast->compute_tangent_dev(C.data, dL.data);
     elast->compute_d2udj2(&d2udj2, detF);
     
     L(i,j,k,l) = (1-dw)*dL(i,j,k,l) + (1-vw)*(kappa*(detF*dudj + detC*d2udj2)*CI(i,j)*CI(k,l)
@@ -438,7 +438,7 @@ int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
     {  
       double W = 0.0, U = 0.0;
 
-      elast->compute_potential_dev(C.data, elast->mat, &W);    
+      elast->compute_potential_dev(C.data, &W);    
       elast->compute_u(&U,detF);
       U *= kappa;
     
@@ -479,13 +479,13 @@ int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 }
 
 int update_damage_elasticity_dev(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                 ELASTICITY *elast,
+                                 HyperElasticity *elast,
                                  double dw,
                                  double dH,
                                  int is_it_damaged_d,
                                  const double dt,
                                  double *F_in, 
-                                 const int compute_stiffness)
+                                 const bool compute_stiffness)
 {
   int err = 0;
 
@@ -496,14 +496,14 @@ int update_damage_elasticity_dev(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   C = F(k,i)*F(k,j);
     
   // compute stress -->
-  elast->compute_PK2_dev(C.data, elast->mat, dS_0.data);
+  elast->compute_PK2_dev(C.data, dS_0.data);
           
   if(compute_stiffness)
   {
     Tensor<4> dL;
     TensorA<4> L(elast->L);
       
-    elast->compute_tangent_dev(C.data, elast->mat, dL.data);              
+    elast->compute_tangent_dev(C.data, dL.data);
     
     L(i,j,k,l) = (1-dw)*dL(i,j,k,l);
     
@@ -519,7 +519,7 @@ int update_damage_elasticity_dev(MATERIAL_CONTINUUM_DAMAGE *mat_d,
       vS_0(i,j) = kappa*detF*dudj*CI(i,j);      
       
       double W = 0.0, U = 0.0;    
-      elast->compute_potential_dev(C.data, elast->mat, &W);    
+      elast->compute_potential_dev(C.data, &W);    
       elast->compute_u(&U,detF);
       U *= (elast->mat->kappa);
         
@@ -546,10 +546,10 @@ int update_damage_elasticity_dev(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 
 /// compute derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
 /// 
-/// \param[in] elast elasticity object
+/// \param[in] elast HyperElasticity object
 /// \param[in] eJ    det(eF)
 /// \param[in] vw    volumetric part damage parameter
-double damage_compute_dudj(ELASTICITY *elast,
+double damage_compute_dudj(HyperElasticity *elast,
                            const double eJ,
                            const double vw)
 {
@@ -561,10 +561,10 @@ double damage_compute_dudj(ELASTICITY *elast,
 
 /// compute  2nd derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
 /// 
-/// \param[in] elast elasticity object
+/// \param[in] elast HyperElasticity object
 /// \param[in] eJ    det(eF)
 /// \param[in] vw    volumetric part damage parameter
-double damage_compute_d2udj2(ELASTICITY *elast,
+double damage_compute_d2udj2(HyperElasticity *elast,
                              const double eJ,
                              const double vw)
 {

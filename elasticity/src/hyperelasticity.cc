@@ -8,69 +8,12 @@
 #include "strain_energy_density_function.h"
 #include "material_properties.h"
  
-/// \param[out] elasticity
-/// \param[in]  Fe
-/// \param[in]  update_stiffness
-int update_PK2_elasticity_tensor(ELASTICITY *elasticity, double *Fe, int update_stiffness)
+/// comute Von Mises stress
+/// 
+/// \param[in] T_in  2nd order tensor
+/// \return computed Von_Mises value
+double compute_Von_Mises(double *T_in)
 {
-  int err = 0;
-
-  enum {C,CI,F2end};
-  Tensor<2> F2[F2end];   //declare an array of tensors and initialize them to 0
-  for (int a = 0; a < F2end; a++) {
-    F2[a] = {};
-  } 
-
-  TensorA<2> F(Fe);
-  TensorA<2> S(elasticity->S);
-
-  F2[C](i,j) = F(k,i).to(i,k) * F(k,j);   //F[C] = F inverse * F
-  
-  err += inv(F2[C], F2[CI]);
-    
-  double detF = ttl::det(F);
-  double detC = detF*detF;
-  
-  // compute stress -->
-  double dudj = 0.0;  
-  double kappa = elasticity->mat->kappa;    
-  elasticity->compute_PK2_dev(F2[C].data, elasticity->mat, S.data);
-  elasticity->compute_dudj(&dudj, detF);
-  S(i,j) += kappa*detF*dudj * F2[CI](i,j);
-  // <-- compute stress    
-
-  //compute stiffness -->
-  if(update_stiffness)
-  {
-
-    enum {CIoxCI,CICI,SoxS,F4end};
-    Tensor<4> F4[F4end];   //declare an array of tensors and initialize them to 0
-    for (int a = 0; a < F4end; a++) {
-      F4[a] = {};
-    }
-
-    TensorA<4> L(elasticity->L);  
-    
-    double d2udj2 = 0.0;    
-    elasticity->compute_tangent_dev(F2[C].data, elasticity->mat, L.data);
-    elasticity->compute_d2udj2(&d2udj2, detF);
-
-    F4[CIoxCI](i,j,k,l) = F2[CI](i,j) * F2[CI](k,l);   //calculate Kronecker product
-    F4[SoxS]  (i,j,k,l) = S(i,j) * S(k,l);
-    F4[CICI]  (i,j,k,l) = F2[CI](i,k) * F2[CI](l,j); 
-  
-    L(i,j,k,l) += kappa*(detF*dudj + detC*d2udj2) * F4[CIoxCI](i,j,k,l)
-                - 2.0*kappa*detF*dudj * F4[CICI](i,j,k,l);   
-  }
-  // <-- compute stiffness
-  
-  return err;
-}
-
-int compute_effective_tensor2(double *T_in, double *T_eff)
-{
-  int err = 0;  
-  
   TensorA<2> T(T_in);
   
   double seff = (T[0][0] - T[1][1])*(T[0][0] - T[1][1]) + 
@@ -80,94 +23,28 @@ int compute_effective_tensor2(double *T_in, double *T_eff)
                      T[1][2]*T[1][2]+
                      T[2][0]*T[2][0]);
 
-  *T_eff = sqrt(seff/2.0);
-  return err;
+  return sqrt(seff/2.0);
 }
 
-int compute_effective_PKII_stress(ELASTICITY *elasticity, double *PK2_eff)
-{
-  return compute_effective_tensor2(elasticity->S, PK2_eff);
-}
-
-int compute_Cauchy_stress(ELASTICITY *elasticity, double *sigma_out, double *eF)
-{
+/// set strain energy density function
+/// \param[in] mat elastic material object
+/// \return non-zero on internal error
+int StrainEnergyDensityFunction::set_material(const MATERIAL_ELASTICITY *mat){
   int err = 0;
 
-  TensorA<2> Fe(eF), PK2(elasticity->S), sigma(sigma_out);        
-  double det_Fe = ttl::det(Fe);  
-  sigma = 1.0/det_Fe*Fe(i,k)*PK2(k,l)*Fe(j, l); 
-    
-  return err;  
-}
-
-int compute_effective_Cauchy_stress(ELASTICITY *elasticity, double *sigma_eff, double *eF)
-{
-  double *sigma = (double *) malloc(sizeof(double)*DIM_3x3);
-  
-  int err = compute_Cauchy_stress(elasticity, sigma, eF);
-  err += compute_effective_tensor2(sigma, sigma_eff);
-  return err;
-}
-
-int compute_tangent_of_tangent(ELASTICITY *elasticity, double *eF, double *K_in)
-{
-  int err = 0;
-  
-  TensorA<2> F(eF);
-  Tensor<2> C, CI;  
-  
-  double J = ttl::det(F);
-  C = F(k,i)*F(k,j);
-
-  err += inv(C, CI);
-  
-  double kappa = elasticity->mat->kappa;    
-  elasticity->compute_d3W_dC3_dev(C.data, elasticity->mat, K_in);
-  TensorA<6> K(K_in);
-  
-  double dUdJ = 0.0;
-  double d2UdJ2 = 0.0;
-  double d3UdJ3 = 0.0;
-  
-  elasticity->compute_dudj(&dUdJ, J);
-  elasticity->compute_d2udj2(&d2UdJ2, J);
-  elasticity->compute_d3udj3(&d3UdJ3, J);
-  
-  K(i,j,k,l,r,s) += 2.0*((0.5*kappa*J*(dUdJ+3.0*J*d2UdJ2+J*J*d3UdJ3)*CI(i,j)*CI(k,l)*CI(r,s))
-                          -(kappa*J*(dUdJ+J*d2UdJ2)*(CI(i,r)*CI(s,j)*CI(k,l) 
-                                                   + CI(i,j)*CI(k,r)*CI(s,l) 
-                                                   + CI(i,k)*CI(l,j)*CI(r,s)))
-                          +2.0*kappa*J*dUdJ*(CI(i,r)*CI(s,k)*CI(l,j) + CI(i,k)*CI(l,r)*CI(s,j)));
-  return err;  
-}
-
-int construct_elasticity(ELASTICITY *elasticity, MATERIAL_ELASTICITY *mat, const int compute_stiffness)
-{
-  int err = 0;  
-  elasticity->S = (double *) malloc(sizeof(double)*DIM_3x3);
-  if(compute_stiffness)  
-    elasticity->L = (double *) malloc(sizeof(double)*DIM_3x3x3x3);
-  elasticity->update_elasticity = update_PK2_elasticity_tensor;
-  elasticity->mat = mat;
-  elasticity->compute_stiffness = compute_stiffness;
-
-  elasticity->compute_PK2_eff     = compute_effective_PKII_stress;
-  elasticity->compute_Cauchy_eff  = compute_effective_Cauchy_stress;
-  elasticity->compute_Cauchy      = compute_Cauchy_stress; 
-  elasticity->compute_d3W_dC3     = compute_tangent_of_tangent;  
   switch (mat->devPotFlag)
   {
     case 1:
-      elasticity->compute_potential_dev = SEDF_devPotential_Mooney_Rivlin;
-      elasticity->compute_PK2_dev     = SEDF_devStress_Mooney_Rivlin;
-      elasticity->compute_tangent_dev = SEDF_matStiff_Mooney_Rivlin;
-      elasticity->compute_d3W_dC3_dev = SEDF_d3W_dC3_Mooney_Rivlin;
+      this->compute_potential_dev = SEDF_devPotential_Mooney_Rivlin;
+      this->compute_PK2_dev       = SEDF_devStress_Mooney_Rivlin;
+      this->compute_tangent_dev   = SEDF_matStiff_Mooney_Rivlin;
+      this->compute_d3W_dC3_dev   = SEDF_d3W_dC3_Mooney_Rivlin;
       break;
     case 2:
-      elasticity->compute_potential_dev = SEDF_devPotential_Linear;
-      elasticity->compute_PK2_dev     = SEDF_devStress_Linear;
-      elasticity->compute_tangent_dev = SEDF_matStiff_Linear;
-      elasticity->compute_d3W_dC3_dev = SEDF_d3W_dC3_Linear;      
+      this->compute_potential_dev = SEDF_devPotential_Linear;
+      this->compute_PK2_dev       = SEDF_devStress_Linear;
+      this->compute_tangent_dev   = SEDF_matStiff_Linear;
+      this->compute_d3W_dC3_dev   = SEDF_d3W_dC3_Linear;      
       break;
     default:
       printf("ERROR: Unrecognized deviatoric potential flag (%d)\n", mat->devPotFlag);
@@ -177,48 +54,137 @@ int construct_elasticity(ELASTICITY *elasticity, MATERIAL_ELASTICITY *mat, const
   switch(mat->volPotFlag)
   {
     case 99:
-      elasticity->compute_u      = SEDF_U_Common;
-      elasticity->compute_dudj   = SEDF_dUdJ_Common;
-      elasticity->compute_d2udj2 = SEDF_d2UdJ2_Common_new;
-      elasticity->compute_d3udj3 = SEDF_d3UdJ3_Common_new;
+      this->compute_u      = SEDF_U_Common;
+      this->compute_dudj   = SEDF_dUdJ_Common;
+      this->compute_d2udj2 = SEDF_d2UdJ2_Common_new;
+      this->compute_d3udj3 = SEDF_d3UdJ3_Common_new;
       break;  
     case 2:
-      elasticity->compute_u      = SEDF_U_Doll_Schweizerhof_7;
-      elasticity->compute_dudj   = SEDF_dUdJ_Doll_Schweizerhof_7;
-      elasticity->compute_d2udj2 = SEDF_d2UdJ2_Doll_Schweizerhof_7;
-      elasticity->compute_d3udj3 = SEDF_d3UdJ3_Doll_Schweizerhof_7;
+      this->compute_u      = SEDF_U_Doll_Schweizerhof_7;
+      this->compute_dudj   = SEDF_dUdJ_Doll_Schweizerhof_7;
+      this->compute_d2udj2 = SEDF_d2UdJ2_Doll_Schweizerhof_7;
+      this->compute_d3udj3 = SEDF_d3UdJ3_Doll_Schweizerhof_7;
       break;
     case 3:
-      elasticity->compute_u      = SEDF_U_Doll_Schweizerhof_8;
-      elasticity->compute_dudj   = SEDF_dUdJ_Doll_Schweizerhof_8;
-      elasticity->compute_d2udj2 = SEDF_d2UdJ2_Doll_Schweizerhof_8;
-      elasticity->compute_d3udj3 = SEDF_d3UdJ3_Doll_Schweizerhof_8;      
+      this->compute_u      = SEDF_U_Doll_Schweizerhof_8;
+      this->compute_dudj   = SEDF_dUdJ_Doll_Schweizerhof_8;
+      this->compute_d2udj2 = SEDF_d2UdJ2_Doll_Schweizerhof_8;
+      this->compute_d3udj3 = SEDF_d3UdJ3_Doll_Schweizerhof_8;      
       break;
     default:
       printf("ERROR: Unrecognized volumetric potential flag (%d)\n",mat->volPotFlag);
       err = -1;
   }
-    
+
   return err;
 }
 
-int destruct_elasticity(ELASTICITY *elasticity)
-{
-  int err = 0; 
-  elasticity->mat                 = NULL; 
-  elasticity->update_elasticity   = NULL;
-  elasticity->compute_d3W_dC3     = NULL;
-  elasticity->compute_PK2_dev     = NULL;
-  elasticity->compute_tangent_dev = NULL;
-  elasticity->compute_dudj        = NULL;
-  elasticity->compute_d2udj2      = NULL;
-  elasticity->compute_PK2_eff     = NULL;
-  elasticity->compute_Cauchy_eff  = NULL;
-  elasticity->compute_Cauchy      = NULL;   
+/// compute PKII stress and elasticity tensor (4th order) and update references (S_out, and L_out)
+/// rather than member S and L 
+/// if update_stiffness is false, there will be no computing elasticity tensor
+/// s.t NULL is valid for L_out
+/// 
+/// \param[in]  mat   elastic material object
+/// \param[out] S_out computed PKII
+/// \param[out] L_out computed elasticity tensor
+/// \param[in]  Fe    elastic deformation gradient
+/// \param[in]  update_stiffness if true, compute 4th order elasticity Tensor
+///                                 false no compute elasticity Tensor
+/// \return non-zero on internal error
+int StrainEnergyDensityFunction::update_elasticity(const MATERIAL_ELASTICITY *mat,
+                                                   double *S_out,
+                                                   double *L_out,
+                                                   double *Fe, 
+                                                   const bool update_stiffness){
+  int err = 0;
   
-  free(elasticity->S);
-  if(elasticity->compute_stiffness)
-    free(elasticity->L);
+  Tensor<2> C ={}, CI = {};
+
+  TensorA<2> F(Fe);
+  TensorA<2> eS(S_out);
+
+  C(i,j) = F(k,i).to(i,k) * F(k,j);   //F[C] = F inverse * F
+  
+  err += inv(C, CI);
     
+  double detF = ttl::det(F);
+  double detC = detF*detF;
+  
+  // compute stress -->
+  double dudj = 0.0;  
+  double kappa = mat->kappa;    
+  this->compute_PK2_dev(C.data, mat, eS.data);
+  this->compute_dudj(&dudj, detF);
+  eS(i,j) += kappa*detF*dudj * CI(i,j);
+  // <-- compute stress    
+
+  //compute stiffness -->
+  if(update_stiffness)
+  {
+    Tensor<4> CIoxCI,CICI,SoxS,F4end;
+    TensorA<4> LL(L_out);      
+    double d2udj2 = 0.0;    
+    this->compute_tangent_dev(C.data, mat, LL.data);
+    this->compute_d2udj2(&d2udj2, detF);
+
+    CIoxCI(i,j,k,l) = CI(i,j)*CI(k,l);   //calculate Kronecker product
+    SoxS  (i,j,k,l) = eS(i,j)*eS(k,l);
+    CICI  (i,j,k,l) = CI(i,k)*CI(l,j); 
+  
+    LL(i,j,k,l) += kappa*(detF*dudj + detC*d2udj2)*CIoxCI(i,j,k,l)
+                - 2.0*kappa*detF*dudj*CICI(i,j,k,l);   
+  }
+  // <-- compute stiffness
   return err;
+}
+
+/// compute Cauchy stress from PKII in elastic configurateion
+/// compute sigma = 1/eJ*eF*PKII*eF'
+/// 
+/// \param[in]  PKII      2nd Piolar Kirhhoff stress
+/// \param[out] sigma_out computed Cauch stress
+/// \param[in]  eF        elastic deformation tensor
+void compute_Cauchy_stress(double *PKII,
+                           double *sigma_out, 
+                           double *eF){
+  TensorA<2> Fe(eF), PK2(PKII), sigma(sigma_out);        
+  double det_Fe = ttl::det(Fe);  
+  sigma = 1.0/det_Fe*Fe(i,k)*PK2(k,l)*Fe(j, l);
+}
+
+/// compute 3rd derivative of strain energy function w.r.t eC
+///
+/// \param[in]  mat   elastic material object
+/// \param[in]  eF    elastic deformation tensor
+/// \param[out] K_out computed derivative 
+/// \return non-zero on internal error of strain energy function w.r.t C
+int StrainEnergyDensityFunction::compute_d3W_dC3(const MATERIAL_ELASTICITY *mat,
+                                                 double *eF, 
+                                                 double *K_out){  
+  TensorA<2> F(eF);
+  Tensor<2> C, CI;  
+  
+  double J = ttl::det(F);
+  C = F(k,i)*F(k,j);
+
+  int err = inv(C, CI);
+  
+  double kappa = mat->kappa;    
+  this->compute_d3W_dC3_dev(C.data, mat, K_out);
+  TensorA<6> K(K_out);
+  
+  double dUdJ = 0.0;
+  double d2UdJ2 = 0.0;
+  double d3UdJ3 = 0.0;
+  
+  this->compute_dudj(&dUdJ, J);
+  this->compute_d2udj2(&d2UdJ2, J);
+  this->compute_d3udj3(&d3UdJ3, J);
+  
+  K(i,j,k,l,r,s) += 2.0*((0.5*kappa*J*(dUdJ+3.0*J*d2UdJ2+J*J*d3UdJ3)*CI(i,j)*CI(k,l)*CI(r,s))
+                          -(kappa*J*(dUdJ+J*d2UdJ2)*(CI(i,r)*CI(s,j)*CI(k,l) 
+                                                   + CI(i,j)*CI(k,r)*CI(s,l) 
+                                                   + CI(i,k)*CI(l,j)*CI(r,s)))
+                          +2.0*kappa*J*dUdJ*(CI(i,r)*CI(s,k)*CI(l,j) + CI(i,k)*CI(l,r)*CI(s,j)));
+  return err; 
 }

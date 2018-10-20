@@ -115,7 +115,7 @@ int compute_residual_M(double *R_out, double *M_in, double *MI_in, double *pFn_i
 /// \return non-zero on internal error
 int construct_tangent_M(double *K_out, double *M_in, double *MI_in, double *pFn_in, double *eFnp1_in, double *Fa_in, double *C_in,
                         double *N_in, double *A_in, double *drdtaus,double lambda, double dt,
-                        ELASTICITY *elasticity,SLIP_SYSTEM *slip)
+                        HyperElasticity *elasticity,SLIP_SYSTEM *slip)
 {
   int err = 0;
 
@@ -186,7 +186,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
                     double *N_in, double *A_in,
                     double g_np1_k, double dt,
                     MATERIAL_CONSTITUTIVE_MODEL *mat,
-                    ELASTICITY *elasticity,
+                    HyperElasticity *elasticity,
                     GcmSolverInfo *solver_info,
                     int *is_it_cnvg,
                     double *norm_R_0,
@@ -225,7 +225,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
   int is_it_cnvg_on_eng_norm = 0;
 
   int cnt = 0;
-  double norm_R_n;
+  double norm_R_n = {};
 
   for(int a = 0; a<solver_info->max_itr_M; a++)
   {
@@ -235,7 +235,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
     err += inv(M, MI);
 
     C(i,j) = eFnp1(k,i).to(i,k) * eFnp1(k,j);
-    err += elasticity->update_elasticity(elasticity, eFnp1.data, 1); // compute stiffness also
+    err += elasticity->update_elasticity(eFnp1.data, 1); // compute stiffness also
     if(err != 0 )
       break;
 
@@ -354,7 +354,7 @@ double Newton_Rapson4M(double *M_out, double *lambda,
 int Newton_Rapson_hardening(double *g_np1, double *eFnp1_in,
                             double g_n, double g_np1_k, double dt,
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
-                            ELASTICITY *elasticity,
+                            HyperElasticity *elasticity,
                             GcmSolverInfo *solver_info)
 {
   int err = 0;
@@ -373,7 +373,7 @@ int Newton_Rapson_hardening(double *g_np1, double *eFnp1_in,
 
 
   // compute stress -->
-  elasticity->update_elasticity(elasticity,eFnp1.data, 0);
+  elasticity->update_elasticity(eFnp1.data, 0);
   // <-- compute stress
 
   // compute taus
@@ -397,7 +397,7 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *g_out, double *lambda,
                             double *pFn_in, double *Fn_in, double *Fnp1_in, double *hFn_in, double *hFnp1_in,
                             double g_n, double dt,
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
-                            ELASTICITY *elasticity,
+                            HyperElasticity *elasticity,
                             GcmSolverInfo *solver_info,
                             double *d_gamma,
                             int *is_it_cnvg)

@@ -2,12 +2,7 @@
 #define H__H__CONTINUUM_DAMAGE_MODEL__H__H
 
 #include "material_properties.h"
-
-struct ELASTICITY;
-#ifndef TYPE_ELASTICITY
-#define TYPE_ELASTICITY
-typedef struct ELASTICITY ELASTICITY;
-#endif
+#include "hyperelasticity.h"
 
 struct CONTINUUM_DAMAGE_SPLIT;
 #ifndef TYPE_CONTINUUM_DAMAGE_SPLIT
@@ -20,7 +15,7 @@ extern "C" {
 #endif /* #ifdef __cplusplus */
 
 int continuum_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                     ELASTICITY *elast,
+                                     HyperElasticity *elast,
                                      double *w,
                                      double *X,
                                      double *H,
@@ -31,7 +26,7 @@ int continuum_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
                                      double *F_in);
 
 int continuum_damage_integration_alg_public(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                            ELASTICITY *elast,
+                                            HyperElasticity *elast,
                                             double *w,
                                             double *X,
                                             double *H,
@@ -42,7 +37,7 @@ int continuum_damage_integration_alg_public(MATERIAL_CONTINUUM_DAMAGE *mat_d,
                                             double Y);
 
 int continuum_split_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                           ELASTICITY *elast,
+                                           HyperElasticity *elast,
                                            double *dw,
                                            double *vw,
                                            double *dX,
@@ -59,7 +54,7 @@ int continuum_split_damage_integration_alg(MATERIAL_CONTINUUM_DAMAGE *mat_d,
                                            double *F_in);
                                            
 int continuum_split_damage_integration_alg_public(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                                  ELASTICITY *elast,
+                                                  HyperElasticity *elast,
                                                   double *dw,
                                                   double *vw,
                                                   double *dX,
@@ -78,16 +73,16 @@ int continuum_split_damage_integration_alg_public(MATERIAL_CONTINUUM_DAMAGE *mat
                                                   double U);                                                                                      
                                      
 int update_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                             ELASTICITY *elast,
+                             HyperElasticity *elast,
                              double w,
                              int is_it_damaged,
                              double H,
                              const double dt,
                              double *F_in, 
-                             const int compute_stiffness);
+                             const bool compute_stiffness);
 
 int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                   ELASTICITY *elast,
+                                   HyperElasticity *elast,
                                    double dw,
                                    double vw,
                                    double dH,
@@ -96,7 +91,7 @@ int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
                                    int is_it_damaged_v,
                                    const double dt,
                                    double *F_in, 
-                                   const int compute_stiffness);                                  
+                                   const bool compute_stiffness);                                  
 
 int apply_damage_on_stress(double *S, double *S0, double w);
 int apply_damage_on_stiffness(double *L_out, double *S0_in, double *L_in, 
@@ -110,20 +105,20 @@ int apply_split_damage_on_stiffness(double *L_out, double *dS0_in, double *vS0_i
                                     double dH, double vH, double dt, double mu);
                                                                    
 int update_damage_elasticity_dev(MATERIAL_CONTINUUM_DAMAGE *mat_d,
-                                 ELASTICITY *elast,
+                                 HyperElasticity *elast,
                                  double dw,
                                  double dH,
                                  int is_it_damaged_d,
                                  const double dt,
                                  double *F_in, 
-                                 const int compute_stiffness);
+                                 const bool compute_stiffness);
 /// compute derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
-double damage_compute_dudj(ELASTICITY *elast,
+double damage_compute_dudj(HyperElasticity *elast,
                            const double eJ,
                            const double vw);
 
 /// compute  2nd derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
-double damage_compute_d2udj2(ELASTICITY *elast,
+double damage_compute_d2udj2(HyperElasticity *elast,
                              const double eJ,
                              const double vw);
 

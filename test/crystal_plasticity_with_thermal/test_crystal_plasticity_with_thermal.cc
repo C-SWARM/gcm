@@ -58,8 +58,8 @@ void test_crystal_plasticity_single_crystal(T1 &Fnp1, T2 &hFnp1, const char *fil
   
   // create elasticity object for integration
   // this creates memory for stress and elasticity tensor s.t. requres destructor
-  ELASTICITY elast;
-  construct_elasticity(&elast, &mat_e, 1);  
+  HyperElasticity elast;
+  elast.construct_elasticity(&mat_e, 1);  
 
   // set variables for integration
   Tensor<2> pFnp1,xFn;
@@ -103,7 +103,6 @@ void test_crystal_plasticity_single_crystal(T1 &Fnp1, T2 &hFnp1, const char *fil
  
   fclose(fp);  
   
-  destruct_elasticity(&elast);
   destruct_slip_system(&slip);
 }
 

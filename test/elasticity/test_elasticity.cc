@@ -13,8 +13,7 @@ void test_elasticity(void)
   set_properties_using_E_and_nu(&mat_e,70.0e+3,0.25);
   print_material_property_elasticity(&mat_e);
   
-  ELASTICITY elast;
-  construct_elasticity(&elast, &mat_e, 1);
+  GcmElasticity<MATERIAL_ELASTICITY, StrainEnergyDensityFunction> elast(&mat_e, true);
   TensorA<2> S(elast.S);
 
   double d = 0.01;
@@ -24,11 +23,10 @@ void test_elasticity(void)
     F[0][0] = 1.0 + d*a;
     F[1][1] = F[2][2] = 1.0 - d*a/2.0;
     C = F(k,i)*F(k,j);
-    elast.update_elasticity(&elast,F.data, 0);
+    elast.update_elasticity(F.data, false);
     fprintf(out, "%e %e\n", d*a, S[0][0]);
   }
-  fclose(out);        
-  destruct_elasticity(&elast);
+  fclose(out);
 }
 
 

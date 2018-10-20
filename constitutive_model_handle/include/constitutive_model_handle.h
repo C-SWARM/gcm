@@ -1,8 +1,9 @@
 #ifndef H__H__CONSTITUTIVE_MODEL_HANDLE__H__H
 #define H__H__CONSTITUTIVE_MODEL_HANDLE__H__H
 
-#include"GcmSolverInfo.h"
 #include<stdlib.h>
+#include"GcmSolverInfo.h"
+#include "hyperelasticity.h"
 
 struct MATERIAL_ELASTICITY;
 #ifndef TYPE_MATERIAL_ELASTICITY
@@ -34,12 +35,6 @@ struct CRYSTAL_PLASTICITY_SOLVER_INFO;
 typedef struct CRYSTAL_PLASTICITY_SOLVER_INFO CRYSTAL_PLASTICITY_SOLVER_INFO;
 #endif
 
-struct ELASTICITY;
-#ifndef TYPE_ELASTICITY
-#define TYPE_ELASTICITY
-typedef struct ELASTICITY ELASTICITY;
-#endif
-
 struct CONTINUUM_DAMAGE;
 #ifndef TYPE_CONTINUUM_DAMAGE
 #define TYPE_CONTINUUM_DAMAGE
@@ -65,7 +60,7 @@ struct CONSTITUTIVE_MODEL_PACKS
   MATERIAL_CONTINUUM_DAMAGE      *mat_d;
   MATERIAL_J2_PLASTICITY         *mat_j2p;
   CRYSTAL_PLASTICITY_SOLVER_INFO *solver_info;
-  ELASTICITY                     *elasticity;
+  HyperElasticity                *elasticity;
   CONTINUUM_DAMAGE               *damage;
   MATERIAL_CONSTITUTIVE_MODEL    *cm_mat;        
 };

@@ -22,7 +22,7 @@ int staggered_Newton_Rapson(double *pFnp1_out, double *g_out, double *lambda,
                             double *pFn_in, double *Fn_in, double *Fnp1_in, double *hFn_in, double *hFnp1_in,
                             double g_n, double dt,
                             MATERIAL_CONSTITUTIVE_MODEL *mat,
-                            ELASTICITY *elasticity,
+                            HyperElasticity *elasticity,
                             GcmSolverInfo *solver_info,
                             double *d_gamma,
                             int *is_it_cnvg);
@@ -43,7 +43,7 @@ class GcmCpIntegrator : public GcmIntegrator
   double gn_s;
   
   MATERIAL_CONSTITUTIVE_MODEL *mat;
-  ELASTICITY *elasticity;
+  HyperElasticity *elasticity;
 
   GcmCpIntegrator(){
     mat         = NULL;

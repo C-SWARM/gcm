@@ -158,8 +158,8 @@ int test_crystal_plasticity_single_crystal(const MAT_PROP *mat_in,
   
   // create elasticity object for integration
   // this creates memory for stress and elasticity tensor s.t. requires destructor
-  ELASTICITY elast;
-  err += construct_elasticity(&elast, &mat_e, 1);  
+  HyperElasticity elast;
+  elast.construct_elasticity(&mat_e, true);  
 
   // set variables for integration
   Tensor<2> pFn,pFnp1,pFnp1_I,eFnp1,Fnm1,Fn,Fnp1,L,D,sigma;
@@ -212,8 +212,8 @@ int test_crystal_plasticity_single_crystal(const MAT_PROP *mat_in,
     integrator.gn = g_np1;
     
     // print result at time t    
-    err += elast.update_elasticity(&elast,eFnp1.data,0);
-    err += elast.compute_Cauchy(&elast,sigma.data,eFnp1.data);
+    err += elast.update_elasticity(eFnp1.data,false);
+    elast.compute_Cauchy(sigma.data,eFnp1.data);
 
     D(i,j) = 0.5*(L(i,j) + L(j,i));
 
@@ -235,7 +235,6 @@ int test_crystal_plasticity_single_crystal(const MAT_PROP *mat_in,
                Fnp1.data[3],  Fnp1.data[4],  Fnp1.data[5],
                Fnp1.data[6],  Fnp1.data[7],  Fnp1.data[8]);
   fclose(fp);
-  err += destruct_elasticity(&elast);
   err += destruct_slip_system(&slip);
   return err;
 }

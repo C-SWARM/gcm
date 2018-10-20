@@ -225,7 +225,7 @@ static int compute_S0_Sbar(T& S0,
                            U& Sbar,
                            const V& F,
                            const W& sp,
-                           const ELASTICITY *elast)
+                           HyperElasticity *elast)
 {
   int err = 0;
   // compute the current configuration deviatoric stresses
@@ -261,7 +261,7 @@ static int compute_S0_Sbar_dev(T& S0,
                                U& Sbar,
                                const V& F,
                                const W& sp,
-                               const ELASTICITY *elast)
+                               HyperElasticity *elast)
 {
   int err = 0;
   // compute the current configuration deviatoric stresses
@@ -283,7 +283,7 @@ int compute_S0_Sbar_public(double *S0_out,
                            double *Sbar_out,
                            double *F_in,
                            double *sp_in,
-                           ELASTICITY *elast)
+                           HyperElasticity *elast)
 {
   int err = 0;
 
@@ -297,7 +297,7 @@ int compute_S0_Sbar_dev_public(double *S0_out,
                                double *Sbar_out,
                                double *F_in,
                                double *sp_in,
-                               ELASTICITY *elast)
+                               HyperElasticity *elast)
 {
   int err = 0;
 
@@ -310,7 +310,7 @@ int compute_S0_Sbar_dev_public(double *S0_out,
 int compute_S0_Sbar_split_public(double *dS0_out,   double *vS0_out,
                                  double *dSbar_out, double *vSbar_out,
                                  double *F_in, double *sp_in,
-                                 ELASTICITY *elast)
+                                 HyperElasticity *elast)
 {
   int err = 0;
 
@@ -450,7 +450,7 @@ static int compute_Lbar(T& Lbar,
                         const W& sp_n,
                         double gamma,
                         const MATERIAL_J2_PLASTICITY *J2P,
-                        const ELASTICITY *elast)
+                        HyperElasticity *elast)
 {
   int err = 0;
   double kappa = (elast->mat)->kappa;
@@ -488,7 +488,7 @@ int compute_Lbar_public(double *Lbar_out,
                         double *sp_n_in,
                         double gamma,
                         MATERIAL_J2_PLASTICITY *J2P,
-                        ELASTICITY *elast)
+                        HyperElasticity *elast)
 {
   int err = 0;
 
@@ -505,7 +505,7 @@ int compute_Lbar_dev_public(double *Lbar_out,
                             double *sp_n_in,
                             double gamma,
                             MATERIAL_J2_PLASTICITY *J2P,
-                            ELASTICITY *elast)
+                            HyperElasticity *elast)
 {
   int err = 0;
 
@@ -526,7 +526,7 @@ int compute_Lbar_split_public(double *dLbar_out,
                               double *sp_n_in,
                               double gamma,
                               MATERIAL_J2_PLASTICITY *J2P,
-                              ELASTICITY *elast)
+                              HyperElasticity *elast)
 {
   int err = 0;
 
@@ -562,7 +562,7 @@ int compute_Lbar_split_public(double *dLbar_out,
 }
 
 int J2_plasticity_update_elasticity(MATERIAL_J2_PLASTICITY *J2P,
-                                    ELASTICITY *elast,
+                                    HyperElasticity *elast,
                                     double *F_in,
                                     double *Fn_in,
                                     double *sp_in,

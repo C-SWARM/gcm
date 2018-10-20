@@ -29,11 +29,11 @@ void test_slip_system(void)
   set_properties_using_E_and_nu(&mat_e,E,nu);
   print_material_property_elasticity(&mat_e);
   
-  ELASTICITY elast;
-  construct_elasticity(&elast, &mat_e, 1);
+  HyperElasticity elast;
+  elast.construct_elasticity(&mat_e, true);
 
   C = F(k,i)*F(k,j);
-  elast.update_elasticity(&elast,F.data,0);
+  elast.update_elasticity(F.data,false);
 
   SLIP_SYSTEM slip;
   construct_slip_system(&slip,0);
@@ -69,7 +69,6 @@ void test_slip_system(void)
     printf("%2d: %e %e %e\n", a+1, taus[a], gamma_dots[a], dgamma_dtaus[a]);
   
   destruct_slip_system(&slip);
-  destruct_elasticity(&elast);
   
   delete taus;
   delete gamma_dots;

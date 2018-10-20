@@ -77,7 +77,7 @@ void print_results(FILE *fp,
                   const double dt,
                   const double t,
                   MATERIAL_CONTINUUM_DAMAGE &mat_d,
-                  ELASTICITY &elast,
+                  HyperElasticity &elast,
                   const int print_option){
 
   update_damage_elasticity(&mat_d,&elast,w,is_it_damaged,H,
@@ -358,11 +358,11 @@ int main(int argc,char *argv[])
       
     MATERIAL_ELASTICITY mat_e;
     MATERIAL_CONTINUUM_DAMAGE mat_d;
-    ELASTICITY elast;
+    HyperElasticity elast;
     SIM_PARAMS sim;
 
     err += read_input_file(fn_sim, mat_e, mat_d, sim);
-    construct_elasticity(&elast, &mat_e, 1);
+    elast.construct_elasticity(&mat_e, true);
     
     if(print_option>=0)
       err += print_inputs(mat_e, mat_d, sim);
@@ -407,7 +407,6 @@ int main(int argc,char *argv[])
                     sim.dt, t, mat_d, elast, print_option);
     }
     fclose(fp);        
-    destruct_elasticity(&elast);
     
     gettimeofday(&end, NULL);
     double diff = (double)(end.tv_usec - start.tv_usec)/1000000.0 

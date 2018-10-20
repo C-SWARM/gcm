@@ -18,8 +18,8 @@ void test_elasticity(void)
   set_properties_using_E_and_nu(&mat_e,9.95e+3,0.25);
   print_material_property_elasticity(&mat_e);
   
-  ELASTICITY elast;
-  construct_elasticity(&elast, &mat_e, 1);
+  HyperElasticity elast;
+  elast.construct_elasticity(&mat_e, true);
   
   double hp = 0.2;
   double beta = 0.0;
@@ -45,7 +45,7 @@ void test_elasticity(void)
     
     e = F(i,k)*E(k,l)*F(j,l);
             
-    elast.update_elasticity(&elast,F.data, 0);
+    elast.update_elasticity(F.data, false);
 
     J2_plasticity_integration_alg(sp.data,&ep,&gamma,
                                   F.data,Fn.data,sp_n.data,ep_n,
@@ -56,8 +56,8 @@ void test_elasticity(void)
                                     F.data,Fn.data,sp.data,sp_n.data,gamma,0);
     
     double sigma_eff = 0.0;
-    elast.compute_Cauchy_eff(&elast,&sigma_eff,F.data);
-    elast.compute_Cauchy(&elast,sigma.data,F.data);
+    elast.compute_Cauchy_eff(&sigma_eff,F.data);
+    elast.compute_Cauchy(sigma.data,F.data);
 
     Fn   = F(i,j);
     sp_n = sp(i,j);
@@ -74,8 +74,6 @@ void test_elasticity(void)
                                            sp[0][0]);
   }
   fclose(out);
-          
-  destruct_elasticity(&elast);
 }
 
 

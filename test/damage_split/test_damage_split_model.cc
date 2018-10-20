@@ -221,9 +221,9 @@ int test_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
   // construct and initialize elasticity handle
   // : provides computing manner of elasticity response
   // --------------------------------------------------
-  int construct_ET = 0; // computing elasticity tensor
-  ELASTICITY elast;
-  construct_elasticity(&elast, &mat_e, construct_ET);
+  bool construct_ET = false; // computing elasticity tensor
+  HyperElasticity elast;
+  elast.construct_elasticity(&mat_e, construct_ET);
     
   // -----------------------
   // construct GL(3) tensors
@@ -269,9 +269,9 @@ int test_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
     //compute undamaged values
     double sigma_eff_0 = 0.0;
     
-    err += elast.update_elasticity(&elast,Fnp1.data, construct_ET);
-    err += elast.compute_Cauchy_eff(&elast, &sigma_eff_0, Fnp1.data);
-    err += elast.compute_Cauchy(&elast, sigma0.data, Fnp1.data);
+    err += elast.update_elasticity(Fnp1.data, construct_ET);
+    elast.compute_Cauchy_eff(&sigma_eff_0, Fnp1.data);
+    elast.compute_Cauchy(sigma0.data, Fnp1.data);
     
     S0 = S(i,j);
         
@@ -286,8 +286,8 @@ int test_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
     err += update_damage_elasticity(&mat_d,&elast,w,is_it_damaged,H,
                                     dt,Fnp1.data, construct_ET);
                                             
-    err += elast.compute_Cauchy_eff(&elast,&sigma_eff,Fnp1.data);
-    err += elast.compute_Cauchy(&elast,sigma.data,Fnp1.data);
+    elast.compute_Cauchy_eff(&sigma_eff,Fnp1.data);
+    elast.compute_Cauchy(sigma.data,Fnp1.data);
     
     err += print_outputs(out,t,Jnp1,w,0.0,X,0.0,
                                   sigma_eff_0,sigma_eff,Eeff,eeff,
@@ -331,9 +331,9 @@ int test_split_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
   // construct and initialize elasticity handle
   // : provides computing manner of elasticity response
   // --------------------------------------------------
-  int construct_ET = 1; // computing elasticity tensor
-  ELASTICITY elast;
-  construct_elasticity(&elast, &mat_e, construct_ET);
+  bool construct_ET = true; // computing elasticity tensor
+  HyperElasticity elast;
+  elast.construct_elasticity(&mat_e, construct_ET);
     
   // -----------------------
   // construct GL(3) tensors
@@ -382,9 +382,9 @@ int test_split_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
     //compute undamaged values
     double sigma_eff_0 = 0.0;
     
-    err += elast.update_elasticity(&elast,Fnp1.data, construct_ET);
-    err += elast.compute_Cauchy_eff(&elast, &sigma_eff_0, Fnp1.data);
-    err += elast.compute_Cauchy(&elast, sigma0.data, Fnp1.data);
+    err += elast.update_elasticity(Fnp1.data, construct_ET);
+    elast.compute_Cauchy_eff(&sigma_eff_0, Fnp1.data);
+    elast.compute_Cauchy(sigma0.data, Fnp1.data);
     S0 = S(i,j);
         
     //compute damaged values
@@ -400,8 +400,8 @@ int test_split_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
                                           is_it_damaged_d,is_it_damaged_v,
                                           dt, Fnp1.data, construct_ET);
                                           
-    err += elast.compute_Cauchy_eff(&elast,&sigma_eff,Fnp1.data);
-    err += elast.compute_Cauchy(&elast,sigma.data,Fnp1.data);
+    elast.compute_Cauchy_eff(&sigma_eff,Fnp1.data);
+    elast.compute_Cauchy(sigma.data,Fnp1.data);
     
     err += print_outputs(out,t,Jnp1,dw,vw,dX,vX,
                                   sigma_eff_0,sigma_eff,Eeff,eeff,
