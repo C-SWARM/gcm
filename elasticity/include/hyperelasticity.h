@@ -142,9 +142,11 @@ template<class Mat, class Sedf, class Internal> class GcmElasticity
     Sedf sedf;
     
     // if ture compute 4th order elasticity tensor
-    bool compute_stiffness;
+    bool compute_stiffness;        
     
-    GcmElasticity(){
+    GcmElasticity(){ set_null(); };
+
+    void set_null(void){
       L = S = NULL;
       mat = NULL;
       is_SL_created     = false;
@@ -165,8 +167,8 @@ template<class Mat, class Sedf, class Internal> class GcmElasticity
         delete [] S;
         if(compute_stiffness)
           delete [] L;
-        is_SL_created = false;
       }
+      set_null();
     }
     
     void set_internal_variable(Internal var_in);
@@ -188,9 +190,10 @@ template<class Mat, class Sedf, class Internal> class GcmElasticity
       this->mat  = mat;
       this->compute_stiffness = cp_stiff;
       this->set_SEDF();
+    
       return err;
     };
-      
+          
     int set_SEDF(void){
       return sedf.set_material(this->mat);
     }
@@ -341,10 +344,7 @@ class PvpElasticity: public GcmElasticity<MaterialPoroViscoPlasticity,PvpStrainE
       var = pc;
     }
     PvpElasticity(){
-      L = S = NULL;
-      mat = NULL;
-      is_SL_created     = false;
-      compute_stiffness = false;
+      set_null();     
     }
 
     PvpElasticity(MaterialPoroViscoPlasticity *mat, 
