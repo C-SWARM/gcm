@@ -4,9 +4,10 @@
  *  [1] - University of Notre Dame, Notre Dame, IN
  */
 
-#include"constitutive_model.h"
-#include"poro_visco_plasticity.h"
-#include"GcmSolverInfo.h"
+#include "constitutive_model.h"
+#include "poro_visco_plasticity.h"
+#include "GcmSolverInfo.h"
+#include "hyperelasticity.h"
 
 constexpr const int Err = 1;
 constexpr const double one_third = 1.0/3.0;
@@ -275,137 +276,289 @@ class StateVariables
     StateVariables(){};
 };
 
+/// compute deviatoric part of W(strain energy density function) w.r.t eC
+template<class T> double PvpStrainEnergyDensityFunction::compute_W_dev(T &C, const double mu){
+  double CJ = ttl::det(C); // eCJ = eJ*eJ; pow(eCJ, -1.0/3.0) = pow(eJ, -2.0/3.0)
+  double factor = pow(CJ, -one_third);
+  
+  double trC = C(i,i);
+  return 0.5*mu*(factor*trC - 3.0);
+}
+
 /// object for the elasticity part of the pvp model.
-/// This is a local class.
-class PvpElasticity
-{
-  public:
+/// compute derivative of deviatoric part of W(strain energy density function) w.r.t eC
+///
+/// \param[out] dWdC   computed derivative of W (deviatoric part, 2nd order tensor)
+/// \param[out] d2WdC2 computed 2nd derivative of W (deviatoric part, 4th order tensor)
+/// \param[in]  C      C = eF'eF (right Cauchy Green tensor)
+/// \param[in]  mu     shear modulus
+/// \param[in]  compute_4th_order if yes: compute d2WdC2, default is false
+///                                  no : skip computing d2WdC2
+template<class T1, class T2, class T3> 
+void PvpStrainEnergyDensityFunction::compute_dWdC_dev(T1 &dWdC,
+                                                      T2 &d2WdC2,
+                                                      T3 &C,
+                                                      const double mu,
+                                                      bool compute_4th_order){
 
-    /// compute derivative of deviatoric part of W(strain energy density function) w.r.t eC
-    ///
-    /// \param[out] dWdC   computed derivative of W (deviatoric part, 2nd order tensor)
-    /// \param[out] d2WdC2 computed 2nd derivative of W (deviatoric part, 4th order tensor)
-    /// \param[in]  C      C = eF'eF (right Cauchy Green tensor)
-    /// \param[in]  mu     shear modulus
-    /// \param[in]  compute_4th_order if yes: compute d2WdC2, default is false
-    ///                                  no : skip computing d2WdC2
-    template<class T1, class T2, class T3> void compute_dWdC_dev(T1 &dWdC,
-                                                                 T2 &d2WdC2,
-                                                                 T3 &C,
-                                                                 const double mu,
-                                                                 bool compute_4th_order = false){
+  double CJ = ttl::det(C); // eCJ = eJ*eJ; pow(eCJ, -1.0/3.0) = pow(eJ, -2.0/3.0)
+  double factor = pow(CJ, -one_third);
+  
+  double trC = C(i,i);
+  
+  Tensor<2> CI;
+  int err = inv(C, CI);
+  
+  dWdC(i,j) = 0.5*mu*factor*(I(i,j) - one_third*trC*CI(i,j));
 
-      double CJ = ttl::det(C); // eCJ = eJ*eJ; pow(eCJ, -1.0/3.0) = pow(eJ, -2.0/3.0)
-      double factor = pow(CJ, -one_third);
-      
-      double trC = C(i,i);
-      
-      Tensor<2> CI;
-      int err = inv(C, CI);
-      
-      dWdC(i,j) = 0.5*mu*factor*(I(i,j) - one_third*trC*CI(i,j));
+  if(compute_4th_order)
+  {
+    Tensor<4> CIxCI, dCIdC;
+    CIxCI(i,j,k,l) = CI(i,j)*CI(k,l);
+    dCIdC(i,j,k,l)  = -CI(i,k)*CI(l,j);
     
-      if(compute_4th_order)
-      {
-        Tensor<4> CIxCI, dCIdC;
-        CIxCI(i,j,k,l) = CI(i,j)*CI(k,l);
-        dCIdC(i,j,k,l)  = -CI(i,k)*CI(l,j);
-        
-        d2WdC2(i,j,k,l) = 0.5*mu*factor*(-one_third*CI(i,j)*I(k,l) - one_third*I(i,j)*CI(k,l) 
-                                         + one_third*one_third*trC*CIxCI(i,j,k,l) - one_third*trC*dCIdC(i,j,k,l));
-      }
-      if(err>0)
-        throw Err;
-        
-    }
+    d2WdC2(i,j,k,l) = 0.5*mu*factor*(-one_third*CI(i,j)*I(k,l) - one_third*I(i,j)*CI(k,l) 
+                                     + one_third*one_third*trC*CIxCI(i,j,k,l) - one_third*trC*dCIdC(i,j,k,l));
+  }
+  if(err>0)
+    throw Err;
     
-    /// compute derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
-    /// U = 1/2*K*(J-1)*ln(J) + c*ln(J) + (alpha1 + alpha2*ln(J))*exp(-beta*ln(J))
-    /// 
-    /// \param[in] J      det(eF)
-    /// \param[in] K      bulk modulus
-    /// \param[in] c      material parameter for pvp as a functin of p_c
-    /// \param[in] alpha1 p_c dependent contribution to particle compaction
-    /// \param[in] alpha2 p_c dependent contribution to particle compaction
-    /// \param[in] beta   p_c dependent contribution to particle compaction
-    /// \return    computed dUdJ
-    double compute_dUdJ(const double J,
-                        const double K,
-                        const double c,
-                        const double alpha1,
-                        const double alpha2,
-                        const double beta){
-      return 0.5*K*(log(J) + (J-1.0)/J) + c/J + (alpha2 - beta*(alpha1 + alpha2*log(J)))*exp(-beta*log(J))/J;
-    }
+}
 
-    /// compute 2nd derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
-    /// U = 1/2*K*(J-1)*ln(J) + c*ln(J) + (alpha1 + alpha2*ln(J))*exp(-beta*ln(J))
-    /// 
-    /// \param[in] J      det(eF)
-    /// \param[in] K      bulk modulus
-    /// \param[in] c      material parameter for pvp as a functin of p_c
-    /// \param[in] alpha1 p_c dependent contribution to particle compaction
-    /// \param[in] alpha2 p_c dependent contribution to particle compaction
-    /// \param[in] beta   p_c dependent contribution to particle compaction
-    /// \return    computed d2UdJ2    
-    double compute_d2UdJ2(const double J,
-                          const double K,
-                          const double c,
-                          const double alpha1,
-                          const double alpha2,
-                          const double beta){
-      double JJ = 1.0/(J*J);
-      return 0.5*K*(1.0/J + 1.0*JJ) - c*JJ + ((1.0+beta)*beta*(alpha1 + alpha2*log(J))
-                                                 -(1.0+2.0*beta)*alpha2)*exp(-beta*log(J))*JJ;
-    }
+/// compute volumetric part of W(strain energy density function, U) w.r.t eJ
+/// U = 1/2*K*(J-1)*ln(J) + c*ln(J) + (alpha1 + alpha2*ln(J))*exp(-beta*ln(J))
+/// 
+/// \param[in] J      det(eF)
+/// \param[in] K      bulk modulus
+/// \param[in] c      material parameter for pvp as a functin of p_c
+/// \param[in] alpha1 p_c dependent contribution to particle compaction
+/// \param[in] alpha2 p_c dependent contribution to particle compaction
+/// \param[in] beta   p_c dependent contribution to particle compaction
+/// \return    computed dUdJ
+double PvpStrainEnergyDensityFunction::compute_U(const double J,
+                                                 const double K,
+                                                 const double c,
+                                                 const double alpha1,
+                                                 const double alpha2,
+                                                 const double beta){
+  double logJ = log(J);                                                      
+  return 0.5*K*(J-1.0)*logJ + c*logJ + (alpha1 + alpha2*logJ)*exp(-beta*logJ);
+}
 
-    /// compute PKII and elasticity tensor w.r.t eC
-    /// 
-    /// \param[out] eS     PKII (2nd order tensor)
-    /// \param[out] L      elasticity tensor (4th order tensor)   
-    /// \param[in]  eF     elastic part of deformation gradient tensor
-    /// \param[in]  mu     shear modulus
-    /// \param[in]  K      bulk modulus
-    /// \param[in]  c      material parameter for pvp as a functin of p_c
-    /// \param[in]  alpha1 p_c dependent contribution to particle compaction
-    /// \param[in]  alpha2 p_c dependent contribution to particle compaction
-    /// \param[in]  beta   p_c dependent contribution to particle compaction
-    /// \param[in]  compute_4th_order if yes: compute L, default is false
-    ///                                  no : skip computing L    
-    template<class T1, class T2, class T3> void compute_elasticity_tensor(T1 &eS,
-                                                                          T2 &L,
-                                                                          T3 &eF,
-                                                                          const double mu,
-                                                                          const double K,
-                                                                          const double c,
-                                                                          const double alpha1,
-                                                                          const double alpha2,
-                                                                          const double beta,
-                                                                          bool compute_4th_order = false){
-      int err = 0;
-      
-      Tensor<2> dWdC, eC, eCI;
-      eC(i,j) = eF(k,i)*eF(k,j);
-      
-      err += inv(eC, eCI);
-      double eJ = ttl::det(eF);
-            
-      compute_dWdC_dev(dWdC, L, eC, mu, compute_4th_order);
+/// compute derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
+/// U = 1/2*K*(J-1)*ln(J) + c*ln(J) + (alpha1 + alpha2*ln(J))*exp(-beta*ln(J))
+/// 
+/// \param[in] J      det(eF)
+/// \param[in] K      bulk modulus
+/// \param[in] c      material parameter for pvp as a functin of p_c
+/// \param[in] alpha1 p_c dependent contribution to particle compaction
+/// \param[in] alpha2 p_c dependent contribution to particle compaction
+/// \param[in] beta   p_c dependent contribution to particle compaction
+/// \return    computed dUdJ
+double PvpStrainEnergyDensityFunction::compute_dUdJ(const double J,
+                                                    const double K,
+                                                    const double c,
+                                                    const double alpha1,
+                                                    const double alpha2,
+                                                    const double beta){
+  return 0.5*K*(log(J) + (J-1.0)/J) + c/J + (alpha2 - beta*(alpha1 + alpha2*log(J)))*exp(-beta*log(J))/J;
+}
+
+/// compute 2nd derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
+/// U = 1/2*K*(J-1)*ln(J) + c*ln(J) + (alpha1 + alpha2*ln(J))*exp(-beta*ln(J))
+/// 
+/// \param[in] J      det(eF)
+/// \param[in] K      bulk modulus
+/// \param[in] c      material parameter for pvp as a functin of p_c
+/// \param[in] alpha1 p_c dependent contribution to particle compaction
+/// \param[in] alpha2 p_c dependent contribution to particle compaction
+/// \param[in] beta   p_c dependent contribution to particle compaction
+/// \return    computed d2UdJ2    
+double PvpStrainEnergyDensityFunction::compute_d2UdJ2(const double J,
+                                     const double K,
+                                     const double c,
+                                     const double alpha1,
+                                     const double alpha2,
+                                     const double beta){
+  double JJ = 1.0/(J*J);
+  return 0.5*K*(1.0/J + 1.0*JJ) - c*JJ + ((1.0+beta)*beta*(alpha1 + alpha2*log(J))
+                                             -(1.0+2.0*beta)*alpha2)*exp(-beta*log(J))*JJ;
+}
+
+/// compute PKII and elasticity tensor w.r.t eC
+/// 
+/// \param[out] eS     PKII (2nd order tensor)
+/// \param[out] L      elasticity tensor (4th order tensor)   
+/// \param[in]  eF     elastic part of deformation gradient tensor
+/// \param[in]  mu     shear modulus
+/// \param[in]  K      bulk modulus
+/// \param[in]  c      material parameter for pvp as a functin of p_c
+/// \param[in]  alpha1 p_c dependent contribution to particle compaction
+/// \param[in]  alpha2 p_c dependent contribution to particle compaction
+/// \param[in]  beta   p_c dependent contribution to particle compaction
+/// \param[in]  compute_4th_order if yes: compute L, default is false
+///                                  no : skip computing L    
+template<class T1, class T2, class T3> 
+void PvpStrainEnergyDensityFunction::compute_elasticity_tensor(T1 &eS,
+                                                               T2 &L,
+                                                               T3 &eF,
+                                                               const double mu,
+                                                               const double K,
+                                                               const double c,
+                                                               const double alpha1,
+                                                               const double alpha2,
+                                                               const double beta,
+                                                               bool compute_4th_order){
+  int err = 0;
+  
+  Tensor<2> dWdC, eC, eCI;
+  eC(i,j) = eF(k,i)*eF(k,j);
+  
+  err += inv(eC, eCI);
+  double eJ = ttl::det(eF);
         
-      
-      double dUdJ = compute_dUdJ(eJ, K, c, alpha1, alpha2, beta);
-      
-      eS(i,j) = 2.0*dWdC(i,j) + eJ*dUdJ*eCI(i,j);
+  compute_dWdC_dev(dWdC, L, eC, mu, compute_4th_order);
+    
+  
+  double dUdJ = compute_dUdJ(eJ, K, c, alpha1, alpha2, beta);
+  
+  eS(i,j) = 2.0*dWdC(i,j) + eJ*dUdJ*eCI(i,j);
 
-      if(compute_4th_order){
-        double d2UdJ2 = compute_d2UdJ2(eJ, K, c, alpha1, alpha2, beta);
-        L(i,j,k,l) = 4.0*L(i,j,k,l) + (eJ*dUdJ + eJ*eJ*d2UdJ2)*eCI(i,j)*eCI(k,l) - 2.0*eJ*dUdJ*eCI(i,k)*eCI(l,j);
-      }
-      
-      if(err>0)
-        throw Err;
-    }
+  if(compute_4th_order){
+    double d2UdJ2 = compute_d2UdJ2(eJ, K, c, alpha1, alpha2, beta);
+    L(i,j,k,l) = 4.0*L(i,j,k,l) + (eJ*dUdJ + eJ*eJ*d2UdJ2)*eCI(i,j)*eCI(k,l) - 2.0*eJ*dUdJ*eCI(i,k)*eCI(l,j);
+  }
+  
+  if(err>0)
+    throw Err;
+}
+
+/// compute deviatoric part of potential energy
+///
+/// \param[in]  C_in right Caucy Green tensor (2nd order)
+/// \param[out] P    computed potential energy
+void PvpElasticity::compute_potential_dev(double *C_in, double *P){
+  double pc = this->var;
+  TensorA<2> C(C_in);
+  
+  PvpMaterial pvp_mat(this->mat);      
+  double c  = pvp_mat.compute_c(pc);
+  double d  = pvp_mat.compute_d(pc);
+  double mu = pvp_mat.compute_shear_modulus(c, d);  
+  *P = this->sedf.compute_W_dev(C, mu);
 };
+
+/// compute PKII stress and elasticity tensor (4th order) and update references 
+/// (S_out, and L_out) rather than member S and L
+///  
+/// \param[out] S_out      computed PKII
+/// \param[out] computeted elasticity tensor (4th order)
+/// \param[in]  Fe         elastic deformation gradient
+/// \param[in]  update_stiffness if true, compute 4th order elasticity Tensor
+///                                 false no compute elasticity Tensor
+/// \return non-zero on internal error
+int PvpElasticity::update_elasticity(double *S_out,
+                                     double *L_out,
+                                     double *Fe, 
+                                     const bool update_stiffness){
+  double pc = this->var;
+  TensorA<2> eF(Fe), eS(S_out);
+  TensorA<4> L(L_out);
+  
+  PvpMaterial pvp_mat(this->mat);      
+  double c  = pvp_mat.compute_c(pc);
+  double d  = pvp_mat.compute_d(pc);
+  double K  = pvp_mat.compute_bulk_modulus(c, d);
+  double mu = pvp_mat.compute_shear_modulus(c, d);
+  double coeff_U_alpha = pvp_mat.compute_coeff_U_alpha(c);
+  double coeff_U_beta  = pvp_mat.compute_coeff_U_beta(c);
+  try{
+    this->sedf.compute_elasticity_tensor(eS, L, eF, mu, K, c, coeff_U_alpha, 0.0, coeff_U_beta, update_stiffness);
+    return 0;
+  } catch(int i){
+    return Err;
+  }
+}
+
+
+/// compute volumetric part of potential energy
+///
+/// \param[out] u computed potential energy    
+/// \param[in]  J determinant of elastic deformation gradient tensor
+void PvpElasticity::compute_du(double *u, const double J){
+  double pc = this->var; 
+  PvpMaterial pvp_mat(this->mat);
+      
+  double c  = pvp_mat.compute_c(pc);
+  double d  = pvp_mat.compute_d(pc);
+  double K  = pvp_mat.compute_bulk_modulus(c, d);
+  double coeff_U_alpha = pvp_mat.compute_coeff_U_alpha(c);
+  double coeff_U_beta  = pvp_mat.compute_coeff_U_beta(c);
+
+  *u = this->sedf.compute_U(J, K, c, coeff_U_alpha, 0.0, coeff_U_beta);
+}
+
+
+/// compute 1st derivative of volumetric part of potential energy w.r.t J
+///
+/// \param[out] du computed derivative of volumetric part of potential energy
+/// \param[in]  J  determinant of elastic deformation gradient tensor  
+void PvpElasticity::compute_dudj(double *du, const double J){
+  double pc = this->var; 
+  PvpMaterial pvp_mat(this->mat); 
+       
+  double c  = pvp_mat.compute_c(pc);
+  double d  = pvp_mat.compute_d(pc);
+  double K  = pvp_mat.compute_bulk_modulus(c, d);
+  double coeff_U_alpha = pvp_mat.compute_coeff_U_alpha(c);
+  double coeff_U_beta  = pvp_mat.compute_coeff_U_beta(c);
+
+  *du = this->sedf.compute_dUdJ(J, K, c, coeff_U_alpha, 0.0, coeff_U_beta);
+}
+
+/// compute 2nd derivative of volumetric part of potential energy w.r.t J
+///
+/// \param[out] ddu computed derivative of volumetric part of potential energy
+/// \param[in]  J   determinant of elastic deformation gradient tensor
+void PvpElasticity::compute_d2udj2(double *ddu, const double J){
+  double pc = this->var;
+  PvpMaterial pvp_mat(this->mat);
+      
+  double c  = pvp_mat.compute_c(pc);
+  double d  = pvp_mat.compute_d(pc);
+  double K  = pvp_mat.compute_bulk_modulus(c, d);
+  double coeff_U_alpha = pvp_mat.compute_coeff_U_alpha(c);
+  double coeff_U_beta  = pvp_mat.compute_coeff_U_beta(c);
+
+  *ddu = this->sedf.compute_d2UdJ2(J, K, c, coeff_U_alpha, 0.0, coeff_U_beta);
+}
+
+/// compute PKII and elasticity tensor for deviatoric part of W w.r.t eC
+/// 
+/// \param[out] eS_out computed PKII of hat_W (2nd order tensor)
+/// \param[out] L_out  computed elasticity of tensor hat_W (4th order tensor)
+/// \param[in]  eF_in  elastic part of deformation gradient
+/// \param[in]  compute_4th_order if yes: compute L_out, default is false
+///                                  no : skip computing L 
+void PvpElasticity::update_elasticity_dev(double *eS_out,
+                                          double *L_out,
+                                          double *eF_in,
+                                          const bool compute_4th_order){
+  double pc = this->var;
+  TensorA<2> eF(eF_in), eS(eS_out);
+  TensorA<4> L(L_out);
+  
+  PvpMaterial pvp_mat(this->mat);      
+  double c  = pvp_mat.compute_c(pc);
+  double d  = pvp_mat.compute_d(pc);
+  double mu = pvp_mat.compute_shear_modulus(c, d);
+
+  Tensor<2> dWdC, eC;
+  eC(i,j) = eF(k,i)*eF(k,j);
+  this->sedf.compute_dWdC_dev(dWdC, L, eC, mu, compute_4th_order);
+
+  eS(i,j) = 2.0*dWdC(i,j);
+}
 
 /// All computation for PVP model is done through this class.
 class PvpIntegrator
@@ -413,7 +566,7 @@ class PvpIntegrator
   public:
     PvpMaterial    mat;
     StateVariables sv;
-    PvpElasticity  elasticity;
+    PvpElasticity  *elasticity;
         
     F_FromC Fs;    
     Tensor<2> Fr, FrI, eFn, Fa, N, A;
@@ -424,12 +577,18 @@ class PvpIntegrator
     double dt;  
             
     PvpIntegrator(){
+      elasticity = NULL;
     }
     
     /// set material object
     ///
     /// \param[in] param_in a poniter of MaterialPoroViscoPlasticity object
     void set_pvp_material_parameters(const MaterialPoroViscoPlasticity *param_in){mat.set_pvp_material_parameters(param_in);};
+    
+    /// set material object
+    ///
+    /// \param[in] param_in a poniter of MaterialPoroViscoPlasticity object
+    void set_pvp_elasticity(PvpElasticity *elast){elasticity = elast;};    
     
     /// Set tensors. pointers are used to be able to support c. No memory is allocated.
     /// 
@@ -587,7 +746,7 @@ class PvpIntegrator
       double coeff_U_alpha = mat.compute_coeff_U_alpha(c);
       double coeff_U_beta  = mat.compute_coeff_U_beta(c);
 
-      elasticity.compute_elasticity_tensor(sv.eS, sv.L, sv.eFnp1, mu, K, c, coeff_U_alpha, 0.0, coeff_U_beta, true);
+      elasticity->sedf.compute_elasticity_tensor(sv.eS, sv.L, sv.eFnp1, mu, K, c, coeff_U_alpha, 0.0, coeff_U_beta, true);
       
       double tr_eS = sv.eS(i,i);
       sv.eSd(i,j) = sv.eS(i,j) - one_third*tr_eS*I(i,j);
@@ -793,7 +952,7 @@ class PvpIntegrator
       double coeff_U_beta  = mat.compute_coeff_U_beta(c);
 
       Tensor<4> L;
-      elasticity.compute_elasticity_tensor(dE_dWdp, L , sv.eFnp1, dmudp, dKdp, dcdp, coeff_U_alpha1, coeff_U_alpha2, coeff_U_beta, false);
+      elasticity->sedf.compute_elasticity_tensor(dE_dWdp, L , sv.eFnp1, dmudp, dKdp, dcdp, coeff_U_alpha1, coeff_U_alpha2, coeff_U_beta, false);
     }
     
     /// compute d_tau/dp
@@ -1191,7 +1350,7 @@ class PvpIntegrator
 
 /// integration algorithm for PVP model in a staggered manner
 ///
-/// \param[in]  param       material parameters(MaterialPoroViscoPlasticity) for PVP model 
+/// \param[in]  pvp         pvp integration object 
 /// \param[in]  solver_info contains numerical parameters such as number of maximum NR iteration and NR tolerance
 /// \param[in]  Fnp1_in      F at t(n+1)
 /// \param[in]  Fn_in        F at t(n)
@@ -1201,7 +1360,7 @@ class PvpIntegrator
 /// \param[in]  pc_n        conforming pressure at t(n)
 /// \param[in]  dt_in       time step size
 /// \return non-zero with internal error
-int poro_visco_plasticity_integration_algorithm_staggered(const MaterialPoroViscoPlasticity *param,
+int poro_visco_plasticity_integration_algorithm_staggered(PvpIntegrator &pvp,
                                                           const GcmSolverInfo *solver_info,
                                                           double *Fnp1_in,
                                                           double *Fn_in,
@@ -1211,8 +1370,6 @@ int poro_visco_plasticity_integration_algorithm_staggered(const MaterialPoroVisc
                                                           const double pc_n,
                                                           const double dt_in){
   int err = 0;
-  PvpIntegrator pvp;
-  pvp.set_pvp_material_parameters(param); 
   
   try{      
     pvp.set_tenosrs(Fnp1_in, Fn_in, pFnp1_in, pFn_in); 
@@ -1304,7 +1461,7 @@ int poro_visco_plasticity_integration_algorithm_staggered(const MaterialPoroVisc
 
 /// implicit integration algorithm for PVP model
 ///
-/// \param[in]  param       material parameters(MaterialPoroViscoPlasticity) for PVP model 
+/// \param[in]  pvp         pvp integration object 
 /// \param[in]  solver_info contains numerical parameters such as number of maximum NR iteration and NR tolerance
 /// \param[in]  Fnp1_in      F at t(n+1)
 /// \param[in]  Fn_in        F at t(n)
@@ -1314,7 +1471,7 @@ int poro_visco_plasticity_integration_algorithm_staggered(const MaterialPoroVisc
 /// \param[in]  pc_n        conforming pressure at t(n)
 /// \param[in]  dt_in       time step size
 /// \return non-zero with internal error
-int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroViscoPlasticity *param,
+int poro_visco_plasticity_integration_algorithm_implicit(PvpIntegrator &pvp,
                                                          const GcmSolverInfo *solver_info,
                                                          double *Fnp1,
                                                          double *Fn,
@@ -1326,14 +1483,11 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
 {
   int err = 0;
   
-  PvpIntegrator pvp;
-  pvp.set_pvp_material_parameters(param);
-  
   double dHdp = pvp.mat.compute_dHdp(pc_n);
   if(fabs(dHdp)<1.0e-6)
   {
     //printf("dHdp = %.17e\n", dHdp);  
-    return poro_visco_plasticity_integration_algorithm_staggered(param, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n, dt_in);
+    return poro_visco_plasticity_integration_algorithm_staggered(pvp, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n, dt_in);
   }
   
   try{      
@@ -1435,7 +1589,7 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
 
 /// exlicit integration algorithm for PVP model
 ///
-/// \param[in]  param       material parameters(MaterialPoroViscoPlasticity) for PVP model 
+/// \param[in]  pvp         pvp integration object 
 /// \param[in]  solver_info contains numerical parameters such as number of maximum NR iteration and NR tolerance
 /// \param[in]  Fnp1_in      F at t(n+1)
 /// \param[in]  Fn_in        F at t(n)
@@ -1445,7 +1599,7 @@ int poro_visco_plasticity_integration_algorithm_implicit(const MaterialPoroVisco
 /// \param[in]  pc_n        conforming pressure at t(n)
 /// \param[in]  dt_in       time step size
 /// \return non-zero with internal error
-int poro_visco_plasticity_integration_algorithm_explicit(const MaterialPoroViscoPlasticity *param,
+int poro_visco_plasticity_integration_algorithm_explicit(PvpIntegrator &pvp,
                                                          const GcmSolverInfo *solver_info,
                                                          double *Fnp1,
                                                          double *Fn,
@@ -1456,8 +1610,6 @@ int poro_visco_plasticity_integration_algorithm_explicit(const MaterialPoroVisco
                                                          const double dt_in)
                                                          
 {  
-  PvpIntegrator pvp;
-  pvp.set_pvp_material_parameters(param);
   try{      
     pvp.set_tenosrs(Fnp1, Fn, pFnp1, pFn);
   }catch(int i){
@@ -1494,6 +1646,7 @@ int poro_visco_plasticity_integration_algorithm_explicit(const MaterialPoroVisco
 /// \return non-zero with internal error
 int poro_visco_plasticity_integration_algorithm(const MaterialPoroViscoPlasticity *param,
                                                 const GcmSolverInfo *solver_info,
+                                                PvpElasticity *elast,
                                                 double *Fnp1,
                                                 double *Fn,
                                                 double *pFnp1,
@@ -1503,10 +1656,14 @@ int poro_visco_plasticity_integration_algorithm(const MaterialPoroViscoPlasticit
                                                 const double dt_in,
                                                 const bool is_implicit)
 {
+  PvpIntegrator pvp;
+  pvp.set_pvp_material_parameters(param);
+  pvp.set_pvp_elasticity(elast);
+  
   if(is_implicit)
-    return poro_visco_plasticity_integration_algorithm_implicit(param, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n, dt_in);
+    return poro_visco_plasticity_integration_algorithm_implicit(pvp, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n, dt_in);
   else
-    return poro_visco_plasticity_integration_algorithm_explicit(param, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n, dt_in);
+    return poro_visco_plasticity_integration_algorithm_explicit(pvp, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n, dt_in);
 }
 
 /// compute conforming pressure for a given plastic deformation 
@@ -1527,68 +1684,6 @@ double poro_visco_plasticity_compute_pc(double pJ,
   return pvp.compute_pc(pc, pJ);
 }
 
-/// compute PKII and elasticity tensor w.r.t eC
-/// 
-/// \param[out] eS_out computed PKII (2nd order tensor)
-/// \param[out] L_out  computed elasticity tensor (4th order tensor)
-/// \param[in]  param  poro_viscoplaticity material object  
-/// \param[in]  eF_in  elastic part of deformation gradient
-/// \param[in]  pc     conforming pressure
-/// \param[in]  compute_4th_order if yes: compute L_out, default is false
-///                                  no : skip computing L  
-void poro_visco_plasticity_update_elasticity(double *eS_out,
-                                             double *L_out,
-                                             const MaterialPoroViscoPlasticity *param,
-                                             double *eF_in,
-                                             const double pc,
-                                             const bool compute_4th_order){
-  TensorA<2> eF(eF_in), eS(eS_out);
-  TensorA<4> L(L_out);
-  
-  PvpMaterial mat(param);      
-  double c  = mat.compute_c(pc);
-  double d  = mat.compute_d(pc);
-  double K  = mat.compute_bulk_modulus(c, d);
-  double mu = mat.compute_shear_modulus(c, d);
-  double coeff_U_alpha = mat.compute_coeff_U_alpha(c);
-  double coeff_U_beta  = mat.compute_coeff_U_beta(c);
-
-  PvpElasticity elasticity;
-  elasticity.compute_elasticity_tensor(eS, L, eF, mu, K, c, coeff_U_alpha, 0.0, coeff_U_beta, compute_4th_order);
-}
-
-/// compute PKII and elasticity tensor for deviatoric part of W w.r.t eC
-/// 
-/// \param[out] eS_out computed PKII of hat_W (2nd order tensor)
-/// \param[out] L_out  computed elasticity of tensor hat_W (4th order tensor)
-/// \param[in]  param  poro_viscoplaticity material object  
-/// \param[in]  eF_in  elastic part of deformation gradient
-/// \param[in]  pc     conforming pressure
-/// \param[in]  compute_4th_order if yes: compute L_out, default is false
-///                                  no : skip computing L 
-void poro_visco_plasticity_update_elasticity_dev(double *eS_out,
-                                                 double *L_out,
-                                                 const MaterialPoroViscoPlasticity *param,
-                                                 double *eF_in,
-                                                 const double pc,
-                                                 const bool compute_4th_order){
-  TensorA<2> eF(eF_in), eS(eS_out);
-  TensorA<4> L(L_out);
-  
-  PvpMaterial mat(param);      
-  double c  = mat.compute_c(pc);
-  double d  = mat.compute_d(pc);
-  double mu = mat.compute_shear_modulus(c, d);
-
-  PvpElasticity elasticity;
-
-  Tensor<2> dWdC, eC;
-  eC(i,j) = eF(k,i)*eF(k,j);
-  elasticity.compute_dWdC_dev(dWdC, L, eC, mu, compute_4th_order);
-
-  eS(i,j) = 2.0*dWdC(i,j);
-}
-
 /// compute shear modulus as a function fo pc
 /// 
 /// \param[in]  param  poro_viscoplaticity material object  
@@ -1602,46 +1697,6 @@ double poro_visco_plasticity_compute_shear_modulus(const MaterialPoroViscoPlasti
   double mu = mat.compute_shear_modulus(c, d);
   
   return mu;
-}
-
-/// compute derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
-/// 
-/// \param[in] eJ    det(eF)
-/// \param[in] pc    conforming pressure
-/// \param[in] param poro_viscoplaticity material object  
-/// \return    computed dUdJ
-double poro_visco_plasticity_intf_compute_dudj(const double eJ,
-                                               const double pc,
-                                               const MaterialPoroViscoPlasticity *param){  
-  PvpMaterial mat(param);      
-  double c  = mat.compute_c(pc);
-  double d  = mat.compute_d(pc);
-  double K  = mat.compute_bulk_modulus(c, d);
-  double coeff_U_alpha = mat.compute_coeff_U_alpha(c);
-  double coeff_U_beta  = mat.compute_coeff_U_beta(c);
-
-  PvpElasticity elasticity;
-  return elasticity.compute_dUdJ(eJ, K, c, coeff_U_alpha, 0.0, coeff_U_beta);
-}
-
-/// compute 2nd derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
-/// 
-/// \param[in] eJ    det(eF)
-/// \param[in] pc    conforming pressure
-/// \param[in] param poro_viscoplaticity material object  
-/// \return    computed d2UdJ2
-double poro_visco_plasticity_intf_compute_d2udj2(const double eJ,
-                                                 const double pc,
-                                                 const MaterialPoroViscoPlasticity *param){  
-  PvpMaterial mat(param);      
-  double c  = mat.compute_c(pc);
-  double d  = mat.compute_d(pc);
-  double K  = mat.compute_bulk_modulus(c, d);
-  double coeff_U_alpha = mat.compute_coeff_U_alpha(c);
-  double coeff_U_beta  = mat.compute_coeff_U_beta(c);
-
-  PvpElasticity elasticity;
-  return elasticity.compute_d2UdJ2(eJ, K, c, coeff_U_alpha, 0.0, coeff_U_beta);
 }
 
 /// compute hardening function value of p_c 

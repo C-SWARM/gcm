@@ -30,9 +30,11 @@ class PARAMS
 {
 public:
   MaterialPoroViscoPlasticity mat_pvp;
+  PvpElasticity elast;
   Tensor<2,3,double> F, pF;
   double pc;
   PARAMS(){
+    elast.construct_elasticity(&mat_pvp,false);
     F = {};
     pF = {};
     pc = 0.0;
@@ -56,7 +58,8 @@ int print_results(PARAMS &param){
   double  J = ttl::det(param.F);
 
   Tensor<2,3,double> S, eS, sigma;
-  poro_visco_plasticity_update_elasticity(eS.data, NULL, &param.mat_pvp, eF.data, param.pc, false);
+  param.elast.set_internal_variable(param.pc);
+  param.elast.update_elasticity(eS.data, NULL, eF.data, false);
   sigma(i,l) = eF(i,j)*eS(j,k)*eF(l,k)/eJ;
   
   S(i,j) = J*FI(i,k)*sigma(k,l)*FI(j,l);
@@ -191,6 +194,7 @@ int main(int argc,char *argv[])
     sscanf(argv[1], "%s", fn);
         
     PARAMS param;
+
     err += read_input_file(fn, param);
     err += print_inputs(param);
     err += print_results(param);

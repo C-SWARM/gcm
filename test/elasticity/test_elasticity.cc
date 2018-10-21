@@ -13,7 +13,7 @@ void test_elasticity(void)
   set_properties_using_E_and_nu(&mat_e,70.0e+3,0.25);
   print_material_property_elasticity(&mat_e);
   
-  GcmElasticity<MATERIAL_ELASTICITY, StrainEnergyDensityFunction> elast(&mat_e, true);
+  GcmElasticity<MATERIAL_ELASTICITY, StrainEnergyDensityFunction, void *> elast(&mat_e, true);
   TensorA<2> S(elast.S);
 
   double d = 0.01;

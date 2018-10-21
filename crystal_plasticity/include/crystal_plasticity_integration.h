@@ -51,7 +51,16 @@ class GcmCpIntegrator : public GcmIntegrator
     solver_info = NULL;
     gn = gn_s = {};
     gnp1 = lambda = NULL;
-  }  
+  }
+  
+  GcmCpIntegrator(MATERIAL_CONSTITUTIVE_MODEL *mat_in,
+                  HyperElasticity *elasticity_in,
+                  GcmSolverInfo *solver_info_in){
+
+    mat         = mat_in;
+    elasticity  = elasticity_in;
+    solver_info = solver_info_in;
+  } 
   
   virtual int constitutive_model_integration(const double dt)
   {

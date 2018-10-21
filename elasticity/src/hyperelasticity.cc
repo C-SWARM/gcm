@@ -7,6 +7,9 @@
 #include "hyperelasticity.h"
 #include "strain_energy_density_function.h"
 #include "material_properties.h"
+
+constexpr const int Err = 1;
+constexpr const double one_third = 1.0/3.0;
  
 /// comute Von Mises stress
 /// 
@@ -188,3 +191,5 @@ int StrainEnergyDensityFunction::compute_d3W_dC3(const MATERIAL_ELASTICITY *mat,
                           +2.0*kappa*J*dUdJ*(CI(i,r)*CI(s,k)*CI(l,j) + CI(i,k)*CI(l,r)*CI(s,j)));
   return err; 
 }
+
+

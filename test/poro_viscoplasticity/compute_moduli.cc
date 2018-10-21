@@ -222,6 +222,7 @@ int main(int argc,char *argv[])
     gettimeofday(&start, NULL);
     
     double d_pc = (pc_inf - pc_0)/99.0;
+    PvpElasticity elast(&mat_pvp, false);
     
     for(int iA=0; iA<100; iA++)
     {
@@ -231,7 +232,10 @@ int main(int argc,char *argv[])
       double pJ = exp(h_pc);
       double TMD = TMD_0/pJ;
       
-      double dudj = poro_visco_plasticity_intf_compute_dudj(0.999, pc, &mat_pvp);
+      elast.set_internal_variable(pc);
+      double dudj = 0.0;
+      elast.compute_dudj(&dudj, 0.999);
+      
       double kappa = -dudj/0.001;
       double mu = poro_visco_plasticity_compute_shear_modulus(&mat_pvp, pc);
       double E = 9.0*kappa*mu/(3.0*kappa+mu);

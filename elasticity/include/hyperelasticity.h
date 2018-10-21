@@ -54,6 +54,67 @@ class StrainEnergyDensityFunction
     ~StrainEnergyDensityFunction(){ set_null(); };
 };
 
+/// object for the elasticity part of the pvp model.
+class PvpStrainEnergyDensityFunction: public StrainEnergyDensityFunction
+{
+  public:
+    
+    /// constructor
+    PvpStrainEnergyDensityFunction(){ set_null(); };
+    int set_material(const MaterialPoroViscoPlasticity *mat){return 0;}
+    
+    ~PvpStrainEnergyDensityFunction(){ set_null(); };
+    
+    /// compute deviatoric part of W(strain energy density function) w.r.t eC
+    template<class T> double compute_W_dev(T &C, const double mu); 
+
+    /// compute derivative of deviatoric part of W(strain energy density function) w.r.t eC
+    template<class T1, class T2, class T3> void compute_dWdC_dev(T1 &dWdC,
+                                                                 T2 &d2WdC2,
+                                                                 T3 &C,
+                                                                 const double mu,
+                                                                 bool compute_4th_order = false);
+ 
+    /// compute volumetric part of W(strain energy density function, U) w.r.t eJ
+    /// U = 1/2*K*(J-1)*ln(J) + c*ln(J) + (alpha1 + alpha2*ln(J))*exp(-beta*ln(J))
+    double compute_U(const double J,
+                     const double K,
+                     const double c,
+                     const double alpha1,
+                     const double alpha2,
+                     const double beta);
+                                                                                    
+    /// compute derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
+    /// U = 1/2*K*(J-1)*ln(J) + c*ln(J) + (alpha1 + alpha2*ln(J))*exp(-beta*ln(J))
+    double compute_dUdJ(const double J,
+                        const double K,
+                        const double c,
+                        const double alpha1,
+                        const double alpha2,
+                        const double beta);
+
+    /// compute 2nd derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
+    /// U = 1/2*K*(J-1)*ln(J) + c*ln(J) + (alpha1 + alpha2*ln(J))*exp(-beta*ln(J))   
+    double compute_d2UdJ2(const double J,
+                          const double K,
+                          const double c,
+                          const double alpha1,
+                          const double alpha2,
+                          const double beta);
+
+    /// compute PKII and elasticity tensor w.r.t eC   
+    template<class T1, class T2, class T3> void compute_elasticity_tensor(T1 &eS,
+                                                                          T2 &L,
+                                                                          T3 &eF,
+                                                                          const double mu,
+                                                                          const double K,
+                                                                          const double c,
+                                                                          const double alpha1,
+                                                                          const double alpha2,
+                                                                          const double beta,
+                                                                          bool compute_4th_order = false);
+};
+
 /// comute Von Mises stress
 double compute_Von_Mises(double *T_in);
 
@@ -62,11 +123,14 @@ void compute_Cauchy_stress(double *PKII,
                            double *sigma_out, 
                            double *eF);
 
-template<class Mat, class Sedf> class GcmElasticity
+template<class Mat, class Sedf, class Internal> class GcmElasticity
 {
   public:
     // if ture, S and L are created
     bool is_SL_created;
+    
+    // internal variable
+    Internal var;
     
     // memory for PKII and 4th order elasticity tensor
     double *L, *S;
@@ -87,8 +151,12 @@ template<class Mat, class Sedf> class GcmElasticity
       compute_stiffness = false;
     };
     
+    GcmElasticity(Mat *mat){
+      construct_elasticity(mat, false);
+    };     
+    
     GcmElasticity(Mat *mat, 
-                  const bool cp_stiff = false){
+                  const bool cp_stiff){
       construct_elasticity(mat, cp_stiff);
     };       
     
@@ -100,6 +168,8 @@ template<class Mat, class Sedf> class GcmElasticity
         is_SL_created = false;
       }
     }
+    
+    void set_internal_variable(Internal var_in);
     
     /// allocate memories and assign material object
     /// 
@@ -125,10 +195,15 @@ template<class Mat, class Sedf> class GcmElasticity
       return sedf.set_material(this->mat);
     }
 
-    //int construct_elasticity(Mat *mat, const bool cp_stiff = false);
-
     /// compute PKII stress and elasticity tensor (4th order) and update references 
     /// (S_out, and L_out) rather than member S and L
+    ///  
+    /// \param[out] S_out      computed PKII
+    /// \param[out] computeted elasticity tensor (4th order)
+    /// \param[in]  Fe         elastic deformation gradient
+    /// \param[in]  update_stiffness if true, compute 4th order elasticity Tensor
+    ///                                 false no compute elasticity Tensor
+    /// \return non-zero on internal error
     int update_elasticity(double *S_out,
                           double *L_out,
                           double *Fe, 
@@ -256,8 +331,54 @@ template<class Mat, class Sedf> class GcmElasticity
     };
 };
 
-class HyperElasticity: public GcmElasticity<MATERIAL_ELASTICITY,StrainEnergyDensityFunction>
+class HyperElasticity: public GcmElasticity<MATERIAL_ELASTICITY,StrainEnergyDensityFunction,void *>
 {};
+
+class PvpElasticity: public GcmElasticity<MaterialPoroViscoPlasticity,PvpStrainEnergyDensityFunction,double>
+{
+  public:
+    void set_internal_variable(double pc){
+      var = pc;
+    }
+    PvpElasticity(){
+      L = S = NULL;
+      mat = NULL;
+      is_SL_created     = false;
+      compute_stiffness = false;
+    }
+
+    PvpElasticity(MaterialPoroViscoPlasticity *mat, 
+                  const bool cp_stiff = false){
+      construct_elasticity(mat, cp_stiff);
+    };
+    
+    //int set_SEDF(void){ return 0; };
+    
+    /// compute deviatoric part of potential energy
+    void compute_potential_dev(double *C_in, double *P);
+    
+    /// compute PKII stress and elasticity tensor (4th order) and update references 
+    /// (S_out, and L_out) rather than member S and L
+    int update_elasticity(double *S_out,
+                          double *L_out,
+                          double *Fe, 
+                          const bool update_stiffness);
+
+    /// compute volumetric part of potential energy
+    void compute_du(double *u, const double J);
+        
+    /// compute 1st derivative of volumetric part of potential energy w.r.t J
+    void compute_dudj(double *du, const double J);
+      
+    /// compute 2nd derivative of volumetric part of potential energy w.r.t J
+    void compute_d2udj2(double *ddu, const double J);
+        
+    /// compute PKII and elasticity tensor for deviatoric part of W w.r.t eC
+    void update_elasticity_dev(double *eS_out,
+                               double *L_out,
+                               double *eF_in,
+                               const bool compute_4th_order);
+};
 
 
 #endif 

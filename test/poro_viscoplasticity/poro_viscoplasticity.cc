@@ -93,7 +93,7 @@ int print_results(FILE *fp,
                   double *pF_in,
                   const double pc,
                   const double t,
-                  const MaterialPoroViscoPlasticity *mat_pvp,
+                  PvpElasticity *elast,
                   const double *L0,
                   const int print_option){
   int err = 0;
@@ -107,7 +107,8 @@ int print_results(FILE *fp,
   double  J = ttl::det(F);
 
   Tensor<2,3,double> S, sigma;
-  poro_visco_plasticity_update_elasticity(S.data, NULL, mat_pvp, eF.data, pc, false);
+  elast->set_internal_variable(pc);
+  elast->update_elasticity(S.data, NULL, eF.data, false);
   sigma(i,l) = eF(i,j)*S(j,k)*eF(l,k)/eJ;
 
   if(print_option==1)        
@@ -479,13 +480,10 @@ int main(int argc,char *argv[])
       cout << "initial geometry (computed from 1x1x1 box) = " << L0[0] << ", " << L0[1] << ", " << L0[2] << endl;
     }
 
-
-  GcmPvpIntegrator integrator;
-  integrator.mat = &mat_pvp;
-  integrator.solver_info = &solver_info;
-  integrator.set_tensors(Fnp1, Fn, Fnm1, pFnp1, pFn, I, I);
-  integrator.pc_np1 = &pc_np1;
-
+    PvpElasticity elast(&mat_pvp, true);
+    GcmPvpIntegrator integrator(&mat_pvp, &elast, &solver_info);
+    integrator.set_tensors(Fnp1, Fn, Fnm1, pFnp1, pFn, I, I);
+    integrator.pc_np1 = &pc_np1;
 
     for(int iA=1; iA<=sim.stepno; iA++)
     {
@@ -502,7 +500,7 @@ int main(int argc,char *argv[])
         ++err;
       }
         
-      err += print_results(fp, Fnp1, pFnp1, pc_np1, t, &mat_pvp, L0, print_option); 
+      err += print_results(fp, Fnp1, pFnp1, pc_np1, t, &elast, L0, print_option); 
       
 
       memcpy(pFn,pFnp1,sizeof(double)*DIM_3x3);
