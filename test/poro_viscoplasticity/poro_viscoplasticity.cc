@@ -165,7 +165,7 @@ int F_of_t(double *Fn,
         if(t<sim.t_end[ia])
           break;
       }
-      memcpy(L,sim.L+ia,DIM_3x3*sizeof(double));
+      memcpy(L,sim.L+ia*DIM_3x3,DIM_3x3*sizeof(double));
       Fnp1_Implicit(F, Fn, L, sim.dt);      
       break;
     }
