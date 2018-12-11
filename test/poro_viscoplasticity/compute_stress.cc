@@ -13,6 +13,7 @@
 #include "input_file_read_handles.h"
 #include "hyperelasticity.h"
 #include "poro_visco_plasticity.h"
+#include "read_params.h" // local head providing reading parameters
 
 using namespace std;
 template<int R=2, int D = 3, class S=double>
@@ -24,7 +25,6 @@ static constexpr ttl::Index<'k'> k;
 static constexpr ttl::Index<'l'> l;
     
 #define DIM_3x3   9
-#define PARAM_NO 19
 
 class PARAMS
 {
@@ -86,10 +86,11 @@ int print_results(PARAMS &param){
 ///
 /// Input file is formated as:
 /// # is comments
+/// # is comments
 /// #-------------------------------------------------------------------------
-/// #  yf_M  yf_alpha  flr_m flr_gamma0  hr_a1 hr_a2 hr_Lambda1 hr_Lambda2  c_inf c_Gamma d_B d_pcb mu_0 mu_1 K_p0  K_kappa pl_n cf_g0 cf_pcinf
+/// #  M   alpha m_d  m_v  gamma0 a1   a2   Lambda1 Lambda2  c_inf Gamma B   pcb d_m mu_0 mu_1 p0    kappa n g0 pc_inf
 /// #-------------------------------------------------------------------------
-///    1.0   1.1       0.15  0.0005      0.62  0.37  77.22      13.01       15    0.01    0.2 5.8   30   60   0.063 0.008   2    1     290
+///    1.0 1.1   0.15 0.15 0.0005 0.62 0.37 77.22   13.01    15    0.01  0.2 5.8 1   30   60   0.063 0.008 2 1  290
 /// # pc
 /// 2.67513433851419169       
 ///
@@ -121,17 +122,8 @@ int read_input_file(const char *input_file,
 
   err += goto_valid_line(fp);
         
-  // read material parameters 
-  double pvp_param[PARAM_NO];
-  for(int ia=0; ia<PARAM_NO; ia++)
-    fscanf(fp, "%lf", pvp_param+ia);
-    
-  set_properties_poro_visco_plasticity(&param.mat_pvp,
-                                       pvp_param[ 0], pvp_param[ 1], pvp_param[ 2], pvp_param[ 3],
-                                       pvp_param[ 4], pvp_param[ 5], pvp_param[ 6], pvp_param[ 7],
-                                       pvp_param[ 8], pvp_param[ 9], pvp_param[10], pvp_param[11],
-                                       pvp_param[12], pvp_param[13], pvp_param[14], pvp_param[15],
-                                       pvp_param[16], pvp_param[17], pvp_param[18]);
+  // read material parameters
+  read_pvp_material_properties(fp, param.mat_pvp);
   
   err += goto_valid_line(fp);
   fscanf(fp, "%lf", &param.pc);

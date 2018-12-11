@@ -206,7 +206,8 @@ int set_J2_plasticity_parameters(MATERIAL_J2_PLASTICITY *J2P, const double hp,
 void set_properties_poro_visco_plasticity(MaterialPoroViscoPlasticity *mat,
                                           const double M_in,
                                           const double alpha_in,
-                                          const double m_in,
+                                          const double m_d_in,
+                                          const double m_v_in,                                          
                                           const double gamma_dot_0_in,
                                           const double a1_in,
                                           const double a2_in,
@@ -216,6 +217,7 @@ void set_properties_poro_visco_plasticity(MaterialPoroViscoPlasticity *mat,
                                           const double Gamma_in,
                                           const double B_in,
                                           const double pc_b_in,
+                                          const double d_m_in,
                                           const double mu_0_in,
                                           const double mu_1_in,
                                           const double p0_in,
@@ -227,7 +229,8 @@ void set_properties_poro_visco_plasticity(MaterialPoroViscoPlasticity *mat,
 
   mat->M           = M_in;
   mat->alpha       = alpha_in;
-  mat->m           = m_in;
+  mat->m_d         = m_d_in;
+  mat->m_v         = m_v_in;
   mat->gamma_dot_0 = gamma_dot_0_in;
   mat->a1          = a1_in;
   mat->a2          = a2_in;
@@ -237,6 +240,7 @@ void set_properties_poro_visco_plasticity(MaterialPoroViscoPlasticity *mat,
   mat->Gamma       = Gamma_in;
   mat->B           = B_in;
   mat->pc_b        = pc_b_in;
+  mat->d_m         = d_m_in;  
   mat->mu_0        = mu_0_in;
   mat->mu_1        = mu_1_in;
   mat->p0          = p0_in;
@@ -253,7 +257,8 @@ void print_material_property_poro_visco_plasticity(const MaterialPoroViscoPlasti
   printf("-----------------------------------------------------------\n");
   printf("Yield function parameters      = %e\n", mat->M);      
   printf("  :                            = %e\n", mat->alpha);  
-  printf("Flow rule parameters           = %e\n", mat->m);     
+  printf("Flow rule parameters(div)      = %e\n", mat->m_d);
+  printf("Flow rule parameters(vol)      = %e\n", mat->m_v);       
   printf("  :                            = %e\n", mat->gamma_dot_0);
   printf("Hardening rule parameters      = %e\n", mat->a1);     
   printf("  :                            = %e\n", mat->a2);     
@@ -261,8 +266,9 @@ void print_material_property_poro_visco_plasticity(const MaterialPoroViscoPlasti
   printf("  :                            = %e\n", mat->Lambda2);
   printf("Cohesion rule parameters       = %e\n", mat->c_inf);     
   printf("  :                            = %e\n", mat->Gamma);   
-  printf("Transition rule parameters     = %e\n", mat->B);       
-  printf("  :                            = %e\n", mat->pc_b);     
+  printf("Transition rule parameters     = %e\n", mat->B);
+  printf("  :                            = %e\n", mat->pc_b);
+  printf("  :                            = %e\n", mat->d_m);
   printf("Shear modulus parameters       = %e\n", mat->mu_0);      
   printf("  :                            = %e\n", mat->mu_1);      
   printf("Bulk modulus parameters        = %e\n", mat->p0);      

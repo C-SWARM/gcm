@@ -15,7 +15,8 @@
 #include "crystal_plasticity_integration.h"
 #include "GcmSolverInfo.h"
 
-#include"poro_visco_plasticity.h"
+#include "poro_visco_plasticity.h"
+#include "read_params.h" // local head providing reading parameters
 
 using namespace std;
 template<int R=2, int D = 3, class S=double>
@@ -61,31 +62,6 @@ public:
     if(L !=NULL)
       delete[] L; 
   }
-};
-
-
-enum param_names {
-  PARAM_yf_M,       // Yield function parameters
-  PARAM_yf_alpha,   //   :
-  PARAM_flr_m,      // Flow rule parameters
-  PARAM_flr_gamma0, //   :
-  PARAM_hr_a1,      // Hardening rule parameters
-  PARAM_hr_a2,      //   :
-  PARAM_hr_Lambda1, //   :
-  PARAM_hr_Lambda2, //   :
-  PARAM_c_inf,      // Cohesion rule parameters
-  PARAM_c_Gamma,    //   :
-  PARAM_d_B,        // Transition rule parameters
-  PARAM_d_pcb,      //   :
-  PARAM_mu_0,       // Shear modulus parameters
-  PARAM_mu_1,       //   :
-  PARAM_K_p0,       // Bulk modulus parameters
-  PARAM_K_kappa,    //   :
-  PARAM_pl_n,       // Power law exponent
-  PARAM_cf_g0,      // Compaction function parameters
-  PARAM_cf_pcinf,   //   :
-  PARAM_TMD,        // initial TMD, TDM*pJ = TMD_0;
-  PARAM_NO
 };
 
 int print_results(FILE *fp,
@@ -197,9 +173,11 @@ int F_of_t(double *Fn,
 /// 1 # if 1: implicit 
 /// #      0: explicit
 /// #-------------------------------------------------------------------------
-/// #  yf_M  yf_alpha  flr_m flr_gamma0  hr_a1 hr_a2 hr_Lambda1 hr_Lambda2  c_inf c_Gamma d_B d_pcb mu_0 mu_1 K_p0  K_kappa pl_n cf_g0 cf_pcinf TDM
+/// #  M   alpha m_d  m_v  gamma0 a1   a2   Lambda1 Lambda2 inf Gamma B   pcb  d_m mu_0 mu_1 p0    kappa n g0 pc_inf
 /// #-------------------------------------------------------------------------
-///    1.0   1.1       0.15  0.0005      0.62  0.37  77.22      13.01       15    0.01    0.2 5.8   30   60   0.063 0.008   2    1     290 0.9
+///    1.0 1.1   0.15 0.15 0.0005 0.62 0.37 77.22   13.01   15  0.01  0.2 5.8  1.0 30   60   0.063 0.008 2 1  290
+/// # TMD
+/// 0.9
 /// #-------------------------------------------------------------------------
 /// # Analysis name
 /// #-------------------------------------------------------------------------
@@ -269,33 +247,11 @@ int read_input_file(const char *input_file,
     
   err += goto_valid_line(fp_sim);
       
-  // read material parameters 
-  double param[PARAM_NO];
-  for(int ia=0; ia<PARAM_NO; ia++)
-    fscanf(fp_sim, "%lf", param+ia);
-    
-  set_properties_poro_visco_plasticity(&mat_pvp,
-                                       param[PARAM_yf_M],
-                                       param[PARAM_yf_alpha],
-                                       param[PARAM_flr_m],
-                                       param[PARAM_flr_gamma0],
-                                       param[PARAM_hr_a1],
-                                       param[PARAM_hr_a2],
-                                       param[PARAM_hr_Lambda1],
-                                       param[PARAM_hr_Lambda2],
-                                       param[PARAM_c_inf],
-                                       param[PARAM_c_Gamma],
-                                       param[PARAM_d_B],
-                                       param[PARAM_d_pcb],
-                                       param[PARAM_mu_0],
-                                       param[PARAM_mu_1],
-                                       param[PARAM_K_p0],
-                                       param[PARAM_K_kappa],
-                                       param[PARAM_pl_n],
-                                       param[PARAM_cf_g0],
-                                       param[PARAM_cf_pcinf]);
-
-  sim.TMD = param[PARAM_TMD];
+  // read material parameters
+  read_pvp_material_properties(fp_sim, mat_pvp);
+   
+  err += goto_valid_line(fp_sim);
+  fscanf(fp_sim, "%lf", &sim.TMD);                                       
   
   err += goto_valid_line(fp_sim);
   fscanf(fp_sim, "%s", sim.file_out);
@@ -499,8 +455,9 @@ int main(int argc,char *argv[])
         printf("pvp integrator is not converging\n");
         ++err;
       }
-        
-      err += print_results(fp, Fnp1, pFnp1, pc_np1, t, &elast, L0, print_option); 
+      
+      if((iA%20)==0)  
+        err += print_results(fp, Fnp1, pFnp1, pc_np1, t, &elast, L0, print_option); 
       
 
       memcpy(pFn,pFnp1,sizeof(double)*DIM_3x3);

@@ -33,9 +33,9 @@ int main(int argc,char *argv[])
   set_gcm_solver_info(&solver_info, 10, 10, 100, 1.0e-6, 1.0e-6, 1.0e-15);  
   solver_info.debug = true;
 
-  set_properties_poro_visco_plasticity(&mat_pvp, 1.0,   1.1,   0.15,  0.0005, 0.62, 
+  set_properties_poro_visco_plasticity(&mat_pvp, 1.0,   1.1,   0.15,  0.15, 0.0005, 0.62, 
                                                  0.37, 77.22, 13.01, 15,      0.01, 
-                                                 0.2,   5.8,  30,    60,      0.063, 
+                                                 0.2,   5.8,  1.0, 30,    60,      0.063, 
                                                  0.008, 2,     1,   290);
                                                  
   PvpElasticity elast(&mat_pvp, true);                                                 

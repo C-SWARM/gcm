@@ -128,7 +128,8 @@ typedef struct
 {
   double M,            // Yield function parameters
          alpha,        //   :
-         m,            // Flow rule parameters
+         m_d,          // Flow rule parameters
+         m_v,
          gamma_dot_0,  //   :
          a1,           // Hardening rule parameters
          a2,           //   :
@@ -138,6 +139,7 @@ typedef struct
          Gamma,        //   :
          B,            // Transition rule parameters
          pc_b,         //   :
+         d_m,          //   :
          mu_0,         // Shear modulus parameters
          mu_1,         //   :
          p0,           // Bulk modulus parameters
@@ -152,7 +154,8 @@ typedef struct
 void set_properties_poro_visco_plasticity(MaterialPoroViscoPlasticity *mat,
                                           const double M_in,
                                           const double alpha_in,
-                                          const double m_in,
+                                          const double m_d_in,
+                                          const double m_v_in,                                          
                                           const double gamma_dot_0_in,
                                           const double a1_in,
                                           const double a2_in,
@@ -162,6 +165,7 @@ void set_properties_poro_visco_plasticity(MaterialPoroViscoPlasticity *mat,
                                           const double Gamma_in,
                                           const double B_in,
                                           const double pc_b_in,
+                                          const double d_m_in,
                                           const double mu_0_in,
                                           const double mu_1_in,
                                           const double p0_in,
