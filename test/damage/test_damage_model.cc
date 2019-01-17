@@ -58,7 +58,8 @@ public:
 
 /// print damage model results
 ///
-/// \param[in]  fp            file pointer for writing simulation results
+/// \param[in]  fp_S          file pointer for writing simulation results(Stress)
+/// \param[in]  fp_F          file pointer for writing simulation results(Deformation gradient)
 /// \param[in]  F             total deformation gradient
 /// \param[in]  w             damage
 /// \param[in]  H             dGdY from the consistency condition
@@ -69,7 +70,8 @@ public:
 /// \param[in]  mat_d         material property object for damage model
 /// \param[out] elast         elasticity object. elast.S will be updated
 /// \param[in]  print_option  if 1: display computed values
-void print_results(FILE *fp,
+void print_results(FILE *fp_S,
+                   FILE *fp_F,
                   ttl::Tensor<2,3,double> &F,
                   const double w,
                   const double H,
@@ -91,12 +93,17 @@ void print_results(FILE *fp,
   if(print_option==1)        
     printf("%.17e %.17e %.17e %.17e %.17e\n", t, w, elast.S[0],elast.S[4],elast.S[8]);
 
-  fprintf(fp, "%.17e %.17e ", t, w);
+  fprintf(fp_S, "%.17e %.17e ", t, w);
 
   for(int ia=0; ia<DIM_3x3; ia++)
-    fprintf(fp, "%.17e ", sigma.get(ia));
+    fprintf(fp_S, "%.17e ", sigma.get(ia));
+
+  fprintf(fp_S, "\n");
+      
+  for(int ia=0; ia<DIM_3x3; ia++)
+    fprintf(fp_F, "%.17e ", F.get(ia));
     
-  fprintf(fp, "\n");
+  fprintf(fp_F, "\n");
 }
 
 /// compute total deformation gradient by integrating velocity gradient
@@ -372,9 +379,12 @@ int main(int argc,char *argv[])
     ttl::Tensor<2,3,double> F  = {1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0};
     ttl::Tensor<2,3,double> Fn = {1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0};
 
-    char fname[2048];
-    sprintf(fname, "%s.txt", sim.file_out); 
-    FILE *fp = fopen(fname, "w");
+    char fname_S[2048], fname_F[2048];
+    sprintf(fname_S, "%s.sigma.txt", sim.file_out); 
+    sprintf(fname_F, "%s.F.txt", sim.file_out); 
+        
+    FILE *fp_S = fopen(fname_S, "w");
+    FILE *fp_F = fopen(fname_F, "w");    
 
     if(print_option==1)
     {  
@@ -403,10 +413,12 @@ int main(int argc,char *argv[])
       Fn(i,j) = F(i,j);
       is_it_damaged = 0;
 
-      print_results(fp, F, w, H, is_it_damaged,
+      print_results(fp_S, fp_F, F, w, H, is_it_damaged,
                     sim.dt, t, mat_d, elast, print_option);
     }
-    fclose(fp);        
+    fclose(fp_S);
+    fclose(fp_F);    
+    
     
     gettimeofday(&end, NULL);
     double diff = (double)(end.tv_usec - start.tv_usec)/1000000.0 
