@@ -142,8 +142,8 @@ int set_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1,
   dam->mu      = mu;
   dam->w_max   = w_max;
   dam->alpha_dev = 1.0;
-  dam->beta_dev  = 0.0;
-  dam->alpha_vol = 0.0;
+  dam->beta_dev  = 1.0;
+  dam->alpha_vol = 1.0;
   dam->beta_vol  = 1.0;
   return err;
 }
