@@ -431,7 +431,7 @@ int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
     elast->compute_tangent_dev(C.data, dL.data);
     elast->compute_d2udj2(&d2udj2, detF);
     
-    L(i,j,k,l) = (1-dw)*dL(i,j,k,l) + (1-vw)*(kappa*(detF*dudj + detC*d2udj2)*CI(i,j)*CI(k,l)
+    L(i,j,k,l) = (1.0 - dw)*dL(i,j,k,l) + (1.0 - vw)*(kappa*(detF*dudj + detC*d2udj2)*CI(i,j)*CI(k,l)
                                               -2.0*kappa*detF*dudj*CI(i,k)*CI(l,j));
  
     if(is_it_damaged_d || is_it_damaged_v)
@@ -443,6 +443,7 @@ int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
       U *= kappa;
     
       double dt_mu = dt*(mat_d->mu);
+      double factor = (dt_mu)/(1.0+dt_mu);
     
       if(is_it_damaged_d){
         double alpha_dev = mat_d->alpha_dev;
@@ -453,9 +454,9 @@ int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
           
         double dY = alpha_dev*W + beta_dev*U;
         double H1 = 0.0;
-        err += continuum_damage_Weibull_evolution(&H1, dY, mat_d);        
-        L(i,j,k,l) += (dt_mu)/(1.0+dt_mu)*(H1*alpha_dev)*dS_0(i,j)*dS_0(k,l)
-                   +  (dt_mu)/(1.0+dt_mu)*(H1*beta_dev)*dS_0(i,j)*vS_0(k,l);        
+        err += continuum_damage_Weibull_evolution(&H1, dY, mat_d);
+        L(i,j,k,l) += -factor*(H1*alpha_dev)*dS_0(i,j)*dS_0(k,l)
+                      - factor*(H1*beta_dev)*dS_0(i,j)*vS_0(k,l);        
       }
 
       if(is_it_damaged_v){
@@ -468,8 +469,8 @@ int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
         double vY = alpha_vol*W + beta_vol*U;
         double H2 = 0.0;
         err += continuum_damage_Weibull_evolution(&H2, vY, mat_d);    
-        L(i,j,k,l) += (dt_mu)/(1.0+dt_mu)*(H2*alpha_vol)*vS_0(i,j)*dS_0(k,l)
-                   +  (dt_mu)/(1.0+dt_mu)*(H2*beta_vol)*vS_0(i,j)*vS_0(k,l);
+        L(i,j,k,l) += -factor*(H2*alpha_vol)*vS_0(i,j)*dS_0(k,l)
+                     - factor*(H2*beta_vol)*vS_0(i,j)*vS_0(k,l);
       }
     }            
   }
@@ -535,8 +536,8 @@ int update_damage_elasticity_dev(MATERIAL_CONTINUUM_DAMAGE *mat_d,
       err += continuum_damage_Weibull_evolution(&H1, dY, mat_d);
       
       double dt_mu = dt*(mat_d->mu);
-      L(i,j,k,l) += (dt_mu)/(1.0+dt_mu)*(H1*alpha_dev)*dS_0(i,j)*dS_0(k,l)
-                 +  (dt_mu)/(1.0+dt_mu)*(H1*beta_dev)*dS_0(i,j)*vS_0(k,l);        
+      L(i,j,k,l) += -(dt_mu)/(1.0+dt_mu)*(H1*alpha_dev)*dS_0(i,j)*dS_0(k,l)
+                    -(dt_mu)/(1.0+dt_mu)*(H1*beta_dev)*dS_0(i,j)*vS_0(k,l);        
     }
   }  
   err += apply_damage_on_stress(elast->S, dS_0.data, dw); // apply only deviatoric part
