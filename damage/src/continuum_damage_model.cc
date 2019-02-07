@@ -556,7 +556,7 @@ double damage_compute_dudj(HyperElasticity *elast,
   double dudj = 0.0;  
   elast->compute_dudj(&dudj, eJ);
   
-  return (1.0 - vw)*dudj;  
+  return (1.0 - vw)*dudj*(elast->mat->kappa);  
 }
 
 /// compute  2nd derivative of volumetric part of W(strain energy density function, U) w.r.t eJ
@@ -571,7 +571,7 @@ double damage_compute_d2udj2(HyperElasticity *elast,
   double d2udj2 = 0.0;  
   elast->compute_d2udj2(&d2udj2, eJ);
   
-  return (1.0 - vw)*d2udj2;  
+  return (1.0 - vw)*d2udj2*(elast->mat->kappa);
 }
 
 /// Provide a public interface to the subdivision parameter to allow
