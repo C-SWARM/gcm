@@ -1,4 +1,5 @@
 #include "constitutive_model.h"
+#include "constitutive_model_handle.h"   //for exascale variables
 #include "continuum_damage_model.h"
 #include "hyperelasticity.h"
 
@@ -48,6 +49,7 @@ int damage_evolutions(MATERIAL_CONTINUUM_DAMAGE *mat_d,
                       const double dt)
 {
   int err = 0;
+  perIter_ODE_EXA_metric += 4;
   const double dt_mu = dt*(mat_d->mu);
   double G = 0.0;
   

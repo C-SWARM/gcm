@@ -5,6 +5,7 @@
  */
 
 #include "constitutive_model.h"
+#include "constitutive_model_handle.h"   //for exascale variables
 #include "poro_visco_plasticity.h"
 #include "GcmSolverInfo.h"
 #include "hyperelasticity.h"
@@ -1686,6 +1687,8 @@ int poro_visco_plasticity_integration_algorithm(const MaterialPoroViscoPlasticit
   PvpIntegrator pvp;
   pvp.set_pvp_material_parameters(param);
   pvp.set_pvp_elasticity(elast);
+  
+  perIter_ODE_EXA_metric += 10;
   
   if(is_implicit)
     return poro_visco_plasticity_integration_algorithm_implicit(pvp, solver_info, Fnp1, Fn, pFnp1, pFn, pc_np1, pc_n, dt_in);

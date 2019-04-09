@@ -1,4 +1,5 @@
 #include "constitutive_model.h"
+#include "constitutive_model_handle.h"   //for exascale variables
 #include "J2_plasticity.h"
 #include "hyperelasticity.h"
 
@@ -176,6 +177,7 @@ int J2_plasticity_integration_alg(double *sp_out,
 {
   int err = 0;
 
+  perIter_ODE_EXA_metric += 2;  //2 ODEs per J2 plasticity
   double G = mat_e->G;
 
   TensorA<2> F(F_in), Fn(Fn_in), sp(sp_out), sp_n(sp_n_in);

@@ -11,11 +11,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* #ifdef __cplusplus */
-  
-extern long perIter_ODE_EXA_metric; //ODE operations accumulated over the current Iter
-extern long perTimestep_EXA_metric; //Exa metric accumulated over the current timestep
-extern long total_EXA_metric;       //Total Exa metric accumulated over each NR iteration
-extern long dof_EXA_metric;         //Exa metric for accumulated Ndof over each NR iteration
 
 /// integrate crystal plasticity from pFn to pFnp1
 int staggered_Newton_Rapson(double *pFnp1_out, double *g_out, double *lambda,
