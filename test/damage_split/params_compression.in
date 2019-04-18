@@ -1,0 +1,46 @@
+# is comments                                                                                                  
+#-------------------------------------------------------------------------                                     
+#  E     nu    devPotFlag volPotFlag mu  ome_max[0,1) p1  p2  Yin                                              
+#-------------------------------------------------------------------------                                     
+   800   0.34  1          2          100 1.0          8.0 2.5 0.15
+   1 1 1 1                                             
+#-------------------------------------------------------------------------                                     
+# Analysis name                                                                                                
+#-------------------------------------------------------------------------                                     
+  stress                                                                                           
+#                                                                                                              
+# time steps                                                                                                   
+# dt   number_of_time_steps                                                                                    
+#-------------------------------------------------------------------------                                     
+  1.0  100                                                                                                     
+#-------------------------------------------------------------------------                                     
+# integration type (method of computing deformation gradient)                                                  
+# 0: F_of_t(L1,L2,L3, ...) : L = n number of velocity gradient with t(end) to be transient when t reaches t_end
+# 1: F_of_t(v,dim)         : v = velocity (F = 1 + v*t), dim = 1: uniaxial displacement                        
+#                                                              2: biaxial displacement                         
+#                                                              3: triaxial displacement                        
+# 2: user define F_of_t    : requires compile                                                                   
+#-------------------------------------------------------------------------                                     
+# [integration type] if type==0: number of Ls and list of Ls are followed]                                     
+#                    if type==1: velocity and dim are followed                                                 
+# use user define F_of_t
+2
+# example using L >>>>>>>>>>>>>>
+#0 3                                                                                                            
+# 1 50e-6 1                                                                                                    
+#-------------------------------------------------------------------------                                     
+# 1st velocity gradient                                                                                        
+# L11 L12 L13 L21 L22  L23 L31 L32 L33  t_end                                                                  
+#-------------------------------------------------------------------------                                     
+#  -0.005  0.0    0.0                                                                                           
+#   0.0   -0.005  0.0                                                                                           
+#   0.0    0.0   -0.005 42.6                                                                                    
+#                                                                                                               
+#  -0.005  0.005  0.0                                                                                           
+#   0.0   -0.005  0.0                                                                                           
+#   0.0    0.0   -0.005 46.0                                                                                    
+#                                                                                                               
+#   0.0    0.005  0.0                                                                                           
+#   0.0    0.0    0.0                                                                                           
+#   0.0    0.0    0.0 132.0                                                                                     
+
