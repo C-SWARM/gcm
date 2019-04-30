@@ -99,7 +99,7 @@ void print_results(FILE *fp_S,
   if(print_option==1)        
     printf("%.17e %.17e %.17e %.17e %.17e %.17e\n", t, dw, vw, elast.S[0],elast.S[4],elast.S[8]);
 
-  fprintf(fp_S, "%.17e %.17e %.17e %.17e", t, dw, vw, J);
+  fprintf(fp_S, "%.17e %.17e %.17e %.17e ", t, dw, vw, J);
 
   for(int ia=0; ia<DIM_3x3; ia++)
     fprintf(fp_S, "%.17e ", sigma.get(ia));
@@ -147,7 +147,7 @@ int F_of_t(double *Fn,
         if(t<sim.t_end[ia])
           break;
       }
-      memcpy(L,sim.L+ia,DIM_3x3*sizeof(double));
+      memcpy(L,sim.L+ia*DIM_3x3,DIM_3x3*sizeof(double));
       Fnp1_Implicit(F, Fn, L, sim.dt);      
       break;
     }
