@@ -24,9 +24,11 @@ typedef struct {
   double mu;
   double w_max;
   double alpha_dev;
-  double beta_dev;
+  double beta_dev_p;
+  double beta_dev_m;  
   double alpha_vol;
-  double beta_vol;  
+  double beta_vol_p;
+  double beta_vol_m;  
 } MAT_PROP;
 
 typedef struct {
@@ -321,9 +323,11 @@ int test_split_damage_model(MAT_PROP *mat, SIM_PARAMS *sim)
                                              mat->mu, 
                                              mat->w_max,
                                              mat->alpha_dev,
-                                             mat->beta_dev,
+                                             mat->beta_dev_p,
+                                             mat->beta_dev_m,                                             
                                              mat->alpha_vol,
-                                             mat->beta_vol);                                             
+                                             mat->beta_vol_p,
+                                             mat->beta_vol_m);                                             
 
   //err += print_material_property_elasticity(&mat_e); // just printing
   
@@ -435,10 +439,12 @@ int run_simulations(void)
   mat.Yin     = 0.15;
   mat.mu      = 0.1;
   mat.w_max   = 0.98;
-  mat.alpha_dev = 1.0;
-  mat.beta_dev  = 0.0;
-  mat.alpha_vol = 0.0;
-  mat.beta_vol  = 1.0;
+  mat.alpha_dev  = 1.0;
+  mat.beta_dev_p = 0.0;
+  mat.beta_dev_m = 0.0;  
+  mat.alpha_vol  = 0.0;
+  mat.beta_vol_p = 1.0;
+  mat.beta_vol_m = 1.0;  
 
   // set simulation parameters
   SIM_PARAMS sim;
@@ -470,21 +476,25 @@ int run_simulations(void)
   mat.alpha_vol = 0.0;
   sim.F_of_t = F_of_t_extension;
 
-  mat.beta_dev = 0.0;
+  mat.beta_dev_p = 0.0;
+  mat.beta_dev_m = 0.0;  
   sprintf(sim.file_out, "expansion_beta_dev_0p0.txt");
   err += test_split_damage_model(&mat, &sim);  
 
-  mat.beta_dev = 0.3;
+  mat.beta_dev_p = 0.3;
+  mat.beta_dev_m = 0.3;  
   sprintf(sim.file_out, "expansion_beta_dev_0p3.txt");
   err += test_split_damage_model(&mat, &sim);  
 
-  mat.beta_dev = 0.7;
+  mat.beta_dev_p = 0.7;
+  mat.beta_dev_m = 0.7;  
   sprintf(sim.file_out, "expansion_beta_dev_0p7.txt");
   err += test_split_damage_model(&mat, &sim);
 
   mat.mu = 0.1;
   mat.alpha_vol = 0.0;
-  mat.beta_dev = 0.0;  
+  mat.beta_dev_p = 0.0; 
+  mat.beta_dev_m = 0.0;   
   sim.F_of_t = F_of_t_mixed;
 
   sprintf(sim.file_out, "tension_mu_0p1.txt");
@@ -500,22 +510,26 @@ int run_simulations(void)
   
   mat.mu = 0.1;
   mat.alpha_vol = 0.2;
-  mat.beta_dev = 0.0;  
+  mat.beta_dev_p = 0.0;
+  mat.beta_dev_m = 0.0;
   sprintf(sim.file_out, "tension_alpha_vol_0p2.txt");
   err += test_split_damage_model(&mat, &sim);  
 
   mat.alpha_vol = 0.0;
-  mat.beta_dev = 0.2;  
+  mat.beta_dev_p = 0.2;
+  mat.beta_dev_m = 0.2;
   sprintf(sim.file_out, "tension_beta_dev_0p2.txt");
   err += test_split_damage_model(&mat, &sim);
   
   mat.alpha_vol = 0.2;
-  mat.beta_dev = 0.2;  
+  mat.beta_dev_p = 0.2;
+  mat.beta_dev_m = 0.2;
   sprintf(sim.file_out, "tension_alpha_vol_0p2_beta_dev_0p2.txt");
   err += test_split_damage_model(&mat, &sim);
  
   mat.alpha_vol = 1.0;
-  mat.beta_dev = 1.0;  
+  mat.beta_dev_p = 1.0;
+  mat.beta_dev_m = 1.0;  
   sprintf(sim.file_out, "tension_alpha_vol_1p0_beta_dev_1p0.txt");
   err += test_split_damage_model(&mat, &sim);
 
@@ -524,17 +538,23 @@ int run_simulations(void)
   
   sim.F_of_t = F_of_t_tension_compression;
   mat.alpha_vol = 0.2;
-  mat.beta_dev = 0.2;  
+  mat.beta_dev_p = 0.2;
+  mat.beta_dev_m = 0.2;
   sprintf(sim.file_out, "tension_compression_beta_dev_0p2_beta_vol_1p0.txt");
   err += test_split_damage_model(&mat, &sim);
   
-  mat.beta_vol = -1.0;
-  mat.beta_dev = 0.0;  
+  mat.beta_vol_p = 1.0;
+  mat.beta_vol_m = 1.0;  
+  mat.beta_dev_p = 0.0;
+  mat.beta_dev_m = 0.0;  
   sprintf(sim.file_out, "tension_compression_beta_dev_0p0_beta_vol_m1p0.txt");
   err += test_split_damage_model(&mat, &sim);
   
-  mat.beta_vol = -1.0;
-  mat.beta_dev = -0.2;  
+  mat.beta_vol_p = 1.0;
+  mat.beta_vol_m = 1.0;  
+  mat.beta_dev_p = 0.2;
+  mat.beta_dev_m = 0.2;
+
   sprintf(sim.file_out, "tension_compression_beta_dev_m0p2_beta_vol_m1p0.txt");
   err += test_split_damage_model(&mat, &sim);      
       

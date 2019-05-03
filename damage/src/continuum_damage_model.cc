@@ -75,12 +75,14 @@ int damage_evolutions(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   return err;
 }
 
-double H_of_J(double J)
+double beta_of_J(const double beta_p,
+                 const double beta_m,
+                 const double J)
 {
-  if(J>1.0)
-    return 1.0;
+  if(J<1.0)
+    return beta_m;
   else
-    return 0.0;
+    return beta_p;
 }
   
 int split_damage_evolutions(MATERIAL_CONTINUUM_DAMAGE *mat_d,
@@ -108,15 +110,10 @@ int split_damage_evolutions(MATERIAL_CONTINUUM_DAMAGE *mat_d,
   double Gu = 0.0;
   
   double alpha_dev = mat_d->alpha_dev;
-  double beta_dev  = mat_d->beta_dev;
-  double alpha_vol = mat_d->alpha_vol;   
-  double beta_vol  = mat_d->beta_vol;  
-       
-  if(beta_dev<0)
-    beta_dev = -beta_dev*H_of_J(J);
-  
-  if(beta_vol<0)
-    beta_vol = -beta_vol*H_of_J(J);      
+  double alpha_vol = mat_d->alpha_vol;     
+
+  double beta_dev = beta_of_J(mat_d->beta_dev_p, mat_d->beta_dev_m, J);
+  double beta_vol = beta_of_J(mat_d->beta_vol_p, mat_d->beta_vol_m, J);
           
   err += continuum_damage_Weibull(&Gh,alpha_dev*W + beta_dev*U,mat_d);
   err += continuum_damage_Weibull(&Gu,alpha_vol*W + beta_vol*U,mat_d);
@@ -449,10 +446,7 @@ int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
     
       if(is_it_damaged_d){
         double alpha_dev = mat_d->alpha_dev;
-        double beta_dev  = mat_d->beta_dev;
-      
-        if(beta_dev<0)
-          beta_dev = -beta_dev*H_of_J(detF);      
+        double beta_dev  = beta_of_J(mat_d->beta_dev_p, mat_d->beta_dev_m, detF);
           
         double dY = alpha_dev*W + beta_dev*U;
         double H1 = 0.0;
@@ -463,10 +457,7 @@ int update_split_damage_elasticity(MATERIAL_CONTINUUM_DAMAGE *mat_d,
 
       if(is_it_damaged_v){
         double alpha_vol = mat_d->alpha_vol;   
-        double beta_vol  = mat_d->beta_vol;  
-    
-        if(beta_vol<0)
-          beta_vol = -beta_vol*H_of_J(detF);
+        double beta_vol  = beta_of_J(mat_d->beta_vol_p, mat_d->beta_vol_m, detF); 
 
         double vY = alpha_vol*W + beta_vol*U;
         double H2 = 0.0;
@@ -527,12 +518,8 @@ int update_damage_elasticity_dev(MATERIAL_CONTINUUM_DAMAGE *mat_d,
       U *= (elast->mat->kappa);
         
       double alpha_dev = mat_d->alpha_dev;
-      double beta_dev  = mat_d->beta_dev;
-           
-      if(beta_dev<0)
-        beta_dev = -beta_dev*H_of_J(detF);
-      
-        
+      double beta_dev  = beta_of_J(mat_d->beta_dev_p, mat_d->beta_dev_m, detF);
+                   
       double dY = alpha_dev*W + beta_dev*U;  
       double H1 = 0.0;
       err += continuum_damage_Weibull_evolution(&H1, dY, mat_d);

@@ -41,14 +41,18 @@ struct MATERIAL_CONTINUUM_DAMAGE
   double Y_in;    // Weibull function parameters: initial damage energy threshold
   double mu;      // damage viscosity
   double w_max;   // maximum damage
-  double alpha_dev; // deviatoric energy constibution to deviatoric part of damage
-                  // default = 1;
-  double beta_dev;  // volumetirc energy constibution to deviatoric part of damage
-                  // default = 0.0;
-  double alpha_vol; // deviatoric energy constibution to volume part of damage
-                  // default = 0.0;
-  double beta_vol;  // volumetirc energy constibution to volume part of damage
-                  // default = 1.0;                  
+  double alpha_dev;  // deviatoric energy constibution to deviatoric part of damage
+                     // default = 1;
+  double beta_dev_p; // volumetirc energy constibution to deviatoric part of damage in tension
+                     // default = 1;
+  double beta_dev_m; // volumetirc energy constibution to deviatoric part of damage in compression
+                     // default = 1;                  
+  double alpha_vol;  // deviatoric energy constibution to volume part of damage
+                     // default = 1;
+  double beta_vol_p; // volumetirc energy constibution to volume part of damage in tension
+                     // default = 1;
+  double beta_vol_m; // volumetirc energy constibution to volume part of damage in compression
+                     // default = 1;                     
 };
 
 struct MATERIAL_J2_PLASTICITY
@@ -114,9 +118,11 @@ int set_split_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1,
                                                                 const double mu, 
                                                                 const double w_max,
                                                                 const double da,
-                                                                const double db,
+                                                                const double dbp,
+                                                                const double dbm,
                                                                 const double va,
-                                                                const double vb);
+                                                                const double vbp,
+                                                                const double vbm);
 
 /// print material parameters for the damage model                                                                
 int print_material_property_damage_model(MATERIAL_CONTINUUM_DAMAGE *mat);

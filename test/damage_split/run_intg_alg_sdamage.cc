@@ -178,10 +178,10 @@ int F_of_t(double *Fn,
 /// # is comments
 /// #-------------------------------------------------------------------------
 /// #  E     nu    devPotFlag volPotFlag mu  ome_max[0,1) p1  p2  Yin
-/// #  alpha_dev beta_dev alpha_vol beta_vol
+/// #  alpha_dev beta_dev_p beta_dev_m alpha_vol beta_vol_p beta_vol_m
 /// #-------------------------------------------------------------------------
 ///    800   0.34  1          2          100 1.0          8.0 2.5 0.15
-///    1 1 1 1
+///    1 1 1 1 1 1
 /// #-------------------------------------------------------------------------
 /// # Analysis name
 /// #-------------------------------------------------------------------------
@@ -242,7 +242,7 @@ int read_input_file(const char *input_file,
   }  
 
   double E, nu, mu, ome_max, p1, p2, Yin;
-  double alpha_dev, beta_dev, alpha_vol, beta_vol;
+  double alpha_dev, beta_dev_p, beta_dev_m, alpha_vol, beta_vol_p, beta_vol_m;
   int devPotFlag, volPotFlag;
   
   err += goto_valid_line(fp_sim);
@@ -251,14 +251,14 @@ int read_input_file(const char *input_file,
   fscanf(fp_sim, "%lf %lf", &E, &nu);
   fscanf(fp_sim, "%d %d", &devPotFlag, &volPotFlag);  
   fscanf(fp_sim, "%lf %lf %lf %lf %lf", &mu, &ome_max, &p1, &p2, &Yin);
-  fscanf(fp_sim, "%lf %lf %lf %lf", &alpha_dev, &beta_dev, &alpha_vol, &beta_vol);
+  fscanf(fp_sim, "%lf %lf %lf %lf %lf %lf", &alpha_dev, &beta_dev_p, &beta_dev_m, &alpha_vol, &beta_vol_p, &beta_vol_m);
     
   set_properties_using_E_and_nu(&mat_e, E, nu);
   mat_e.devPotFlag = devPotFlag;
   mat_e.volPotFlag = volPotFlag;
     
   set_split_damage_parameters(&mat_d, p1, p2, Yin, mu, ome_max,
-                              alpha_dev, beta_dev, alpha_vol, beta_vol);  
+                              alpha_dev, beta_dev_p, beta_dev_m, alpha_vol, beta_vol_p, beta_vol_m);  
   
   err += goto_valid_line(fp_sim);
   fscanf(fp_sim, "%s", sim.file_out);

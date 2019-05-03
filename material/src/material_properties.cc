@@ -141,10 +141,12 @@ int set_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1,
   dam->Y_in    = Y_in;
   dam->mu      = mu;
   dam->w_max   = w_max;
-  dam->alpha_dev = 1.0;
-  dam->beta_dev  = 1.0;
-  dam->alpha_vol = 1.0;
-  dam->beta_vol  = 1.0;
+  dam->alpha_dev   = 1.0;
+  dam->beta_dev_p  = 1.0;
+  dam->beta_dev_m  = 1.0;  
+  dam->alpha_vol   = 1.0;
+  dam->beta_vol_p  = 1.0;
+  dam->beta_vol_m  = 1.0;  
   return err;
 }
 
@@ -154,9 +156,11 @@ int set_split_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1,
                                                                 const double mu, 
                                                                 const double w_max,
                                                                 const double da,
-                                                                const double db,
+                                                                const double dbp,
+                                                                const double dbm,
                                                                 const double va,
-                                                                const double vb)
+                                                                const double vbp,
+                                                                const double vbm)
 {
   int err = 0;
   dam->P1      = P1;
@@ -164,10 +168,12 @@ int set_split_damage_parameters(MATERIAL_CONTINUUM_DAMAGE *dam, const double P1,
   dam->Y_in    = Y_in;
   dam->mu      = mu;
   dam->w_max   = w_max;
-  dam->alpha_dev = da;
-  dam->beta_dev  = db;
-  dam->alpha_vol = va;
-  dam->beta_vol  = vb;
+  dam->alpha_dev  = da;
+  dam->beta_dev_p = dbp;
+  dam->beta_dev_m = dbm;
+  dam->alpha_vol  = va;
+  dam->beta_vol_p = vbp;
+  dam->beta_vol_m = vbm;
   return err;
 }
 
@@ -186,9 +192,11 @@ int print_material_property_damage_model(MATERIAL_CONTINUUM_DAMAGE *mat)
   printf("Damage viscosity (mu)           = %e\n", mat->mu);  
   printf("Maximum damage                  = %e\n", mat->w_max);
   printf("Split damage parameter alpha_d  = %e\n", mat->alpha_dev);
-  printf("Split damage parameter beta_d   = %e\n", mat->beta_dev);
-  printf("Split damage parameter alpha_v  = %e\n", mat->alpha_vol);  
-  printf("Split damage parameter beta_v   = %e\n", mat->beta_vol);
+  printf("Split damage parameter beta_d_p = %e\n", mat->beta_dev_p);
+  printf("Split damage parameter beta_d_m = %e\n", mat->beta_dev_m);  
+  printf("Split damage parameter alpha_v  = %e\n", mat->alpha_vol);
+  printf("Split damage parameter beta_v_p = %e\n", mat->beta_vol_p);
+  printf("Split damage parameter beta_v_m = %e\n", mat->beta_vol_m);  
   return err;
 }
 
