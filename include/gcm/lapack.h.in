@@ -3,6 +3,7 @@
 #if defined(GCM_USE_MKL)
 #include <mkl_cblas.h>
 #include <mkl_lapack.h>
+#include <utility>
 
 // Map MKL's versions
 template <class... Args>
