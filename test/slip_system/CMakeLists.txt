@@ -1,0 +1,2 @@
+add_executable(test_slip_system test_slip_system.cc)
+target_link_libraries(test_slip_system PRIVATE ConstitutiveModel)

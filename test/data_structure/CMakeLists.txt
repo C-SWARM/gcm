@@ -1,0 +1,2 @@
+add_executable(test_data_structure data_structure_test.cc)
+target_link_libraries(test_data_structure PRIVATE ConstitutiveModel)

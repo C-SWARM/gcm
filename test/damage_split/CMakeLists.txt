@@ -1,0 +1,5 @@
+add_executable(test_damage_split_model test_damage_split_model.cc)
+target_link_libraries(test_damage_split_model PRIVATE ConstitutiveModel)
+
+add_executable(run_intg_alg_sdamage run_intg_alg_sdamage.cc F_of_t.cc)
+target_link_libraries(run_intg_alg_sdamage PRIVATE ConstitutiveModel)

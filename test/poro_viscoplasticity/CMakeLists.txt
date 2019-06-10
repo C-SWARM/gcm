@@ -1,0 +1,11 @@
+add_executable(poro_viscoplasticity poro_viscoplasticity.cc F_of_t.cc)
+add_executable(single_test single_test.cc)
+add_executable(compute_stress compute_stress.cc)
+add_executable(compute_pc compute_pc.cc)
+add_executable(compute_moduli compute_moduli.cc)
+
+target_link_libraries(poro_viscoplasticity PRIVATE ConstitutiveModel)
+target_link_libraries(single_test PRIVATE ConstitutiveModel)
+target_link_libraries(compute_stress PRIVATE ConstitutiveModel)
+target_link_libraries(compute_pc PRIVATE ConstitutiveModel)
+target_link_libraries(compute_moduli PRIVATE ConstitutiveModel)

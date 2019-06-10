@@ -1,0 +1,2 @@
+add_executable(crystal_plasticity_grains crystal_plasticity_grains.cc)
+target_link_libraries(crystal_plasticity_grains PRIVATE ConstitutiveModel MPI::MPI_CXX)

@@ -1,0 +1,16 @@
+cmake_policy(SET CMP0079 NEW)
+
+add_subdirectory(J2_plasticity)
+add_subdirectory(crystal_plasticity_single_crystal)
+add_subdirectory(crystal_plasticity_with_thermal)
+add_subdirectory(damage)
+add_subdirectory(damage_split)
+add_subdirectory(elasticity)
+add_subdirectory(slip_system)
+add_subdirectory(poro_viscoplasticity)
+add_subdirectory(data_structure)
+
+find_package(MPI)
+if (MPI_FOUND)
+add_subdirectory(crystal_plasticity_grains)
+endif (MPI_FOUND)
