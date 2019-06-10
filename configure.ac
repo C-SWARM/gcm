@@ -41,9 +41,11 @@ LDFLAGS="$LDFLAGS -L$with_mkl/lib/intel64 -Wl,-rpath,$with_mkl/lib/intel64"
 LIBS="$LIBS -lmkl_intel_lp64 -lmkl_sequential -lmkl_core"
 AC_SEARCH_LIBS([dgetri], [], [], [AC_MSG_ERROR(Could not link MKL at $with_mkl)])
 AC_SEARCH_LIBS([dgetrf], [], [], [AC_MSG_ERROR(Could not link MKL at $with_mkl)])
+AC_SUBST([GCM_HAVE_MKL], [1])
 
 AC_CONFIG_FILES(
- [Makefile
+ [include/gcm/lapack.h
+  Makefile
   J2_plasticity/Makefile
   constitutive_model_handle/Makefile
   crystal_plasticity/Makefile
