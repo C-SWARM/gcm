@@ -7,7 +7,7 @@
 extern "C" {
 #endif /* #ifdef __cplusplus */
 
-int inverse(double const* A, const int M, double *A_I);
+int inverse(double const* A, int M, double *A_I);
 void symmetric_part(double *sym, const double *mat, const int dim);
 
 #ifdef __cplusplus

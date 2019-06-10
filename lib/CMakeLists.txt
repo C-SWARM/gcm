@@ -3,12 +3,10 @@ add_library(ConstitutiveModel
   $<TARGET_OBJECTS:constitutive_model_handle_obj>
   $<TARGET_OBJECTS:crystal_plasticity_obj>
   $<TARGET_OBJECTS:damage_obj>
-  $<TARGET_OBJECTS:data_structure_obj>
   $<TARGET_OBJECTS:elasticity_obj>
   $<TARGET_OBJECTS:material_obj>
   $<TARGET_OBJECTS:utils_obj>
-  $<TARGET_OBJECTS:poro_visco_plasticity_obj>
-  )
+  $<TARGET_OBJECTS:poro_visco_plasticity_obj>)
 
 target_link_libraries(ConstitutiveModel
   INTERFACE
@@ -20,11 +18,9 @@ target_link_libraries(ConstitutiveModel
     material_obj
     utils_obj
     poro_visco_plasticity_obj
-    data_structure_obj
-    ${BLAS_LIBRARIES})
+    data_structure_obj)
 
 target_include_directories(ConstitutiveModel
   INTERFACE
     ${CMAKE_SOURCE_DIR}/local_include
-    ${CMAKE_SOURCE_DIR}/utils/include
-    )
+    ${CMAKE_SOURCE_DIR}/utils/include)

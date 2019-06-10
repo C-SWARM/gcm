@@ -10,5 +10,6 @@ target_include_directories(constitutive_model_handle_obj
     ${CMAKE_SOURCE_DIR}/local_include
     ${CMAKE_SOURCE_DIR}/utils/include
     ${CMAKE_SOURCE_DIR}/elasticity/include
-    ${CMAKE_SOURCE_DIR}/material/include
-    )
+    ${CMAKE_SOURCE_DIR}/material/include)
+
+target_link_libraries(constitutive_model_handle_obj PRIVATE ttl)

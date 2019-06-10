@@ -9,5 +9,6 @@ target_include_directories(elasticity_obj
   PRIVATE
     ${CMAKE_SOURCE_DIR}/local_include
     ${CMAKE_SOURCE_DIR}/utils/include
-    ${CMAKE_SOURCE_DIR}/material/include
-    )
+    ${CMAKE_SOURCE_DIR}/material/include)
+
+target_link_libraries(elasticity_obj ttl)
