@@ -10,5 +10,6 @@ target_include_directories(poro_visco_plasticity_obj
     ${CMAKE_SOURCE_DIR}/utils/include
     ${CMAKE_SOURCE_DIR}/constitutive_model_handle/include
     ${CMAKE_SOURCE_DIR}/elasticity/include
-    ${CMAKE_SOURCE_DIR}/material/include
-    )
+    ${CMAKE_SOURCE_DIR}/material/include)
+
+target_link_libraries(poro_visco_plasticity_obj ttl)

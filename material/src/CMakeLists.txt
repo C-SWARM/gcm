@@ -8,5 +8,6 @@ target_include_directories(material_obj
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
   PRIVATE
     ${CMAKE_SOURCE_DIR}/local_include
-    ${CMAKE_SOURCE_DIR}/utils/include
-   )
+    ${CMAKE_SOURCE_DIR}/utils/include)
+    
+target_link_libraries(material_obj ttl)

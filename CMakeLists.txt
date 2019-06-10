@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.13)
 
 project(GCM LANGUAGES CXX)
 
+option(GCM_USE_MKL "Use Intel MKL for BLAS/LAPACK" ON)
+
 # tell cmake we want to use c++14
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -9,9 +11,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # enable cmake unit testing.
 include(CTest)
 
-# find intel MKL
-set(BLA_VENDOR Intel10_64lp_seq)
-find_package(BLAS REQUIRED)
+# Deal with LAPACK/BLAS ... we will remove this dependency some day. The weird
+# GCM_HAVE_MKL thing is so that we can share a .in file with autotools.
+if (GCM_USE_MKL)
+  set (BLA_VENDOR Intel10_64lp_seq)
+  set (GCM_HAVE_MKL 1)
+else (GCM_USE_MKL)
+  set (GCM_HAVE_MKL 0)
+endif (GCM_USE_MKL)
+find_package(LAPACK)
+
+add_library(lapack INTERFACE)
+target_include_directories(lapack
+  INTERFACE
+    ${CMAKE_CURRENT_BINARY_DIR}/include)
+target_link_libraries(lapack INTERFACE ${LAPACK_LIBRARIES})
 
 # find ttl
 include(FetchContent)
@@ -31,6 +45,7 @@ if(NOT ttl_POPULATED)
   add_subdirectory(${ttl_SOURCE_DIR} ${ttl_BINARY_DIR})
 endif()
 
+add_subdirectory(include)
 add_subdirectory(J2_plasticity)
 add_subdirectory(constitutive_model_handle)
 add_subdirectory(crystal_plasticity)

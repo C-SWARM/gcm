@@ -1,0 +1,24 @@
+#define GCM_HAVE_MKL @GCM_HAVE_MKL@
+
+#if GCM_HAVE_MKL
+#include <mkl_cblas.h>
+#include <mkl_lapack.h>
+#include <utility>
+
+// Map MKL's versions
+template <class... Args>
+static inline auto dgetrf_(Args&&... args) {
+  return dgetrf(std::forward<Args>(args)...);
+}
+
+template <class... Args>
+static inline auto dgetri_(Args&&... args) {
+  return dgetri(std::forward<Args>(args)...);
+}
+
+#elif defined(__APPLE__)
+#include <Accelerate/Accelerate.h>
+#else
+#include <cblas.h>
+#include <lapack.h>
+#endif
