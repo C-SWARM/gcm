@@ -11,9 +11,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # enable cmake unit testing.
 include(CTest)
 
-# Deal with LAPACK/BLAS ... we will remove this dependency some day.
+# Deal with LAPACK/BLAS ... we will remove this dependency some day. The weird
+# GCM_HAVE_MKL thing is so that we can share a .in file with autotools.
 if (GCM_USE_MKL)
   set (BLA_VENDOR Intel10_64lp_seq)
+  set (GCM_HAVE_MKL 1)
+else (GCM_USE_MKL)
+  set (GCM_HAVE_MKL 0)
 endif (GCM_USE_MKL)
 find_package(LAPACK)
 

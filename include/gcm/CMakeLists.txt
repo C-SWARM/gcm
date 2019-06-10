@@ -1,1 +1,1 @@
-configure_file(lapack.h.in lapack.h)
+configure_file(lapack.h.in lapack.h @ONLY)

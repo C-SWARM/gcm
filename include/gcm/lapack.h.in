@@ -1,6 +1,6 @@
-#cmakedefine GCM_USE_MKL
+#define GCM_HAVE_MKL @GCM_HAVE_MKL@
 
-#if defined(GCM_USE_MKL)
+#if GCM_HAVE_MKL
 #include <mkl_cblas.h>
 #include <mkl_lapack.h>
 #include <utility>
