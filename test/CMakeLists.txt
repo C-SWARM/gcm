@@ -1,5 +1,9 @@
 cmake_policy(SET CMP0079 NEW)
 
+list(GET LAPACK_LIBRARIES 0 _LAPACK_FIRSTLIB)
+get_filename_component(_LAPACK_LIBDIR "${_LAPACK_FIRSTLIB}" DIRECTORY)
+set(CMAKE_BUILD_RPATH "${CMAKE_BUILD_RPATH};${_LAPACK_LIBDIR}")
+
 add_subdirectory(J2_plasticity)
 add_subdirectory(crystal_plasticity_single_crystal)
 add_subdirectory(crystal_plasticity_with_thermal)
