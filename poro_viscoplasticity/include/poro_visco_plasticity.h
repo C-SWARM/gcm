@@ -64,6 +64,16 @@ void poro_visco_plasticity_compute_dMdu(double *dMdUs,
                                         const int nne,
                                         const int ndofn);
 
+/// compute plastic velocity gradient from PVP model
+int poro_visco_plasticity_plastic_velocity_gradient(double *pL_out,
+                                                    const MaterialPoroViscoPlasticity *param,
+                                                    double *Fnp1,
+                                                    double *Fn,
+                                                    double *pFnp1,
+                                                    double *pFn,
+                                                    const double pc_np1,
+                                                    const double pc_n);
+
 /// define PVP integrator                                        
 class GcmPvpIntegrator : public GcmIntegrator
 {
@@ -108,6 +118,6 @@ class GcmPvpIntegrator : public GcmIntegrator
     pc_n_s = *pc_np1;
   }    
     
-};                                        
+};                                    
 
 #endif
