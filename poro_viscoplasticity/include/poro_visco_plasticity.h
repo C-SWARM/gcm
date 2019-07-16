@@ -67,6 +67,7 @@ void poro_visco_plasticity_compute_dMdu(double *dMdUs,
 /// compute plastic velocity gradient from PVP model
 int poro_visco_plasticity_plastic_velocity_gradient(double *pL_out,
                                                     const MaterialPoroViscoPlasticity *param,
+                                                    const GcmSolverInfo *solver_info,
                                                     double *Fnp1,
                                                     double *Fn,
                                                     double *pFnp1,

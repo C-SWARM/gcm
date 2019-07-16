@@ -1821,6 +1821,7 @@ void poro_visco_plasticity_compute_dMdu(double *dMdUs,
 ///
 /// \param[out] pL_out  computed plastic velocity gradient
 /// \param[in]  param   material parameters(MaterialPoroViscoPlasticity) for PVP model 
+/// \param[in]  solver_info contains numerical parameters such as number of maximum NR iteration and NR tolerance
 /// \param[in]  Fnp1    F at t(n+1)
 /// \param[in]  Fn      F at t(n)
 /// \param[in] pFnp1    pF at t(n+1)
@@ -1830,6 +1831,7 @@ void poro_visco_plasticity_compute_dMdu(double *dMdUs,
 /// \return non-zero with internal error
 int poro_visco_plasticity_plastic_velocity_gradient(double *pL_out,
                                                     const MaterialPoroViscoPlasticity *param,
+                                                    const GcmSolverInfo *solver_info,
                                                     double *Fnp1,
                                                     double *Fn,
                                                     double *pFnp1,
@@ -1842,7 +1844,9 @@ int poro_visco_plasticity_plastic_velocity_gradient(double *pL_out,
   pvp.set_pvp_material_parameters(param);       
   pvp.set_tenosrs(Fnp1, Fn, pFnp1, pFn, I.data, I.data, true);
   
-  pvp.set_scalars(pc_np1, pc_n);               
+  pvp.set_scalars(pc_np1, pc_n);
+  pvp.set_solver_info(solver_info, 0.0);               
+  
   pvp.update_StateVariables(pc_n, false);
 
   TensorA<2> pD(pL_out);  
