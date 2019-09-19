@@ -2,13 +2,13 @@
 #define H__H__CONSTITUTIVE_MODEL_HANDLE__H__H
 
 #include<stdlib.h>
+#include <vector>
 #include"GcmSolverInfo.h"
 #include "hyperelasticity.h"
 
 extern long perIter_ODE_EXA_metric; //ODE operations accumulated over the current Iter
-extern long perTimestep_EXA_metric; //Exa metric accumulated over the current timestep
-extern long total_EXA_metric;       //Total Exa metric accumulated over each NR iteration
-extern long dof_EXA_metric;         //Exa metric for accumulated Ndof over each NR iteration
+extern std::vector<long> perTimestep_EXA_metric; //Exa metric accumulated over the current timestep
+extern std::vector<long> dof_EXA_metric;         //Exa metric for accumulated Ndof over each NR iteration
 
 struct MATERIAL_ELASTICITY;
 #ifndef TYPE_MATERIAL_ELASTICITY
