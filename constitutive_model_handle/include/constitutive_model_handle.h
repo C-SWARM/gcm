@@ -7,7 +7,7 @@
 #include "hyperelasticity.h"
 
 extern long perIter_ODE_EXA_metric; //ODE operations accumulated over the current Iter
-extern std::vector<long> perTimestep_EXA_metric; //Exa metric accumulated over the current timestep
+extern std::vector<long> ODE_EXA_metric;         //Exa metric accumulated over the current timestep
 extern std::vector<long> dof_EXA_metric;         //Exa metric for accumulated Ndof over each NR iteration
 
 struct MATERIAL_ELASTICITY;
