@@ -6,7 +6,7 @@
 #include "flowlaw.h"
 #include "mpi.h"
 
-#define VNO 18
+#define VNO 20
 #define MAX_GRAIN 1024
 
 typedef struct {
@@ -193,6 +193,7 @@ int test_crystal_plasticity_single_crystal(const MAT_PROP *mat_in,
   integrator.lambda = &lambda;
   integrator.gn     = g_np1 = mat_p.g0;
 
+  double e_eff = 0.0;
   for(int a = 1; a<=sim->stepno; a++)
   {
     double t = a*(sim->dt);
@@ -217,11 +218,24 @@ int test_crystal_plasticity_single_crystal(const MAT_PROP *mat_in,
 
     D(i,j) = 0.5*(L(i,j) + L(j,i));
 
-    for(int ia=0; ia<DIM_3x3; ia++)
-    {
+    double *s = sigma.data;
+    double T_eff = (s[0] - s[4])*(s[0] - s[4]) +
+                   (s[4] - s[8])*(s[4] - s[8]) +
+                   (s[8] - s[0])*(s[8] - s[0]) +
+                   6.0*(s[1]*s[1]+s[5]*s[5]+s[6]*s[6]);
+
+    T_eff = sqrt(T_eff/2.0);
+
+    double DD = D(i,j)*D(i,j);
+    e_eff += sqrt(2.0/3.0*DD)*sim->dt;
+      
+    for(int ia=0; ia<DIM_3x3; ia++){ 
       result_out[VNO*(a-1) + ia]           += sigma.data[ia];
       result_out[VNO*(a-1) + DIM_3x3 + ia] +=     D.data[ia];
     }
+    
+    result_out[VNO*(a-1) + DIM_3x3*2 + 0] += T_eff;
+    result_out[VNO*(a-1) + DIM_3x3*2 + 1] += e_eff;    
   }
 
   char out[2048];
@@ -397,7 +411,6 @@ int test_crystal_plasticity_grains(MAT_PROP *mat,
     sprintf(fname, "%s_%d.txt", sim->file_out,n_grain);
     FILE *fp = fopen(fname, "w");
 
-    double e_eff = 0.0;
     double e_11 = 0.0;
     for(int a=0; a<(sim->stepno)*VNO; a++)
       G_result[a] = G_result[a]/n_grain;
@@ -405,20 +418,10 @@ int test_crystal_plasticity_grains(MAT_PROP *mat,
     for(int a=0; a<sim->stepno; a++)
     {
       TensorA<2> T(G_result + a*VNO);
-      TensorA<2> D(G_result + a*VNO + DIM_3x3);
-
-      double T_eff = (T[0][0] - T[1][1])*(T[0][0] - T[1][1]) +
-                     (T[1][1] - T[2][2])*(T[1][1] - T[2][2]) +
-                     (T[2][2] - T[0][0])*(T[2][2] - T[0][0]) +
-                     6.0*(T[0][1]*T[0][1]+
-                          T[1][2]*T[1][2]+
-                          T[2][0]*T[2][0]);
-
-      T_eff = sqrt(T_eff/2.0);
-
-      double DD = D(i,j)*D(i,j);
-      e_eff += sqrt(2.0/3.0*DD)*sim->dt;
+      TensorA<2> D(G_result + a*VNO + DIM_3x3);      
       e_11 += D[0][0]*sim->dt;
+      double T_eff = G_result[a*VNO + DIM_3x3*2 + 0];
+      double e_eff = G_result[a*VNO + DIM_3x3*2 + 1];      
       fprintf(fp, "%e %e %e %e %e\n",(a+1)*sim->dt,e_eff,T_eff, e_11, T[0][0]);
     }
     fclose(fp);
